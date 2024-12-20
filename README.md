@@ -47,10 +47,10 @@ Elapsed time: 0:0:33
 
 # 开发计划（画大饼）
 -[x] 白模导出
--[] 重构并使用 CMake 进行项目管理
--[] UV、法线、材质等数据的构建
--[] CGAL 分支 - 加速计算支持
--[] ...
+-[ ] 重构并使用 CMake 进行项目管理
+-[ ] UV、法线、材质等数据的构建
+-[ ] CGAL 分支 - 加速计算支持
+[ ] ...
 
 # 依赖
 超级抱歉：一开始直接用的 Visual Studio 进行开发，正在重构 CMake 管理的版本
@@ -105,7 +105,7 @@ end chunk x: -1
 end chunk z: 0
 ```
 
-Then input the starting and ending chunk coordinates for the model export. The coordinates can be viewed as follows:
+Then input the starting and ending chunk coordinates for the model export. The coordinates can be viewed a-s follows:
 
 ![image](https://github.com/user-attachments/assets/034008b4-f20e-424f-8a9d-377b32a4b70a)
 
@@ -125,12 +125,11 @@ Elapsed time: 0:0:33
 
 # Development Plan (Feature Roadmap)
 
--[x] White model export
--[] Refactor and use CMake for project management
--[] UV, normals, and texture data construction
--[] CGAL Branch - Acceleration support
--[] ...
-
+- [x] White model export
+- [ ] Refactor and use CMake for project management
+- [ ] UV, normals, and texture data construction
+- [ ] CGAL Branch - Acceleration support
+- [ ] ...
 
 # Dependencies
 
