@@ -45,6 +45,9 @@ Reade chunk { -1, 0 }:Reading chunk successfully.
 Build obj to file "D:/Development/Project/Minecraft//test": Export successfully!
 Elapsed time: 0:0:33
 ```
+
+![image](https://github.com/user-attachments/assets/23f98b62-a88a-4360-82e0-9f0e506f7876)
+
 # 注意
 这只是最初的版本，存在各种BUG与性能上的问题，作者正在构建第二版
 
@@ -126,6 +129,7 @@ Read chunk lt nbt: Reading chunk lt nbt successfully.
 Build obj to file "D:/Development/Project/Minecraft//test": Export successfully!  
 Elapsed time: 0:0:33  
 ```  
+![image](https://github.com/user-attachments/assets/b278d0c3-778e-49ac-adfe-7c7d2c65d192)
 
 # Notes  
 This is just the initial version, and there are various bugs and performance issues. The author is currently working on the second version.
