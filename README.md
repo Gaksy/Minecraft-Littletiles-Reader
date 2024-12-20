@@ -46,11 +46,11 @@ Elapsed time: 0:0:33
 ![image](https://github.com/user-attachments/assets/23f98b62-a88a-4360-82e0-9f0e506f7876)
 
 # 开发计划（画大饼）
--[x] 白模导出
--[ ] 重构并使用 CMake 进行项目管理
--[ ] UV、法线、材质等数据的构建
--[ ] CGAL 分支 - 加速计算支持
-[ ] ...
+- [x] 白模导出
+- [ ] 重构并使用 CMake 进行项目管理
+- [ ] UV、法线、材质等数据的构建
+- [ ] CGAL 分支 - 加速计算支持
+- [ ] ...
 
 # 依赖
 超级抱歉：一开始直接用的 Visual Studio 进行开发，正在重构 CMake 管理的版本
