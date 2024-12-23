@@ -30,7 +30,7 @@
  #define GALIB_NODISCARD
 #endif
 
-# if __cplusplus >= 201103L
+#if __cplusplus >= 201103L
  #define GALIB_NOEXCEPT noexcept
 #else
  #define GALIB_NOEXCEPT

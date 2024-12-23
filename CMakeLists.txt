@@ -43,9 +43,8 @@ add_executable(LittleTilesReader main.cpp
         Galib/File/PathFormat.cpp
         Galib/File/FileOperator.h
         Galib/Exception/MinecraftException.h
-        Galib/Exception/MinecraftExcpetion.cpp
+        Galib/Exception/MinecraftException.cpp
 )
-
 
 # From project root path
 include_directories(${CMAKE_SOURCE_DIR})
