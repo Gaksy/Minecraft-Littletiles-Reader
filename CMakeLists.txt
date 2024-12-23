@@ -42,6 +42,8 @@ add_executable(LittleTilesReader main.cpp
         Galib/File/PathFormat.h
         Galib/File/PathFormat.cpp
         Galib/File/FileOperator.h
+        Galib/Exception/MinecraftException.h
+        Galib/Exception/MinecraftExcpetion.cpp
 )
 
 

@@ -57,23 +57,30 @@ namespace galib::exception {
    const char* const kPErrorCodeInfo = nullptr,
    const char* const kPExceptionName = nullptr
   ): error_code_(kErrorCode) {
-   if(kPErrorMessage) {
-    error_message_ = kPErrorMessage;
-   }
-   if(kPErrorSender) {
-    error_sender_ = kPErrorSender;
-   }
-   if(kPErrorCodeName) {
-    error_code_name_ = kPErrorCodeName;
-   }
-   if(kPErrorCodeInfo) {
-    error_code_info_ = kPErrorCodeInfo;
-   }
-   if(kPExceptionName) {
-    exception_name_ = kPExceptionName;
+   if(kErrorCode == 0) {
+    error_message_ = "No exception.";
+    error_code_name_ = "no_exsceptions";
+    error_code_info_ = "No exceptions.";
    }
    else {
-    exception_name_ = "Galib Exception Basic";
+    if(kPErrorMessage) {
+     error_message_ = kPErrorMessage;
+    }
+    if(kPErrorSender) {
+     error_sender_ = kPErrorSender;
+    }
+    if(kPErrorCodeName) {
+     error_code_name_ = kPErrorCodeName;
+    }
+    if(kPErrorCodeInfo) {
+     error_code_info_ = kPErrorCodeInfo;
+    }
+    if(kPExceptionName) {
+     exception_name_ = kPExceptionName;
+    }
+    else {
+     exception_name_ = "Galib Exception Basic";
+    }
    }
 
    // Error Title
