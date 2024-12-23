@@ -35,6 +35,7 @@ add_executable(LittleTilesReader main.cpp
         Galib/Coord/Coord2D.h
         Galib/Coord/Coord3D.h
         Galib/Coord/Coord.h
+        Galib/Coord/CoordString.h
 )
 
 
