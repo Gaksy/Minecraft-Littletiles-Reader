@@ -12,6 +12,7 @@
  * For commercial use of this software, you must obtain separate authorization from the original author.
  * Please contact Gaksy at gaksys@outlook.com to request commercial use authorization.
  */
+
 #ifndef GALIB_COORD_COORD_H
 #define GALIB_COORD_COORD_H
 
