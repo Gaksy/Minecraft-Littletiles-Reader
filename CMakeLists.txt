@@ -37,6 +37,11 @@ add_executable(LittleTilesReader main.cpp
         Galib/Coord/Coord.h
         Galib/Coord/CoordString.h
         Galib/Exception/GalibExceptionBasic.h
+        Galib/File/FileState.h
+        Galib/File/FileState.cpp
+        Galib/File/PathFormat.h
+        Galib/File/PathFormat.cpp
+        Galib/File/FileOperator.h
 )
 
 

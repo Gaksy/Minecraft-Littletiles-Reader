@@ -13,27 +13,15 @@
  * Please contact Gaksy at gaksys@outlook.com to request commercial use authorization.
  */
 
-#ifndef GALIB_GALIBNAMESPACEDEF_H
-#define GALIB_GALIBNAMESPACEDEF_H
+#ifndef GALIB_FILE_PATHFORMAT_H
+#define GALIB_FILE_PATHFORMAT_H
 
-#define GALIB_STD    ::std::
-#define GALIB_CSTD   ::
-#define GALIB_BOOST  ::boost::
-#define GALIB_NBT    ::nbt::
-#define GALIB        ::galib::
+#include <cstddef>
 
-#if _HAS_NODISCARD
- #define GALIB_NODISCARD [[nodiscard]]
-#elif __cplusplus >= 201703L
- #define GALIB_NODISCARD [[nodiscard]]
-#else
- #define GALIB_NODISCARD
-#endif
+#include "Galib/GalibNamespaceDef.h"
 
-# if __cplusplus >= 201103L
- #define GALIB_NOEXCEPT noexcept
-#else
- #define GALIB_NOEXCEPT
-#endif
+namespace galib::file {
+ bool FormatFolderPath(char* p_desc_path, GALIB_STD size_t kLength, bool kLinuxStyle = true);
+}
 
-#endif //GALIB_GALIBNAMESPACEDEF_H
+#endif //GALIB_FILE_PATHFORMAT_H
