@@ -22,4 +22,12 @@
 #define GALIB_NBT    ::nbt::
 #define GALIB        ::galib::
 
+#if _HAS_NODISCARD
+ #define GALIB_NODISCARD [[nodiscard]]
+#elif __cplusplus >= 201703L
+ #define GALIB_NODISCARD [[nodiscard]]
+#else
+ #define GALIB_NODISCARD
+#endif
+
 #endif //GALIB_GALIBNAMESPACEDEF_H
