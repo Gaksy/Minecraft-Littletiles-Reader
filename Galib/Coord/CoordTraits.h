@@ -26,21 +26,21 @@
 
 
 namespace galib::coord {
- // Define a struct for checking whether a template parameter is a coordinate type.
- template<typename CoordinateType>
- struct coord_type_if: GALIB_STD false_type{};
+    // Define a struct for checking whether a template parameter is a coordinate type.
+    template<typename CoordinateType>
+    struct coord_type_if : GALIB_STD false_type {
+    };
 
- // Traits, used to extract the numeric type and the self type from a Coord type.
- // NumericType is the data type used for coordinate values (e.g., int, float, etc.)
- // SelfType is the template parameter CoordinateType itself (the actual type passed in)
- template<typename CoordinateType>
- struct coord_type_traits {
-  GALIB_STATIC_ASSERT_COORDINATE(CoordinateType);
+    // Traits, used to extract the numeric type and the self type from a Coord type.
+    // NumericType is the data type used for coordinate values (e.g., int, float, etc.)
+    // SelfType is the template parameter CoordinateType itself (the actual type passed in)
+    template<typename CoordinateType>
+    struct coord_type_traits {
+        GALIB_STATIC_ASSERT_COORDINATE(CoordinateType);
 
-  using NumericType = typename CoordinateType::NumericType;
-  using SelfType    = CoordinateType;
- };
-
+        using NumericType = typename CoordinateType::NumericType;
+        using SelfType = CoordinateType;
+    };
 }
 
 #endif //GALIB_COORD_COORDTRAITS_H

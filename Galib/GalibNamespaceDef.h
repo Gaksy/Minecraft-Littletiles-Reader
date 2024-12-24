@@ -25,13 +25,13 @@
 #if _HAS_NODISCARD
  #define GALIB_NODISCARD [[nodiscard]]
 #elif __cplusplus >= 201703L
- #define GALIB_NODISCARD [[nodiscard]]
+#define GALIB_NODISCARD [[nodiscard]]
 #else
  #define GALIB_NODISCARD
 #endif
 
 #if __cplusplus >= 201103L
- #define GALIB_NOEXCEPT noexcept
+#define GALIB_NOEXCEPT noexcept
 #else
  #define GALIB_NOEXCEPT
 #endif

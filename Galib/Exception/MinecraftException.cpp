@@ -16,31 +16,33 @@
 #include "Galib/Exception/GalibExceptionBasic.h"
 #include "Galib/Exception/MinecraftException.h"
 
-constexpr static const char* const STD_ERROR_MESSAGE[] = {
- "Minecraft coordinates is invalid.",
- "The args is invalid.",
- "The chunk exists.",
- "Decoding process is failed."
+constexpr static const char *const STD_ERROR_MESSAGE[] = {
+    "Minecraft coordinates is invalid.",
+    "The args is invalid.",
+    "The chunk exists.",
+    "Decoding process is failed.",
+    "Unable to access file."
 };
 
-constexpr static const char* const STD_ERROR_CODE[] = {
- "mc_invalid_coord",
- "mc_invalid_args",
- "mc_chunk_exites",
- "mc_decode"
+constexpr static const char *const STD_ERROR_CODE[] = {
+    "mc_invalid_coord",
+    "mc_invalid_args",
+    "mc_chunk_exites",
+    "mc_decode",
+    "mc_file_read"
 };
 
-constexpr static const char* const EXCEPTION_NAME = "Minecraft Exception";
+constexpr static const char *const EXCEPTION_NAME = "Minecraft Exception";
 
 GALIB exception::MinecraftException::MinecraftException(
- const MinecraftErrorCode& kErrorCode,
- const char* const kPErrorMessage,
- const char* const kPErrorSender
+    const MinecraftErrorCode &kErrorCode,
+    const char *const kPErrorMessage,
+    const char *const kPErrorSender
 ): GalibExceptionBasic<MinecraftErrorCodeType>(
-  static_cast<MinecraftErrorCodeType>(kErrorCode),
-  kPErrorMessage,
-  kPErrorSender,
-  STD_ERROR_CODE[static_cast<MinecraftErrorCodeType>(kErrorCode) - 1],
-  STD_ERROR_MESSAGE[static_cast<MinecraftErrorCodeType>(kErrorCode) - 1],
-  EXCEPTION_NAME
- ) { }
+    static_cast<MinecraftErrorCodeType>(kErrorCode),
+    kPErrorMessage,
+    kPErrorSender,
+    STD_ERROR_CODE[static_cast<MinecraftErrorCodeType>(kErrorCode) - 1],
+    STD_ERROR_MESSAGE[static_cast<MinecraftErrorCodeType>(kErrorCode) - 1],
+    EXCEPTION_NAME
+) { }

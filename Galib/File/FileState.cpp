@@ -17,14 +17,14 @@
 #include "Galib/File/FileState.h"
 
 bool GALIB file::IsFolderAccessible(const char *const kPFolderPath, FileStat *const p_file_stat) {
- if (!kPFolderPath) { return false; }
+    if (!kPFolderPath) { return false; }
 
- if (!p_file_stat) {
-  FileStat temp;
-  return GALIB file::IsFolderAccessible(kPFolderPath, &temp);
- }
+    if (!p_file_stat) {
+        FileStat temp;
+        return GALIB file::IsFolderAccessible(kPFolderPath, &temp);
+    }
 
- if (!GetFileStat(kPFolderPath, p_file_stat)) { return false; }
+    if (!GetFileStat(kPFolderPath, p_file_stat)) { return false; }
 
- return p_file_stat->st_mode & S_IFDIR;
+    return p_file_stat->st_mode & S_IFDIR;
 }

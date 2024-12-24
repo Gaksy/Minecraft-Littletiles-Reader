@@ -26,16 +26,16 @@ using GALIB minecraft::BlockCoordinate;
 using GALIB coord::Coord3DToCoord2D;
 
 RegionCoordinate (GALIB minecraft::ChunkCoordToRegionCoord)(const ChunkCoordinate &kOreChunkCoord) {
- return {
-  static_cast<int>(::floor(kOreChunkCoord.x / 32.0)),
-  static_cast<int>(::floor(kOreChunkCoord.z / 32.0))
- };
+    return {
+        static_cast<int>(::floor(kOreChunkCoord.x / 32.0)),
+        static_cast<int>(::floor(kOreChunkCoord.z / 32.0))
+    };
 }
 
 RegionChunkCoordinate (GALIB minecraft::ChunkCoordToRegionChunkCoord)(const ChunkCoordinate &kOreChunkCoord) {
- return CoordSwap2D(kOreChunkCoord, 32);
+    return CoordSwap2D(kOreChunkCoord, 32);
 }
 
 ChunkCoordinate (GALIB minecraft::BlockCoordToChunkCoord)(const BlockCoordinate &kOreBlockCoord) {
- return CoordSwap2D(Coord3DToCoord2D(kOreBlockCoord), 16);
+    return CoordSwap2D(Coord3DToCoord2D(kOreBlockCoord), 16);
 }
