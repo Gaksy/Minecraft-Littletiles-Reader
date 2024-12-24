@@ -50,6 +50,8 @@ add_executable(LittleTilesReader main.cpp
         Galib/File/FileOperator.h
         Galib/Exception/MinecraftException.h
         Galib/Exception/MinecraftException.cpp
+        Galib/Minecraft/MinecraftCoord.cpp
+        Galib/Minecraft/MinecraftCoord.h
 )
 
 # From project root path
