@@ -140,8 +140,7 @@ namespace galib::minecraft {
         const GALIB_STD size_t kBaseSize_;
     };
 
-
-    class AnvilEditor {
+    class AnvilReader {
     public:
         using ByteType = char;
         using ByteArray = GALIB_STD vector<ByteType>;
@@ -211,9 +210,9 @@ namespace galib::minecraft {
         using ChunkPair          = GALIB_STD pair<GALIB minecraft::RegionCoordinate, SingleChunkManager>;
 
     public:
-        AnvilEditor() = default;
-        explicit AnvilEditor(const char *kPRegionFolderPath);
-        ~AnvilEditor() = default;
+        AnvilReader() = default;
+        explicit AnvilReader(const char *kPRegionFolderPath);
+        ~AnvilReader() = default;
 
     public:
         // Set the directory path for the Region folder in the Minecraft save file.

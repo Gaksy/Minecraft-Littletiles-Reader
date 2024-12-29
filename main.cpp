@@ -1,9 +1,9 @@
 #include <cstdlib>
 #include "Galib/Minecraft/Anvil.h"
 
-using galib::minecraft::AnvilEditor;
+using galib::minecraft::AnvilReader;
 
 int main() {
-    AnvilEditor anvil_reader;
+    AnvilReader anvil_reader;
     return EXIT_SUCCESS;
 }

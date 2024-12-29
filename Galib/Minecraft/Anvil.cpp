@@ -38,7 +38,7 @@ using GALIB file::ReadFileBasic;
 using GALIB exception::MinecraftException;
 using GALIB exception::MinecraftErrorCode;
 
-using GALIB minecraft::AnvilEditor;
+using GALIB minecraft::AnvilReader;
 using GALIB minecraft::CacheManagerBase;
 using GALIB minecraft::RegionChunkCoordinate;
 using GALIB minecraft::RegionCoordinate;
@@ -56,11 +56,11 @@ using GALIB_STD istringstream;
 // ANVIL EDITOR
 //
 
-AnvilEditor::AnvilEditor(const char *const kPRegionFolderPath) {
+AnvilReader::AnvilReader(const char *const kPRegionFolderPath) {
     SetRegionFolder(kPRegionFolderPath);
 }
 
-bool AnvilEditor::SetRegionFolder(const char *const kPRegionFolderPath) {
+bool AnvilReader::SetRegionFolder(const char *const kPRegionFolderPath) {
     // Check Folder Path
     if (!IsFolderAccessible(kPRegionFolderPath)) { return false; }
 
@@ -74,11 +74,11 @@ bool AnvilEditor::SetRegionFolder(const char *const kPRegionFolderPath) {
     return true;
 }
 
-const string &AnvilEditor::GetRegionFolder() const {
+const string &AnvilReader::GetRegionFolder() const {
     return region_folder_;
 }
 
-AnvilEditor::ChunkDataReference AnvilEditor::GetChunkData(const ChunkCoordinate &kChunkCoord) {
+AnvilReader::ChunkDataReference AnvilReader::GetChunkData(const ChunkCoordinate &kChunkCoord) {
     // Get region chunk coord from chunk coord
     RegionCoordinate desc_region_coord = ChunkCoordToRegionCoord(kChunkCoord);
     RegionChunkCoordinate desc_region_chunk_coord = ChunkCoordToRegionChunkCoord(kChunkCoord);
@@ -238,11 +238,11 @@ AnvilEditor::ChunkDataReference AnvilEditor::GetChunkData(const ChunkCoordinate 
 //     return { p_chunk_cache->chunk_info, p_chunk_cache->chunk_root.get(), &p_chunk_cache->chunk_root.get()->at("Level").get().as<nbt::tag_compound>()};
 // }
 
-string AnvilEditor::BuildMcaFilePath(const string &kRegionFolderPath, const RegionCoordinate &kRegionCoord) {
+string AnvilReader::BuildMcaFilePath(const string &kRegionFolderPath, const RegionCoordinate &kRegionCoord) {
     return kRegionFolderPath + "/r." + to_string(kRegionCoord.x) + "." + to_string(kRegionCoord.z) + ".mca";
 }
 
-bool AnvilEditor::ReadMcaFile_(const string &kMcaFilePath, ByteArray &desc_bytearray) {
+bool AnvilReader::ReadMcaFile_(const string &kMcaFilePath, ByteArray &desc_bytearray) {
     // Get file stat
     if (!IsFileAccessible(kMcaFilePath.c_str())) { return false; }
 
@@ -258,7 +258,7 @@ bool AnvilEditor::ReadMcaFile_(const string &kMcaFilePath, ByteArray &desc_bytea
     return true;
 }
 
-bool AnvilEditor::GetChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIterator &desc_chunk_iterator) {
+bool AnvilReader::GetChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIterator &desc_chunk_iterator) {
     // Check chunk coord
     if (!IsValidCheckForRegionChunkCoord(desc_chunk_iterator.chunk_info.region_chunk_coord)) { return false; }
 
@@ -316,7 +316,7 @@ bool AnvilEditor::GetChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIt
     return true;
 }
 
-bool AnvilEditor::DecompressChunkBinaryData_(
+bool AnvilReader::DecompressChunkBinaryData_(
     const ChunkConstIterator &kChunkIterator,
     ByteArray &desc_compressed_chunk_data
 ) {
@@ -345,7 +345,7 @@ bool AnvilEditor::DecompressChunkBinaryData_(
     return true;
 }
 
-bool AnvilEditor::DecompressChunkBinaryNbtData_(const ByteArray &kCompressedChunkData,
+bool AnvilReader::DecompressChunkBinaryNbtData_(const ByteArray &kCompressedChunkData,
                                                                   ChunkNbtRoot &desc_chunk_root) {
     try {
         // Copy kCompressedChunkData to decompressed_buff

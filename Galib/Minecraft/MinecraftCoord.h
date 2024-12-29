@@ -69,7 +69,7 @@ namespace galib::minecraft {
         typename Coord2dType,
         typename NumericType = typename GALIB coord::coord_type_traits<Coord2dType>::NumericType>
     Coord2dType CoordSwap2D(const Coord2dType &kOreCoord, const NumericType &base) {
-        return {CoordSwap<NumericType>(kOreCoord.x, base), CoordSwap<NumericType>(kOreCoord.y, base)};
+        return {CoordSwap<NumericType>(kOreCoord.x, base), CoordSwap<NumericType>(kOreCoord.z, base)};
     };
 
     inline bool IsValidCheckForRegionChunkCoord(const RegionChunkCoordinate &kRegionChunkCoord) {
