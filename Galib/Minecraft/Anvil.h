@@ -131,7 +131,7 @@ namespace galib::minecraft {
         }
 
     private:
-        static bool IsValidCheckForCoord(const GALIB_STD size_t kBaseSize, const Coord2dType &kInteger2dCoord) {
+        static bool IsValidCheckForCoord_(const GALIB_STD size_t kBaseSize, const Coord2dType &kInteger2dCoord) {
             return !(kInteger2dCoord.x >= kBaseSize || kInteger2dCoord.y >= kBaseSize);
         }
 
@@ -227,7 +227,7 @@ namespace galib::minecraft {
 
     private:
         // Build the mca file directory.
-        static GALIB_STD string BuildMcaFilePath(
+        static GALIB_STD string BuildMcaFilePath_(
             const GALIB_STD string &kRegionFolderPath,
             const GALIB minecraft::RegionCoordinate &kRegionCoord
         );

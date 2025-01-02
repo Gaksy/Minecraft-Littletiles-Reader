@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
+
 # Check if the VCPKG environment is set and retrieve the VCPKG_ROOT path
 if(DEFINED ENV{VCPKG_ROOT})
     message("VCPKG_ROOT is found: $ENV{VCPKG_ROOT}")

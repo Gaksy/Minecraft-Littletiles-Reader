@@ -88,7 +88,7 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkData(const ChunkCoordinate 
     McaManager::iterator desc_mca_manager_it = mca_cache_.find(desc_region_coord);
     if(desc_mca_manager_it == mca_cache_.end()) {
         // Create mca path
-        string desc_mca_path = BuildMcaFilePath(region_folder_, desc_region_coord);
+        string desc_mca_path = BuildMcaFilePath_(region_folder_, desc_region_coord);
         if(!IsFileAccessible(desc_mca_path.c_str())) {
             throw MinecraftException(
                 MinecraftErrorCode::mc_file_read,
@@ -238,7 +238,7 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkData(const ChunkCoordinate 
 //     return { p_chunk_cache->chunk_info, p_chunk_cache->chunk_root.get(), &p_chunk_cache->chunk_root.get()->at("Level").get().as<nbt::tag_compound>()};
 // }
 
-string AnvilReader::BuildMcaFilePath(const string &kRegionFolderPath, const RegionCoordinate &kRegionCoord) {
+string AnvilReader::BuildMcaFilePath_(const string &kRegionFolderPath, const RegionCoordinate &kRegionCoord) {
     return kRegionFolderPath + "/r." + to_string(kRegionCoord.x) + "." + to_string(kRegionCoord.z) + ".mca";
 }
 
@@ -326,19 +326,19 @@ bool AnvilReader::DecompressChunkBinaryData_(
 
     try {
         // Get uncompressed data
-        ::std::string uncompressed_string;
+        string uncompressed_string;
         uncompressed_string.assign(kChunkIterator.valid_begin, kChunkIterator.valid_end);
 
         // Create decompress stream
-        boost::iostreams::filtering_istream stream_uncompressed;
-        stream_uncompressed.push(boost::iostreams::zlib_decompressor());
+        GALIB_BOOST iostreams::filtering_istream stream_uncompressed;
+        stream_uncompressed.push(GALIB_BOOST iostreams::zlib_decompressor());
 
         // Add Uncompressed data
         stringstream str_stream_uncompressed(uncompressed_string);
         stream_uncompressed.push(str_stream_uncompressed);
 
         // Get compressed data
-        boost::iostreams::copy(stream_uncompressed, boost::iostreams::back_inserter(desc_compressed_chunk_data));
+        GALIB_BOOST iostreams::copy(stream_uncompressed, GALIB_BOOST iostreams::back_inserter(desc_compressed_chunk_data));
     } catch (...) {
         return false;
     }
