@@ -18,9 +18,21 @@ set(CMAKE_CXX_STANDARD 14)
 
 # Find required libraries
 add_subdirectory(3rdparty)
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS iostreams)
 find_package(ZLIB REQUIRED)
 find_package(CGAL REQUIRED)
+
+if (${ZLIB_FOUND})
+    message(STATUS "Found zlib: " ${ZLIB_LIBRARIES} ", Version: " ${ZLIB_VERSION})
+else()
+    message(FATAL_ERROR "zlib is not found")
+endif()
+
+if (${CGAL_FOUND})
+    message(STATUS "Found cgal: " ${CGAL_LIBRARIES} ", Version: " ${CGAL_VERSION})
+else()
+    message(FATAL_ERROR "cgal is not found")
+endif()
 
 # Disable CGAL warnings about CMake build type
 set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
@@ -33,7 +45,7 @@ add_subdirectory(Galib)
 include_directories(${CMAKE_SOURCE_DIR})
 
 # Link required libraries to the executable
-target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
+target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC Boost::iostreams)
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${ZLIB_LIBRARIES})
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${CGAL_LIBRARIES})
 
