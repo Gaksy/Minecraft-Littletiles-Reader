@@ -20,7 +20,7 @@
 #include <vector>
 #include <string>
 #include <memory>
-#include <libnbtplusplus/nbt_tags.h>
+#include "nbt_tags.h"
 
 #include "Galib/GalibNamespaceDef.h"
 #include "Galib/Minecraft/MinecraftCoord.h"
