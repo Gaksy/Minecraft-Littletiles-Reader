@@ -41,9 +41,6 @@ set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
 add_executable(${CMAKE_PROJECT_NAME} main.cpp)
 add_subdirectory(Galib)
 
-# From project root path
-include_directories(${CMAKE_SOURCE_DIR})
-
 # Link required libraries to the executable
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC Boost::iostreams)
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${ZLIB_LIBRARIES})
