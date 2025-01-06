@@ -15,8 +15,8 @@
 
 #include <cstddef>
 
-#include "Galib/GalibNamespaceDef.h"
-#include "Galib/File/PathFormat.h"
+#include "GalibNamespaceDef.h"
+#include "File/PathFormat.h"
 
 bool GALIB file::FormatFolderPath(char *const p_desc_path, const GALIB_STD size_t kLength, const bool kLinuxStyle) {
     if (!p_desc_path) { return false; }

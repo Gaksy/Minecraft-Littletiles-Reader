@@ -17,9 +17,9 @@
 
 #include <string>
 
-#include "Galib/GalibNamespaceDef.h"
-#include "Galib/Coord/Coord2D.h"
-#include "Galib/Coord/Coord3D.h"
+#include "GalibNamespaceDef.h"
+#include "Coord/Coord2D.h"
+#include "Coord/Coord3D.h"
 
 namespace galib::coord {
     template<typename Coord2DType>

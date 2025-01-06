@@ -19,8 +19,8 @@
 
 #include <cstdint>
 
-#include "Galib/GalibNamespaceDef.h"
-#include "Galib/Exception/GalibExceptionBasic.h"
+#include "GalibNamespaceDef.h"
+#include "Exception/GalibExceptionBasic.h"
 
 namespace galib::exception {
     using MinecraftErrorCodeType = GALIB_STD uint8_t;

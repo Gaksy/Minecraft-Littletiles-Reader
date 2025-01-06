@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <fstream>
 
-#include "Galib/GalibNamespaceDef.h"
+#include "GalibNamespaceDef.h"
 
 namespace galib::file {
     using ByteType = GALIB_STD uint8_t;

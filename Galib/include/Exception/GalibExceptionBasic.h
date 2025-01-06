@@ -19,7 +19,7 @@
 #include <exception>
 #include <string>
 
-#include "Galib/GalibNamespaceDef.h"
+#include "GalibNamespaceDef.h"
 
 namespace galib::exception {
     template<typename ArgErrorCodeType>

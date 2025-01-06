@@ -13,8 +13,8 @@
  * Please contact Gaksy at gaksys@outlook.com to request commercial use authorization.
  */
 
-#include "Galib/GalibNamespaceDef.h"
-#include "Galib/File/FileState.h"
+#include "GalibNamespaceDef.h"
+#include "File/FileState.h"
 
 bool GALIB file::IsFolderAccessible(const char *const kPFolderPath, FileStat *const p_file_stat) {
     if (!kPFolderPath) { return false; }

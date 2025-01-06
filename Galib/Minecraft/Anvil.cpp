@@ -19,12 +19,12 @@
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 
-#include "Galib/Minecraft/Anvil.h"
-#include "Galib/File/FileOperator.h"
-#include "Galib/GalibNamespaceDef.h"
-#include "Galib/File/FileState.h"
-#include "Galib/File/PathFormat.h"
-#include "Galib/Coord/CoordString.h"
+#include "Minecraft/Anvil.h"
+#include "File/FileOperator.h"
+#include "GalibNamespaceDef.h"
+#include "File/FileState.h"
+#include "File/PathFormat.h"
+#include "Coord/CoordString.h"
 
 using GALIB coord::Coord2DToString;
 

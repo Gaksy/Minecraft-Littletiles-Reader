@@ -26,26 +26,8 @@ find_package(CGAL REQUIRED)
 set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
 
 # Define the executable target
-add_executable(${CMAKE_PROJECT_NAME} main.cpp
-        Galib/Coord/CoordTraits.h
-        Galib/GalibNamespaceDef.h
-        Galib/Coord/Coord2D.h
-        Galib/Coord/Coord3D.h
-        Galib/Coord/Coord.h
-        Galib/Coord/CoordString.h
-        Galib/Exception/GalibExceptionBasic.h
-        Galib/File/FileState.h
-        Galib/File/FileState.cpp
-        Galib/File/PathFormat.h
-        Galib/File/PathFormat.cpp
-        Galib/File/FileOperator.h
-        Galib/Exception/MinecraftException.h
-        Galib/Exception/MinecraftException.cpp
-        Galib/Minecraft/MinecraftCoord.cpp
-        Galib/Minecraft/MinecraftCoord.h
-        Galib/Minecraft/Anvil.cpp
-        Galib/Minecraft/Anvil.h
-)
+add_executable(${CMAKE_PROJECT_NAME} main.cpp)
+add_subdirectory(Galib)
 
 # From project root path
 include_directories(${CMAKE_SOURCE_DIR})

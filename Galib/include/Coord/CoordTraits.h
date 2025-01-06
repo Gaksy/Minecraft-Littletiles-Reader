@@ -17,7 +17,7 @@
 #define GALIB_COORD_COORDTRAITS_H
 
 #include <type_traits>
-#include "Galib/GalibNamespaceDef.h"
+#include "GalibNamespaceDef.h"
 
 #define GALIB_STATIC_ASSERT_COORDINATE(CoordinateType)                          \
  static_assert(                                                                 \
