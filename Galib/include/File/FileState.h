@@ -18,7 +18,7 @@
 
 #include <sys/stat.h>
 
-#include "Galib/GalibNamespaceDef.h"
+#include "GalibNamespaceDef.h"
 
 namespace galib::file {
     using FileStat = struct GALIB_CSTD stat;

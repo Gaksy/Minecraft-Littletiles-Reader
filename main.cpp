@@ -1,5 +1,5 @@
 #include <cstdlib>
-#include "Galib/Minecraft/Anvil.h"
+#include "Minecraft/Anvil.h"
 
 using galib::minecraft::AnvilReader;
 

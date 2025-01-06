@@ -15,8 +15,8 @@
 
 #include <cmath>
 
-#include "Galib/Minecraft/MinecraftCoord.h"
-#include "Galib/Coord/Coord.h"
+#include "Minecraft/MinecraftCoord.h"
+#include "Coord/Coord.h"
 
 using GALIB minecraft::RegionCoordinate;
 using GALIB minecraft::ChunkCoordinate;

@@ -13,8 +13,8 @@
  * Please contact Gaksy at gaksys@outlook.com to request commercial use authorization.
  */
 
-#include "Galib/Exception/GalibExceptionBasic.h"
-#include "Galib/Exception/MinecraftException.h"
+#include "Exception/GalibExceptionBasic.h"
+#include "Exception/MinecraftException.h"
 
 constexpr static const char *const STD_ERROR_MESSAGE[] = {
     "Minecraft coordinates is invalid.",

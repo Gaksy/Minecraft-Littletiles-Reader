@@ -13,39 +13,35 @@
  * Please contact Gaksy at gaksys@outlook.com to request commercial use authorization.
  */
 
-#ifndef GALIB_COORD_COORD3D_H
-#define GALIB_COORD_COORD3D_H
+#ifndef GALIB_COORD_COORD2D_H
+#define GALIB_COORD_COORD2D_H
 
-#include "Galib/Coord/CoordTraits.h"
+#include "Coord/CoordTraits.h"
 
-#define GALIB_STATIC_ASSERT_COORDINATE_3D(CoordinateType)                          \
+#define GALIB_STATIC_ASSERT_COORDINATE_2D(CoordinateType)                          \
  static_assert(                                                                    \
- GALIB coord::coord3d_type_if<CoordinateType>::value,                              \
- "Template argument \"" #CoordinateType "\" must be a valid 3D coordinate type. ")
+ GALIB coord::coord2d_type_if<CoordinateType>::value,                              \
+ "Template argument \"" #CoordinateType "\" must be a valid 2D coordinate type. ")
 
 namespace galib::coord {
-    // 3D Coordinate (x, y, z)
+    // 2D Coordinate (x, z)
     // NumericType represents the data type used for coordinate values (e.g., int, float, etc.)
     // SelfType refers to the actual type passed as the template parameter (i.e., CoordinateType)
     template<typename ArgNumericType>
-    struct Coordinate3D {
+    struct Coordinate2D {
         using NumericType = ArgNumericType;
-        using SelfType = Coordinate3D;
+        using SelfType = Coordinate2D;
 
         NumericType x;
-        NumericType y;
         NumericType z;
 
         bool operator==(const SelfType &kRhs) const {
-            return x == kRhs.x && y == kRhs.y && z == kRhs.z;
+            return x == kRhs.x && z == kRhs.z;
         }
 
         bool operator<(const SelfType &kRhs) const {
             if (x != kRhs.x) {
                 return x < kRhs.x;
-            }
-            if (y != kRhs.y) {
-                return y < kRhs.y;
             }
             return z < kRhs.z;
         }
@@ -54,26 +50,23 @@ namespace galib::coord {
             if (x != kRhs.x) {
                 return x > kRhs.x;
             }
-            if (y != kRhs.y) {
-                return y > kRhs.y;
-            }
             return z > kRhs.z;
         }
     };
 
-    // Define a struct for checking whether a template parameter is of the Coordinate3D type, along with its specialization.
+    // Define a struct for checking whether a template parameter is of the Coordinate2D type, along with its specialization.
     template<typename CoordinateType>
-    struct coord3d_type_if : GALIB_STD false_type {
+    struct coord2d_type_if : GALIB_STD false_type {
     };
 
     template<typename ArgNumericType>
-    struct coord3d_type_if<Coordinate3D<ArgNumericType> > : GALIB_STD true_type {
+    struct coord2d_type_if<Coordinate2D<ArgNumericType> > : GALIB_STD true_type {
     };
 
     // Specialize a struct for checking whether a template parameter is a coordinate type.
     template<typename ArgNumericType>
-    struct coord_type_if<Coordinate3D<ArgNumericType> > : GALIB_STD true_type {
+    struct coord_type_if<Coordinate2D<ArgNumericType> > : GALIB_STD true_type {
     };
 }
 
-#endif //GALIB_COORD_COORD3D_H
+#endif //GALIB_COORD_COORD2D_H

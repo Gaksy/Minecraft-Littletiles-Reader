@@ -20,11 +20,11 @@
 #include <vector>
 #include <string>
 #include <memory>
-#include <libnbtplusplus/nbt_tags.h>
+#include "nbt_tags.h"
 
-#include "Galib/GalibNamespaceDef.h"
-#include "Galib/Minecraft/MinecraftCoord.h"
-#include "Galib/Exception/MinecraftException.h"
+#include "GalibNamespaceDef.h"
+#include "Minecraft/MinecraftCoord.h"
+#include "Exception/MinecraftException.h"
 
 namespace galib::minecraft {
     // Used for 2D data caching
