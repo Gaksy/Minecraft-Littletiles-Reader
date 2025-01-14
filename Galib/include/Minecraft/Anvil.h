@@ -20,7 +20,7 @@
 #include <vector>
 #include <string>
 #include <memory>
-#include "nbt_tags.h"
+#include <nbt_tags.h>
 
 #include "GalibNamespaceDef.h"
 #include "Minecraft/MinecraftCoord.h"
@@ -62,7 +62,7 @@ namespace galib::minecraft {
                 return nullptr;
             }
 
-            return cache_[kInteger2dCoord.x].get()->at(kInteger2dCoord.y).get();
+            return cache_[kInteger2dCoord.x].get()->at(kInteger2dCoord.z).get();
         }
 
         // Get the pointer to the cached data, requires a 2D coordinate.
@@ -80,7 +80,7 @@ namespace galib::minecraft {
                 cache_.resize(kBaseSize_);
             }
 
-            if (!IsValidCheckForCoord(kBaseSize_, kInteger2dCoord)) {
+            if (!IsValidCheckForCoord_(kBaseSize_, kInteger2dCoord)) {
                 throw GALIB exception::MinecraftException(GALIB exception::MinecraftErrorCode::mc_invalid_coord);
             }
 
@@ -91,10 +91,10 @@ namespace galib::minecraft {
                 p_desc_columns_cache = cache_[kInteger2dCoord.x].get();
             }
 
-            CacheType *p_desc_cache = p_desc_columns_cache->at(kInteger2dCoord.y).get();
+            CacheType *p_desc_cache = p_desc_columns_cache->at(kInteger2dCoord.z).get();
             if (!p_desc_cache) {
-                p_desc_columns_cache->at(kInteger2dCoord.y).reset(new CacheType);
-                p_desc_cache = p_desc_columns_cache->at(kInteger2dCoord.y).get();
+                p_desc_columns_cache->at(kInteger2dCoord.z).reset(new CacheType);
+                p_desc_cache = p_desc_columns_cache->at(kInteger2dCoord.z).get();
             }
 
             return p_desc_cache;
@@ -103,7 +103,7 @@ namespace galib::minecraft {
         // Clear the specified cache.
         void ClearCache(const Coord2dType &kInteger2dCoord) {
             if (IsHadCache(kInteger2dCoord)) {
-                (*cache_[kInteger2dCoord.x].get())[kInteger2dCoord.y].reset(nullptr);
+                (*cache_[kInteger2dCoord.x].get())[kInteger2dCoord.z].reset(nullptr);
             }
         }
 
@@ -123,16 +123,16 @@ namespace galib::minecraft {
                 return false;
             }
 
-            if (!IsValidCheckForCoord(kBaseSize_, kInteger2dCoord)) {
+            if (!IsValidCheckForCoord_(kBaseSize_, kInteger2dCoord)) {
                 throw GALIB exception::MinecraftException(GALIB exception::MinecraftErrorCode::mc_invalid_coord);
             }
 
-            return cache_[kInteger2dCoord.x].get() && (*cache_[kInteger2dCoord.x].get())[kInteger2dCoord.y].get();
+            return cache_[kInteger2dCoord.x].get() && (*cache_[kInteger2dCoord.x].get())[kInteger2dCoord.z].get();
         }
 
     private:
         static bool IsValidCheckForCoord_(const GALIB_STD size_t kBaseSize, const Coord2dType &kInteger2dCoord) {
-            return !(kInteger2dCoord.x >= kBaseSize || kInteger2dCoord.y >= kBaseSize);
+            return !(kInteger2dCoord.x >= kBaseSize || kInteger2dCoord.z >= kBaseSize);
         }
 
     private:
