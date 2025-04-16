@@ -2,7 +2,7 @@
 - [中文](#ZHCN)
 
 ### EGUS
-# Introduction
+# V2 Introduction
 This project is used to parse Minecraft save files and extract model structures from the Little Tiles mod, converting them into Obj format files.
 
 The project is tested with Minecraft 1.12.2 and Little Tiles 1.5.66. The general processing flow after obtaining the block coordinates to be parsed is as follows:
@@ -19,52 +19,25 @@ The project is tested with Minecraft 1.12.2 and Little Tiles 1.5.66. The general
 This is the initial version, which has various bugs and performance issues. The author is working on the second version. This version can only export basic white models with the corresponding block IDs for each tile. The merging of normals, UV mapping, and other resources has not been implemented yet.
 
 # Usage
-Upon startup, the program will prompt:
-```
-LITTLE TILES OBJ EXPORTER
-Region Folder:
-```
+1. Use vcpkg to manage dependencies such as zlib, boost, and cgal.
 
-At this point, input the path to your Minecraft save’s region folder, for example, ```D:\Minecraft\PLCII\.minecraft\versions\Lt\saves\test\region```.
+2. Configure the VCPKG_ROOT system environment variable.
 
-```
-LITTLE TILES OBJ EXPORTER
-Region Folder: D:\Minecraft\PLCII\.minecraft\versions\Lt\saves\test\region
-start chunk x: -1
-start chunk z: 0
-end chunk x: -1
-end chunk z: 0
-```
+3. Since VCPKG_ROOT uses MSVC for compilation, the project should also be compiled with MSVC.
 
-Then input the starting and ending chunk coordinates for the model export. The coordinates can be viewed a-s follows:
+4. Clone the project and configure the toolchain and CMake.
 
-![image](https://github.com/user-attachments/assets/034008b4-f20e-424f-8a9d-377b32a4b70a)
+5. Execute CMakeLists, then build nbt++ to fulfill the dependency (this project relies on this library for NBT parsing).
 
-After that, wait for the export to complete successfully:
-
-```
-Reade chunk { -1, 0 }:Reading chunk successfully.
- Read chunk lt nbt:Reading chunk lt nbt successfully.
-
-[1 / 1] Build chunk lt face { -1, 0 } offset { 0, 0 }:Building chunk lt face successfully.
-
-Build obj to file "D:/Development/Project/Minecraft//test": Export successfully!
-Elapsed time: 0:0:33
-```
-
-![image](https://github.com/user-attachments/assets/23f98b62-a88a-4360-82e0-9f0e506f7876)
+6. Finally, compile and run LittleTilesReader.
 
 # Development Plan (Feature Roadmap)
 
-- [x] White model export
-- [ ] Refactor and use CMake for project management
+- [x] Use CMake for project management
+- [ ] Refactoring
 - [ ] UV, normals, and texture data construction
 - [ ] CGAL Branch - Acceleration support
 - [ ] ...
-
-# Dependencies
-
-Apologies: I initially used Visual Studio for development and am currently refactoring it to use CMake for project management.
 
 # Language
 C++ Standard: ISO C++14
@@ -83,7 +56,7 @@ Windows SDK Version: 10.0
 |CGAL (https://www.cgal.org/2023/07/28/cgal56/)|5.6|
 
 ### ZHCN
-# 简介
+# V2 简介
 本项目用于解析《Minecraft》存档从中获取 [Little Tiles](https://github.com/CreativeMD/LittleTiles) 模组中的模型结构将其转换为 Obj 格式的文件。
 
 本项目基于《Minecraft 1.12.2》，Little Tiles 1.5.66 进行测试，当得到需要解析的区块坐标后的大致处理流程：
@@ -97,48 +70,24 @@ Windows SDK Version: 10.0
 8. 使用 obj 文件构建器将 obj 模型构建到 obj 文件中。
 
 # 注意
-这只是最初的版本，存在各种 BUG 与性能上的问题，作者正在构建第二版。本版本只能够导出基本的白模与其每个 tiles 对应的方块id。暂时没有去合并其法线、UV贴图等资源。
+作者正在构建第二版（也就是该分支），还未能够正常运行，请勿使用！
+
+仅在 Windows 平台开发测试
 
 # 使用方式
-启动后会显示
-```
-LITTLE TILES OBJ EXPORTER
-Region Folder:
-```
-在此键入您存档中 region 文件夹的路径，例如 ```D:\Minecraft\PLCII\.minecraft\versions\Lt\saves\test\region```。
-```
-LITTLE TILES OBJ EXPORTER
-Region Folder: D:\Minecraft\PLCII\.minecraft\versions\Lt\saves\test\region
-start chunk x: -1
-start chunk z: 0
-end chunk x: -1
-end chunk z: 0
-```
-随后键入您要导出模型的区块的起始坐标和终点坐标，查看方式如下：
-![image](https://github.com/user-attachments/assets/034008b4-f20e-424f-8a9d-377b32a4b70a)
-
-之后等待导出成功即可
-```
-Reade chunk { -1, 0 }:Reading chunk successfully.
- Read chunk lt nbt:Reading chunk lt nbt successfully.
-
-[1 / 1] Build chunk lt face { -1, 0 } offset { 0, 0 }:Building chunk lt face successfully.
-
-Build obj to file "D:/Development/Project/Minecraft//test": Export successfully!
-Elapsed time: 0:0:33
-```
-
-![image](https://github.com/user-attachments/assets/23f98b62-a88a-4360-82e0-9f0e506f7876)
+1. 使用 vcpkg 管理项目需要的 zlib、boost、cgal 依赖。
+2. 配置 VCPKG_ROOT 系统环境变量。
+3. 由于 VCPKG_ROOT 使用 msvc 进行编译，所以该项目的编译也应使用 MSVC。
+4. 克隆该项目，并配置 toolchain、cmake。
+5. 执行 CMakeLists，随后执行 nbt++ 以构建 nbt++ 依赖。（该项目的 nbt 解析由该库提供）
+6. 最后对 LittleTilesReader 进行编译运行
 
 # 开发计划（画大饼）
-- [x] 白模导出
-- [ ] 重构并使用 CMake 进行项目管理
+- [x] 使用 CMake 进行项目管理
+- [ ] 重构
 - [ ] UV、法线、材质等数据的构建
 - [ ] CGAL 分支 - 加速计算支持
 - [ ] ...
-
-# 依赖
-超级抱歉：一开始直接用的 Visual Studio 进行开发，正在重构 CMake 管理的版本
 
 ## 语言
 C++ 语言标准: ISO C++14 标准
