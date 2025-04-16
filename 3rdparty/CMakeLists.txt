@@ -15,3 +15,9 @@ FetchContent_GetProperties(libnbtplusplus)
 if(NOT libnbtplusplus_POPULATED)
     FetchContent_MakeAvailable(libnbtplusplus)
 endif()
+
+# 3rdparty/CMakeLists.txt
+add_custom_target(CopyNBTDLL ALL
+        COMMAND ${CMAKE_COMMAND} -E copy ${NBT_DLL_PATH} ${CMAKE_BINARY_DIR}
+        COMMENT "Copying nbt++.dll to build directory"
+)

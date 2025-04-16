@@ -42,9 +42,11 @@ add_executable(${CMAKE_PROJECT_NAME} main.cpp)
 add_subdirectory(Galib)
 
 # Link required libraries to the executable
-target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC Boost::iostreams)
+target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC Boost::iostreams ZLIB::ZLIB)
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${ZLIB_LIBRARIES})
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${CGAL_LIBRARIES})
 
 # Link the libnbtplusplus library to your target
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC nbt++)
+# dll
+add_dependencies(LittleTilesReader CopyNBTDLL)

@@ -5,7 +5,7 @@
  *
  * Copyright (c) 2024 Gaksy (Fuhongren)
  *
- * Author: Gaksy
+ * Author: GaksyC
  * Date Created: 12/22/2024
  *
  * Additional Terms:
