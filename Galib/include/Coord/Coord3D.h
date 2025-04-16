@@ -29,6 +29,8 @@ namespace galib::coord {
     // SelfType refers to the actual type passed as the template parameter (i.e., CoordinateType)
     template<typename ArgNumericType>
     struct Coordinate3D {
+        GALIB_STATIC_ASSERT_NUMERICTYPE(ArgNumericType);
+
         using NumericType = ArgNumericType;
         using SelfType = Coordinate3D;
 

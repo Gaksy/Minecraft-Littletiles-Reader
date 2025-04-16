@@ -29,13 +29,15 @@ namespace galib::coord {
     // SelfType refers to the actual type passed as the template parameter (i.e., CoordinateType)
     template<typename ArgNumericType>
     struct Coordinate2D {
+        GALIB_STATIC_ASSERT_NUMERICTYPE(ArgNumericType);
+
         using NumericType = ArgNumericType;
         using SelfType = Coordinate2D;
 
         NumericType x;
         NumericType z;
 
-        bool operator==(const SelfType &kRhs) const {
+        bool operator==(const SelfType &kRhs) const GALIB_NOEXCEPT {
             return x == kRhs.x && z == kRhs.z;
         }
 
