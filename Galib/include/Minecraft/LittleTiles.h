@@ -21,6 +21,7 @@
 
 #include "GalibNamespaceDef.h"
 #include "Minecraft/LittleTilesCoord.h"
+#include "Minecraft/MinecraftCoord.h"
 #include "Minecraft/Anvil.h"
 #include "Exception/LittleTilesException.h"
 
@@ -33,14 +34,14 @@ namespace galib::minecraft::littletiles{
     class ChunkTiles {
     public:
         enum class AngleOffsetID: GALIB_STD uint8_t {
-            EUN, // East Up North
-            EUS, // East Up South
-            EDN, // East Down North
-            EDS, // East Down South
-            WUN, // West Up North
-            WUS, // West Up South
-            WDN, // West Down North
-            WDS  // West Down South
+            EUN = 0, // East Up North
+            EUS = 1, // East Up South
+            EDN = 2, // East Down North
+            EDS = 3, // East Down South
+            WUN = 4, // West Up North
+            WUS = 5, // West Up South
+            WDN = 6, // West Down North
+            WDS = 7  // West Down South
         };
 
         struct AngleOffset {
@@ -52,7 +53,7 @@ namespace galib::minecraft::littletiles{
             OffsetType y_offset { 0 };
             OffsetType z_offset { 0 };
 
-            GALIB_NODISCARD bool HasAnyEnable()const {
+            GALIB_NODISCARD bool hasAnyEnable()const {
                 return x_enable || y_enable || z_enable;
             }
         };
@@ -65,7 +66,7 @@ namespace galib::minecraft::littletiles{
             bool west       { false };
             bool east       { false };
 
-            GALIB_NODISCARD bool HasAnyEnable()const {
+            GALIB_NODISCARD bool hasAnyEnable()const {
                 return down || up || north || south || west || east;
             }
         };
@@ -76,20 +77,25 @@ namespace galib::minecraft::littletiles{
             LittleTilesCoord pos_1 {0, 0, 0};
             LittleTilesCoord pos_2 {0, 0, 0};
 
-            GALIB_NODISCARD bool HasAnyOffsetEnable()const {
+            GALIB_NODISCARD bool hasAnyOffsetEnable()const {
                 return GALIB_STD any_of(
                     GALIB_STD begin(offset_data),
                     GALIB_STD end(offset_data),
-                    [](const AngleOffset& data){return data.HasAnyEnable();}
+                    [](const AngleOffset& data){return data.hasAnyEnable();}
                 );
             }
 
-            GALIB_NODISCARD LittleTilesCoord ApplyAngleOffset(const AngleOffsetID angle_id)const {
-                LittleTilesCoord angle_coord = GetVertices(angle_id);
-
+            GALIB_NODISCARD LittleTilesCoord applyAngleOffset(const AngleOffsetID angle_id)const {
+                LittleTilesCoord angle_coord = getVertices(angle_id);
+                AngleOffset angle_offset = offset_data[static_cast<size_t>(angle_id)];
+                // If unoffset, then offset is 0
+                angle_coord.x += angle_offset.x_offset;
+                angle_coord.y += angle_offset.y_offset;
+                angle_coord.z += angle_offset.z_offset;
+                return angle_coord;
             }
 
-            GALIB_NODISCARD LittleTilesCoord GetVertices(const AngleOffsetID angle_id)const {
+            GALIB_NODISCARD LittleTilesCoord getVertices(const AngleOffsetID angle_id)const {
                 switch (angle_id) {
                     case AngleOffsetID::WDS:
                         return {pos_1.x, pos_1.y, pos_2.z};
@@ -111,6 +117,19 @@ namespace galib::minecraft::littletiles{
                         throw exception::LittleTilesException(exception::LittleTilesErrorCode::lt_unknow_angle);
                 }
             }
+        };
+
+        using Boxes = GALIB_STD vector<Box>;
+
+        struct BlockTiles {
+            using const_iterator = GALIB_STD map<GALIB_STD string, Boxes>::const_iterator;
+            // <block_id, array of box>
+            using container = GALIB_STD map<GALIB_STD string, Boxes>;
+
+            GALIB minecraft::BlockCoordinate block_coordinate;
+            GridType grid;
+            GALIB_STD string little_tiles_id;
+            container boxes_map;
         };
 
         using const_iterator = GALIB_STD vector<BlockTiles>::const_iterator;
