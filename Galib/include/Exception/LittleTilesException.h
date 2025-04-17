@@ -24,7 +24,8 @@ namespace galib::exception {
     using LittleTilesErrorCodeType = GALIB_STD uint8_t;
 
     enum class LittleTilesErrorCode: LittleTilesErrorCodeType{
-        lt_unknow_angle = 1
+        lt_unknow_angle = 0,
+        lt_tile_enities_not_exist = 1
     };
 
     class LittleTilesException : public GALIB exception::GalibExceptionBasic<LittleTilesErrorCodeType>{

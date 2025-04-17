@@ -17,11 +17,13 @@
 #include "Exception/LittleTilesException.h"
 
 constexpr static const char *const STD_ERROR_MESSAGE[] = {
-    "LittleTiles Box angle enum arg is invalid."
+    "LittleTiles Box angle enum arg is invalid.",
+    "The NBT tag \"TileEntities\" does not exist."
 };
 
 constexpr static const char *const STD_ERROR_CODE[] = {
-    "lt_unknow_angle"
+    "lt_unknow_angle",
+    "lt_tile_enities_not_exist"
 };
 
 constexpr static const char *const EXCEPTION_NAME = "LittleTiles Exception";
