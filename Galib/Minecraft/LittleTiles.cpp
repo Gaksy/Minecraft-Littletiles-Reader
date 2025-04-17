@@ -44,12 +44,6 @@ void BlockTileEntities::readBlockTileNBT(const nbt::tag_compound &kBlockTilesNBT
     }
 
     try {
-        // Get block coord
-        BlockCoordinate block_coord = {
-            kBlockTilesNBT.at("x").as<GALIB_NBT tag_int>().get(),
-            kBlockTilesNBT.at("y").as<GALIB_NBT tag_int>().get(),
-            kBlockTilesNBT.at("z").as<GALIB_NBT tag_int>().get()
-        };
 
         // By default
         GridType grid_type = 16;
@@ -65,22 +59,29 @@ void BlockTileEntities::readBlockTileNBT(const nbt::tag_compound &kBlockTilesNBT
         GALIB_NBT tag_list tiles = kBlockTilesNBT.at("content").at("tiles").as<nbt::tag_list>();
 
         // Process block tiles
-        GALIB_STD string block_id;
-        GALIB_NBT tag_compound* p_boxes;
         container box_tile_enities_map;
 
         for (GALIB_NBT tag_list::iterator it = tiles.begin(); it != tiles.cend(); ++it) {
-            p_boxes = &it->as<GALIB_NBT tag_compound>();   // Get boxes
-            block_id = p_boxes->at("block").as<GALIB_NBT tag_string>().get(); // Get block id
+            GALIB_NBT tag_compound* p_boxes = &it->as<GALIB_NBT tag_compound>();   // Get boxes
+            GALIB_STD string block_id = p_boxes->at("block").as<GALIB_NBT tag_string>().get(); // Get block id
 
             // is haved block_id
             if(box_tile_enities_map.find(block_id) != box_tile_enities_map.end()) {
                 continue;
             }
 
-            // Get data
-            BoxTileEnities box_tile_enities;
+            // Get data, If Get successful, then insert data
+            if(BoxTileEnities box_tile_enities; readBoxesTilesNbt(*p_boxes, box_tile_enities)) {
+                box_tile_enities_map.insert(container_pair(block_id, box_tile_enities));
+            }
         }
+
+        // Get block coord
+        block_coordinate_ = {
+            kBlockTilesNBT.at("x").as<GALIB_NBT tag_int>().get(),
+            kBlockTilesNBT.at("y").as<GALIB_NBT tag_int>().get(),
+            kBlockTilesNBT.at("z").as<GALIB_NBT tag_int>().get()
+        };
     }
     catch (...) {
         throw LittleTilesException(LittleTilesErrorCode::lt_tage_not_exist, "Some tag not exist.", "BlockTiles");
@@ -105,6 +106,9 @@ BlockTileEntities::const_iterator BlockTileEntities::cbegin() const {
 
 BlockTileEntities::const_iterator BlockTileEntities::cend() const {
     return box_tile_enities_map_.cend();
+}
+
+bool BlockTileEntities::readBoxesTilesNbt(const nbt::tag_compound &kBoxesTilesNbt) {
 }
 
 GALIB minecraft::littletiles::ChunkTileEntities::ChunkTileEntities():

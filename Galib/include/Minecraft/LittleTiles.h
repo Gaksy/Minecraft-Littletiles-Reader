@@ -119,6 +119,7 @@ namespace galib::minecraft::littletiles{
         using const_iterator = GALIB_STD map<GALIB_STD string, BoxTileEnities>::const_iterator;
         // <block_id, array of box>
         using container = GALIB_STD map<GALIB_STD string, BoxTileEnities>;
+        using container_pair = GALIB_STD pair<GALIB_STD string, BoxTileEnities>;
 
     public:
         BlockTileEntities();
@@ -133,6 +134,12 @@ namespace galib::minecraft::littletiles{
 
         GALIB_NODISCARD const_iterator cbegin()const;
         GALIB_NODISCARD const_iterator cend()const;
+
+    private:
+        GALIB_NODISCARD static bool readBoxesTilesNbt(
+            const GALIB_NBT tag_compound& kBoxesTilesNbt,
+            BoxTileEnities& desc_box_tile_enities
+        );
 
     private:
         GALIB minecraft::BlockCoordinate block_coordinate_;
