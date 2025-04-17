@@ -30,7 +30,8 @@ namespace galib::exception {
         mc_invalid_args = 2,
         mc_chunk_exists = 3,
         mc_decode = 4,
-        mc_file_read = 5
+        mc_file_read = 5,
+        mc_nbt_empty = 6
     };
 
     class MinecraftException : public GALIB exception::GalibExceptionBasic<MinecraftErrorCodeType> {
