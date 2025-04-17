@@ -21,7 +21,8 @@ constexpr static const char *const STD_ERROR_MESSAGE[] = {
     "The args is invalid.",
     "The chunk exists.",
     "Decoding process is failed.",
-    "Unable to access file."
+    "Unable to access file.",
+    "Attempting to access an empty NBT tag."
 };
 
 constexpr static const char *const STD_ERROR_CODE[] = {
@@ -29,7 +30,8 @@ constexpr static const char *const STD_ERROR_CODE[] = {
     "mc_invalid_args",
     "mc_chunk_exites",
     "mc_decode",
-    "mc_file_read"
+    "mc_file_read",
+    "mc_nbt_empty"
 };
 
 constexpr static const char *const EXCEPTION_NAME = "Minecraft Exception";
