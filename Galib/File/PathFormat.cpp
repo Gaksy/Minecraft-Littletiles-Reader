@@ -18,9 +18,11 @@
 #include "GalibNamespaceDef.h"
 #include "File/PathFormat.h"
 
-bool GALIB file::FormatFolderPath(char *const p_desc_path, const GALIB_STD size_t kLength, const bool kLinuxStyle) {
+using GALIB_STD size_t;
+
+bool GALIB file::FormatFolderPath(char *const p_desc_path, const size_t kLength, const bool kLinuxStyle) {
     if (!p_desc_path) { return false; }
-    GALIB_STD size_t index;
+    size_t index;
     if (kLinuxStyle) {
         for (index = 0; index < kLength; ++index) {
             if (p_desc_path[index] == '\\') {

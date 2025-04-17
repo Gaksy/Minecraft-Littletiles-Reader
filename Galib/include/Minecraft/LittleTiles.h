@@ -136,9 +136,15 @@ namespace galib::minecraft::littletiles{
         GALIB_NODISCARD const_iterator cend()const;
 
     private:
-        GALIB_NODISCARD static bool readBoxesTilesNbt(
+        GALIB_NODISCARD static bool readBoxesTilesNbt_(
             const GALIB_NBT tag_compound& kBoxesTilesNbt,
             BoxTileEnities& desc_box_tile_enities
+        );
+
+        GALIB_NODISCARD static bool setAngleOffsetStateData_(
+            const GALIB_NBT tag_int_array& offset_nbt,
+            AngleOffset* p_offset_data,
+            Flipped* p_flipped_data
         );
 
     private:

@@ -52,6 +52,13 @@ using GALIB_STD move;
 using GALIB_STD to_string;
 using GALIB_STD stringstream;
 using GALIB_STD istringstream;
+
+using GALIB_BOOST iostreams::filtering_istream;
+using GALIB_BOOST iostreams::zlib_decompressor;
+using GALIB_BOOST iostreams::copy;
+
+using GALIB_NBT io::stream_reader;
+
 //
 // ANVIL EDITOR
 //
@@ -81,11 +88,11 @@ const string &AnvilReader::getRegionFolder() const {
 AnvilReader::ChunkDataReference AnvilReader::GetChunkDataReference(const ChunkCoordinate &kChunkCoord) {
     // Get region chunk coord from chunk coord
     RegionCoordinate desc_region_coord = ChunkCoordToRegionCoord(kChunkCoord);
-    RegionChunkCoordinate desc_region_chunk_coord = ChunkCoordToRegionChunkCoord(kChunkCoord);
+    const RegionChunkCoordinate desc_region_chunk_coord = ChunkCoordToRegionChunkCoord(kChunkCoord);
 
 
     // Check mca cache
-    McaManager::iterator desc_mca_manager_it = mca_cache_.find(desc_region_coord);
+    auto desc_mca_manager_it = mca_cache_.find(desc_region_coord);
 
     if(desc_mca_manager_it == mca_cache_.end()) {
         // Create mca path
@@ -109,10 +116,10 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkDataReference(const ChunkCo
         // Save mca data
         desc_mca_manager_it = mca_cache_.insert(McaPair(desc_region_coord, move(desc_mca_data))).first;
     }
-    ByteArray& desc_mca_manager = desc_mca_manager_it->second;
+    const ByteArray& desc_mca_manager = desc_mca_manager_it->second;
 
     // Find Chunk Manager Cache
-    ChunkManager::iterator desc_chunk_manager_it = chunk_cache_.find(desc_region_coord);
+    auto desc_chunk_manager_it = chunk_cache_.find(desc_region_coord);
     if(desc_chunk_manager_it == chunk_cache_.end()) {
         desc_chunk_manager_it = chunk_cache_.insert(ChunkPair(desc_region_coord, SingleChunkManager(32))).first;
     }
@@ -215,13 +222,13 @@ bool AnvilReader::getChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIt
     }
 
     // Get chunk length
-    ByteIndex chunk_length = static_cast<unsigned char>(kMcaData[chunk_offset_index + 3]);
+    const ByteIndex chunk_length = static_cast<unsigned char>(kMcaData[chunk_offset_index + 3]);
 
     // Get desc chunk iterator index
-    ByteIndex chunk_begin_index = chunk_offset * 4096;
-    ByteIndex chunk_end_index = chunk_begin_index + chunk_length * 4096;
+    const ByteIndex chunk_begin_index = chunk_offset * 4096;
+    const ByteIndex chunk_end_index = chunk_begin_index + chunk_length * 4096;
 
-    ByteIndex chunk_valid_begin_index = chunk_begin_index + 5;
+    const ByteIndex chunk_valid_begin_index = chunk_begin_index + 5;
     ByteIndex chunk_valid_end_index = 0;
 
     chunk_valid_end_index = chunk_valid_end_index | (static_cast<ByteIndex>(kMcaData[chunk_begin_index]) << 32);
@@ -261,15 +268,15 @@ bool AnvilReader::decompressChunkBinaryData_(
         uncompressed_string.assign(kChunkIterator.valid_begin, kChunkIterator.valid_end);
 
         // Create decompress stream
-        GALIB_BOOST iostreams::filtering_istream stream_uncompressed;
-        stream_uncompressed.push(GALIB_BOOST iostreams::zlib_decompressor());
+        filtering_istream stream_uncompressed;
+        stream_uncompressed.push(zlib_decompressor());
 
         // Add Uncompressed data
         stringstream str_stream_uncompressed(uncompressed_string);
         stream_uncompressed.push(str_stream_uncompressed);
 
         // Get compressed data
-        GALIB_BOOST iostreams::copy(stream_uncompressed, GALIB_BOOST iostreams::back_inserter(desc_compressed_chunk_data));
+        copy(stream_uncompressed, GALIB_BOOST iostreams::back_inserter(desc_compressed_chunk_data));
     } catch (...) {
         return false;
     }
@@ -291,7 +298,7 @@ bool AnvilReader::decompressChunkBinaryNbtData_(
         istringstream in_str_stream(decompressed_buff);
 
         // create stream reader
-        GALIB_NBT io::stream_reader in_nbt_stream(in_str_stream);
+        stream_reader in_nbt_stream(in_str_stream);
         // decode nbt binary data
         in_nbt_stream.read_compound().second.swap(desc_chunk_root);
     } catch (...) {

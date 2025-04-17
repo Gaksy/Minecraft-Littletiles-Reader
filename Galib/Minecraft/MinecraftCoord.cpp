@@ -25,10 +25,12 @@ using GALIB minecraft::BlockCoordinate;
 
 using GALIB coord::Coord3DToCoord2D;
 
+using GALIB_STD floor;
+
 RegionCoordinate (GALIB minecraft::ChunkCoordToRegionCoord)(const ChunkCoordinate &kOreChunkCoord) {
     return {
-        static_cast<int>(GALIB_STD floor(kOreChunkCoord.x / 32.0)),
-        static_cast<int>(GALIB_STD floor(kOreChunkCoord.z / 32.0))
+        static_cast<int>(floor(kOreChunkCoord.x / 32.0)),
+        static_cast<int>(floor(kOreChunkCoord.z / 32.0))
     };
 }
 
