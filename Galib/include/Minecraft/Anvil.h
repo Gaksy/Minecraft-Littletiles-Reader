@@ -176,14 +176,7 @@ namespace galib::minecraft {
         };
 
     public:
-        // struct ChunkDataConstReference {
-        //     ChunkInfo chunk_info{};
-        //     const nbt::tag_compound *const p_chunk_root{nullptr}; // Chunk root directory (compound tag)
-        //     const nbt::tag_compound *const p_chunk_level{nullptr}; // Chunk level directory (compound tag)
-        // };
-
-        struct ChunkDataReference
-        {
+        struct ChunkDataReference {
             ChunkInfo chunk_info{};
             GALIB_NBT tag_compound* p_chunk_root  { nullptr };  // Chunk root directory (compound tag)
             GALIB_NBT tag_compound* p_chunk_level { nullptr };  // Chunk level directory (compound tag)
@@ -192,14 +185,9 @@ namespace galib::minecraft {
         struct ChunkData {
             ChunkInfo chunk_info{};
             ChunkConstIterator chunk_const_iterator;
-            ChunkNbtRoot chunk_root;                    // Chunk root directory (compound tag)
-            GALIB_NBT tag_compound *p_chunk_level;           // Chunk level directory (compound tag)
+            ChunkNbtRoot chunk_root;                            // Chunk root directory (compound tag)
+            GALIB_NBT tag_compound *p_chunk_level;              // Chunk level directory (compound tag)
         };
-
-        //struct CachePack {
-        //    _STD unique_ptr<CacheManagerBase<ChunkData, _GLIB minecraft::coord::RegionChunkCoord::NumericType>> p_chunk_data;
-        //    ByteArray mca_cache;
-        //};
 
     private:
         using SingleChunkManager = CacheManagerBase<ChunkData, GALIB minecraft::RegionChunkCoordinate::NumericType>;
@@ -216,51 +204,49 @@ namespace galib::minecraft {
 
     public:
         // Set the directory path for the Region folder in the Minecraft save file.
-        bool SetRegionFolder(const char *kPRegionFolderPath);
+        bool setRegionFolder(const char *kPRegionFolderPath);
 
         // Get the current directory address of the Region folder.
-        GALIB_NODISCARD const GALIB_STD string &GetRegionFolder() const;
+        GALIB_NODISCARD const GALIB_STD string &getRegionFolder() const;
 
         // Get the chunk data, requires passing the chunk coordinates. This function will throw an exception.
-        ChunkDataReference GetChunkData(const GALIB minecraft::ChunkCoordinate &kChunkCoord);
-        //ChunkDataConstReference GetChunkConstData(const coord::ChunkCoord& kChunkCoord)const;
+        ChunkDataReference GetChunkDataReference(const GALIB minecraft::ChunkCoordinate &kChunkCoord);
+
+        void Clear();
 
     private:
         // Build the mca file directory.
-        static GALIB_STD string BuildMcaFilePath_(
+        static GALIB_STD string buildMcaFilePath_(
             const GALIB_STD string &kRegionFolderPath,
             const GALIB minecraft::RegionCoordinate &kRegionCoord
         );
 
         // Read the mca file.
-        static bool ReadMcaFile_(
+        static bool readMcaFile_(
             const GALIB_STD string &kMcaFilePath,
             ByteArray &desc_bytearray
         );
 
         // Get the chunk index data.
-        static bool GetChunkConstIterator_(
+        static bool getChunkConstIterator_(
             const ByteArray &kMcaData,
             ChunkConstIterator &desc_chunk_iterator
         );
 
         // Unzip the chunk binary raw data.
-        static bool DecompressChunkBinaryData_(
+        static bool decompressChunkBinaryData_(
             const ChunkConstIterator &kChunkIterator,
             ByteArray &desc_compressed_chunk_data
         );
 
         // Unzip the chunk NBT data.
-        static bool DecompressChunkBinaryNbtData_(
+        static bool decompressChunkBinaryNbtData_(
             const ByteArray &kCompressedChunkData,
             ChunkNbtRoot &desc_chunk_root
         );
 
-        //static void DecompressZlibData_(const ByteArray& compressed_data, )
-
     private:
         // chunk data cache
-        //CacheManagerBase<CachePack, _GLIB minecraft::coord::RegionChunkCoord::NumericType> mca_cache_;
         McaManager mca_cache_;
         ChunkManager chunk_cache_;
 

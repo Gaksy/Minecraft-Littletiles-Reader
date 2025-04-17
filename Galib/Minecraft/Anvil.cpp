@@ -57,10 +57,10 @@ using GALIB_STD istringstream;
 //
 
 AnvilReader::AnvilReader(const char *const kPRegionFolderPath) {
-    SetRegionFolder(kPRegionFolderPath);
+    setRegionFolder(kPRegionFolderPath);
 }
 
-bool AnvilReader::SetRegionFolder(const char *const kPRegionFolderPath) {
+bool AnvilReader::setRegionFolder(const char *const kPRegionFolderPath) {
     // Check Folder Path
     if (!IsFolderAccessible(kPRegionFolderPath)) { return false; }
 
@@ -74,11 +74,11 @@ bool AnvilReader::SetRegionFolder(const char *const kPRegionFolderPath) {
     return true;
 }
 
-const string &AnvilReader::GetRegionFolder() const {
+const string &AnvilReader::getRegionFolder() const {
     return region_folder_;
 }
 
-AnvilReader::ChunkDataReference AnvilReader::GetChunkData(const ChunkCoordinate &kChunkCoord) {
+AnvilReader::ChunkDataReference AnvilReader::GetChunkDataReference(const ChunkCoordinate &kChunkCoord) {
     // Get region chunk coord from chunk coord
     RegionCoordinate desc_region_coord = ChunkCoordToRegionCoord(kChunkCoord);
     RegionChunkCoordinate desc_region_chunk_coord = ChunkCoordToRegionChunkCoord(kChunkCoord);
@@ -86,9 +86,10 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkData(const ChunkCoordinate 
 
     // Check mca cache
     McaManager::iterator desc_mca_manager_it = mca_cache_.find(desc_region_coord);
+
     if(desc_mca_manager_it == mca_cache_.end()) {
         // Create mca path
-        string desc_mca_path = BuildMcaFilePath_(region_folder_, desc_region_coord);
+        string desc_mca_path = buildMcaFilePath_(region_folder_, desc_region_coord);
         if(!IsFileAccessible(desc_mca_path.c_str())) {
             throw MinecraftException(
                 MinecraftErrorCode::mc_file_read,
@@ -98,7 +99,7 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkData(const ChunkCoordinate 
 
         // Read mca file
         ByteArray desc_mca_data;
-        if(!ReadMcaFile_(desc_mca_path, desc_mca_data)) {
+        if(!readMcaFile_(desc_mca_path, desc_mca_data)) {
             throw MinecraftException(
                 MinecraftErrorCode::mc_file_read,
                 (string("The MCA file cannot be read.") + desc_mca_path).c_str()
@@ -133,7 +134,7 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkData(const ChunkCoordinate 
         // Get chunk iterator of mca file
         chunk_iterator_data.chunk_info = p_chunk_cache->chunk_info;
 
-        if (!GetChunkConstIterator_(desc_mca_manager, chunk_iterator_data)) {
+        if (!getChunkConstIterator_(desc_mca_manager, chunk_iterator_data)) {
             desc_chunk_manager.ClearCache(desc_region_chunk_coord);
             throw MinecraftException(MinecraftErrorCode::mc_decode, "Locate chunk index error in mca file");
         }
@@ -142,23 +143,18 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkData(const ChunkCoordinate 
 
         // Decompress
         ByteArray compressed_chunk_data;
-        if (!DecompressChunkBinaryData_(chunk_iterator_data, compressed_chunk_data)) {
+        if (!decompressChunkBinaryData_(chunk_iterator_data, compressed_chunk_data)) {
             desc_chunk_manager.ClearCache(desc_region_chunk_coord);
             throw MinecraftException(
                 MinecraftErrorCode::mc_decode, "Failed to decompress binary nbt");
         }
 
         ChunkNbtRoot &chunk_nbt_root = p_chunk_cache->chunk_root;
-        if (!DecompressChunkBinaryNbtData_(compressed_chunk_data, chunk_nbt_root)) {
+        if (!decompressChunkBinaryNbtData_(compressed_chunk_data, chunk_nbt_root)) {
             desc_chunk_manager.ClearCache(desc_region_chunk_coord);
             throw MinecraftException(MinecraftErrorCode::mc_decode, "Failed to decoding binary nbt");
         }
     }
-
-    //ChunkDataConstReference desc_chunk_reference{ p_chunk_cache->chunk_info, p_chunk_cache->chunk_root.get(), &p_chunk_cache->chunk_root.get()->at("Level").get().as<nbt::tag_compound>() };
-    //desc_chunk_reference.chunk_info = p_chunk_cache->chunk_info;
-    //desc_chunk_reference.p_chunk_root = p_chunk_cache->chunk_root.get();
-    //desc_chunk_reference.p_chunk_level = &p_chunk_cache->chunk_root.get()->at("Level").get().as<nbt::tag_compound>();
 
     return {
         p_chunk_cache->chunk_info,
@@ -167,82 +163,17 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkData(const ChunkCoordinate 
     };
 }
 
-//
-// AnvilEditor::ChunkDataConstReference AnvilEditor::GetChunkConstData(const coord::ChunkCoord& kChunkCoord) const
-// {
-//     // Get region chunk coord from chunk coord
-//     RegionCoord desc_region_coord = ChunkCoordToRegionCoord(kChunkCoord);
-//     RegionChunkCoord desc_region_chunk_coord = ChunkCoordToRegionChunkCoord(kChunkCoord);
-//
-//     // Check mca cache
-//     const CachePack* p_desc_mca_cache = mca_cache_.GetCachePointer(desc_region_coord);
-//     CachePack cache_pack;
-//     if (!p_desc_mca_cache) {
-//         // Read mca file and insert to mca_cache
-//         // Build mca file path and read file
-//         //p_desc_mca_cache = mca_cache_.GetNewCachePointer(desc_region_coord);
-//         if (!ReadMcaFile_(BuildMcaFilePath(region_folder_, desc_region_coord), cache_pack.mca_cache)) {
-//             throw GalibMinecraftException(GalibMinecraftErrorCode::file_read);
-//         }
-//         p_desc_mca_cache = &cache_pack;
-//     }
-//
-//     ChunkData* p_chunk_cache = nullptr;
-//     // Check chunk cache
-//     if (!p_desc_mca_cache->p_chunk_data) {
-//         cache_pack.p_chunk_data = std::make_unique<CacheManagerBase<ChunkData> >(32);
-//         p_chunk_cache = cache_pack.p_chunk_data->GetCachePointer(desc_region_chunk_coord);
-//     }
-//     else
-//     {
-//         p_chunk_cache = p_desc_mca_cache->p_chunk_data->GetCachePointer(desc_region_chunk_coord);
-//     }
-//
-//     if (!p_chunk_cache) {
-//         // Read chunk data
-//         p_chunk_cache = p_desc_mca_cache->p_chunk_data->GetNewCachePointer(desc_region_chunk_coord);
-//         ChunkConstIterator& chunk_iterator_data = p_chunk_cache->chunk_const_iterator;
-//
-//         // Set chunk coord data
-//         p_chunk_cache->chunk_info.region_coord = desc_region_coord;
-//         p_chunk_cache->chunk_info.region_chunk_coord = desc_region_chunk_coord;
-//         p_chunk_cache->chunk_info.chunk_coord = kChunkCoord;
-//
-//         // Get chunk iterator of mca file
-//         chunk_iterator_data.chunk_info = p_chunk_cache->chunk_info;
-//
-//         if (!GetChunkConstIterator_(p_desc_mca_cache->mca_cache, chunk_iterator_data)) {
-//             p_desc_mca_cache->p_chunk_data->ClearCache(desc_region_chunk_coord);
-//             throw GalibMinecraftException(GalibMinecraftErrorCode::mc_decode_nbt, "AnvilEditor",
-//                 "Locate chunk index error in mca file");
-//         }
-//
-//         // Decode the desc chunk data of mca file
-//
-//         // Decompress
-//         ByteArray compressed_chunk_data;
-//         if (!DecompressChunkBinaryData_(chunk_iterator_data, compressed_chunk_data)) {
-//             p_desc_mca_cache->p_chunk_data->ClearCache(desc_region_chunk_coord);
-//             throw GalibMinecraftException(GalibMinecraftErrorCode::mc_decode_nbt, "AnvilEditor",
-//                 "Failed to decompress binary nbt");
-//         }
-//
-//         ChunkNbtRoot& chunk_nbt_root = p_chunk_cache->chunk_root;
-//         if (!DecompressChunkBinaryNbtData_(compressed_chunk_data, chunk_nbt_root)) {
-//             p_desc_mca_cache->p_chunk_data->ClearCache(desc_region_chunk_coord);
-//             throw GalibMinecraftException(GalibMinecraftErrorCode::mc_decode_nbt, "AnvilEditor",
-//                 "Failed to decoding binary nbt");
-//         }
-//     }
-//
-//     return { p_chunk_cache->chunk_info, p_chunk_cache->chunk_root.get(), &p_chunk_cache->chunk_root.get()->at("Level").get().as<nbt::tag_compound>()};
-// }
+void AnvilReader::Clear() {
+    mca_cache_.clear();
+    chunk_cache_.clear();
+    region_folder_.clear();
+}
 
-string AnvilReader::BuildMcaFilePath_(const string &kRegionFolderPath, const RegionCoordinate &kRegionCoord) {
+string AnvilReader::buildMcaFilePath_(const string &kRegionFolderPath, const RegionCoordinate &kRegionCoord) {
     return kRegionFolderPath + "/r." + to_string(kRegionCoord.x) + "." + to_string(kRegionCoord.z) + ".mca";
 }
 
-bool AnvilReader::ReadMcaFile_(const string &kMcaFilePath, ByteArray &desc_bytearray) {
+bool AnvilReader::readMcaFile_(const string &kMcaFilePath, ByteArray &desc_bytearray) {
     // Get file stat
     if (!IsFileAccessible(kMcaFilePath.c_str())) { return false; }
 
@@ -258,7 +189,7 @@ bool AnvilReader::ReadMcaFile_(const string &kMcaFilePath, ByteArray &desc_bytea
     return true;
 }
 
-bool AnvilReader::GetChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIterator &desc_chunk_iterator) {
+bool AnvilReader::getChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIterator &desc_chunk_iterator) {
     // Check chunk coord
     if (!IsValidCheckForRegionChunkCoord(desc_chunk_iterator.chunk_info.region_chunk_coord)) { return false; }
 
@@ -316,7 +247,7 @@ bool AnvilReader::GetChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIt
     return true;
 }
 
-bool AnvilReader::DecompressChunkBinaryData_(
+bool AnvilReader::decompressChunkBinaryData_(
     const ChunkConstIterator &kChunkIterator,
     ByteArray &desc_compressed_chunk_data
 ) {
@@ -345,8 +276,10 @@ bool AnvilReader::DecompressChunkBinaryData_(
     return true;
 }
 
-bool AnvilReader::DecompressChunkBinaryNbtData_(const ByteArray &kCompressedChunkData,
-                                                                  ChunkNbtRoot &desc_chunk_root) {
+bool AnvilReader::decompressChunkBinaryNbtData_(
+    const ByteArray &kCompressedChunkData,
+    ChunkNbtRoot &desc_chunk_root
+) {
     try {
         // Copy kCompressedChunkData to decompressed_buff
         string decompressed_buff;
@@ -364,6 +297,5 @@ bool AnvilReader::DecompressChunkBinaryNbtData_(const ByteArray &kCompressedChun
     } catch (...) {
         return false;
     }
-
     return true;
 }
