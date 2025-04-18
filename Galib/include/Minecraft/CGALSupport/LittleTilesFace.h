@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2024 Gaksy (Fuhongren)
+ * 
+ * This work is licensed under the GNU Lesser General Public License v3.0.
+ * You may obtain a copy of the license at https://www.gnu.org/licenses/lgpl-3.0.html.
+ *
+ * This source code form is subject to the terms of the LGPL v3.0 license.
+ * If a copy of the LGPL was not distributed with this file, you can obtain one
+ * at the above license URL.
+ */
+ 
+/*
+ * Author: Gaksy
+ * Date Created: 04/18/2025
+ */
+
+#ifndef GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_LITTLETILESFACE_H
+#define GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_LITTLETILESFACE_H
+
+#include "GalibNamespaceDef.h"
+
+namespace galib::minecraft{
+    struct LittleTilesFaceBase{
+
+
+    };
+}
+
+#endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_LITTLETILESFACE_H
