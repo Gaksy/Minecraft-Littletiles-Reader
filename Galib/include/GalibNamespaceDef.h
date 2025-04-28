@@ -21,6 +21,7 @@
 #define GALIB_CSTD   ::
 #define GALIB_BOOST  ::boost::
 #define GALIB_NBT    ::nbt::
+#define GALIB_CGAL   ::CGAL::
 #define GALIB        ::galib::
 
 #if _HAS_NODISCARD

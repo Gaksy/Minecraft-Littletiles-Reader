@@ -11,19 +11,5 @@
  
 /*
  * Author: Gaksy
- * Date Created: 04/18/2025
+ * Date Created: MM/dd/YYYY
  */
-
-#ifndef GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_LITTLETILESFACE_H
-#define GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_LITTLETILESFACE_H
-
-#include "GalibNamespaceDef.h"
-
-namespace galib::minecraft{
-    struct LittleTilesFaceBase{
-
-
-    };
-}
-
-#endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_LITTLETILESFACE_H
