@@ -14,6 +14,5 @@
  * Date Created: MM/dd/YYYY
  */
 
-#include "Minecraft/CgalSupport/CgalTypeDef.h"
-#include "Minecraft/CgalSupport/CgalLtSupport.h"
-#include "Minecraft/CgalSupport/CgalLittletilesBuider.h"
+#include "Minecraft/CgalSupport/CgalLittletilesBuilder.h"
+

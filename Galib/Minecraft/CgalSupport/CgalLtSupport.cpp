@@ -15,8 +15,8 @@
  * Date Created: 04/28/2025
  */
 
-#include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalLtSupport.h"
+#include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTiles.h"
 

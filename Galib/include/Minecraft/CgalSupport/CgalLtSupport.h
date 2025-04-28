@@ -21,6 +21,7 @@
 
 #include <CGAL/Surface_mesh/Surface_mesh.h>
 
+#include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTilesCoord.h"
 #include "Minecraft/LittleTiles.h"

@@ -11,8 +11,23 @@
  
 /*
  * Author: Gaksy
- * Date Created: 04/28/2025
+ * Date Created: MM/dd/YYYY
  */
 
-#include "Minecraft/CgalSupport/CgalTypeDef.h"
 
+
+#ifndef GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
+#define GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
+
+#include "GalibNamespaceDef.h"
+#include "Minecraft/CgalSupport/CgalTypeDef.h"
+#include "Minecraft/LittleTilesCoord.h"
+
+namespace galib::minecraft::cgal_support {
+    struct TileMesh {
+        LtMesh mesh;
+        GALIB minecraft::littletiles::GridType grid_type = 16;
+    };
+}
+
+#endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
