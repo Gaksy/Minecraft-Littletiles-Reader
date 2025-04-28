@@ -39,6 +39,15 @@ namespace galib::minecraft::littletiles{
         WDS = 7  // West Down South
     };
 
+    enum class TileFaceID: GALIB_STD uint8_t {
+        EAST = 0,  // East
+        WEST = 1,  // West
+        SOUTH = 2,  // South
+        NORTH = 3,  // North
+        UP = 4,  // Up
+        DOWN = 5   // Down
+    };
+
     struct AngleOffset {
         bool x_enable   { false };
         bool y_enable   { false };
@@ -66,6 +75,13 @@ namespace galib::minecraft::littletiles{
         }
     };
 
+    struct TileFace {
+        LittleTilesCoord pos_1 {0, 0, 0};
+        LittleTilesCoord pos_2 {0, 0, 0};
+        LittleTilesCoord pos_3 {0, 0, 0};
+        LittleTilesCoord pos_4 {0, 0, 0};
+    };
+
     struct TileEntity {
         AngleOffset offset_data[8];
         Flipped flipped_data;
@@ -90,8 +106,12 @@ namespace galib::minecraft::littletiles{
             return angle_coord;
         }
 
-        GALIB_NODISCARD LittleTilesCoord getVertices(const AngleOffsetID angle_id)const {
-            switch (angle_id) {
+        GALIB_NODISCARD AngleOffset getAngleOffset(const AngleOffsetID kAngleID)const {
+            return offset_data[static_cast<GALIB_STD uint8_t>(kAngleID)];
+        }
+
+        GALIB_NODISCARD LittleTilesCoord getVertices(const AngleOffsetID kAngleId)const {
+            switch (kAngleId) {
                 case AngleOffsetID::WDS:
                     return {pos_1.x, pos_1.y, pos_2.z};
                 case AngleOffsetID::WDN:
@@ -110,6 +130,60 @@ namespace galib::minecraft::littletiles{
                     return {pos_2.x, pos_2.y, pos_1.z};
                 default:
                     throw exception::LittleTilesException(exception::LittleTilesErrorCode::lt_unknow_angle);
+            }
+        }
+
+        GALIB_NODISCARD LittleTilesCoord getVertices(const AngleOffsetID kAngleId, const bool kWithOffset)const {
+            if (kWithOffset) { return applyAngleOffset(kAngleId); }
+            return getVertices(kAngleId);
+        }
+
+        GALIB_NODISCARD TileFace getTileFace(const TileFaceID kTileFaceID, const bool kWithOffst = false)const {
+            switch (kTileFaceID) {
+                case TileFaceID::EAST:
+                    return {
+                        getVertices(AngleOffsetID::EUN, kWithOffst),
+                        getVertices(AngleOffsetID::EUS, kWithOffst),
+                        getVertices(AngleOffsetID::EDS, kWithOffst),
+                        getVertices(AngleOffsetID::EDN, kWithOffst)
+                    };
+                case TileFaceID::WEST:
+                    return {
+                        getVertices(AngleOffsetID::WUN, kWithOffst),
+                        getVertices(AngleOffsetID::WUS, kWithOffst),
+                        getVertices(AngleOffsetID::WDS, kWithOffst),
+                        getVertices(AngleOffsetID::WDN, kWithOffst)
+                    };
+                case TileFaceID::SOUTH:
+                    return {
+                        getVertices(AngleOffsetID::EUS, kWithOffst),
+                        getVertices(AngleOffsetID::WUS, kWithOffst),
+                        getVertices(AngleOffsetID::WDS, kWithOffst),
+                        getVertices(AngleOffsetID::EDS, kWithOffst)
+                    };
+                case TileFaceID::NORTH:
+                    return {
+                        getVertices(AngleOffsetID::EUN, kWithOffst),
+                        getVertices(AngleOffsetID::EUS, kWithOffst),
+                        getVertices(AngleOffsetID::WUN, kWithOffst),
+                        getVertices(AngleOffsetID::WUS, kWithOffst)
+                    };
+                case TileFaceID::UP:
+                    return {
+                        getVertices(AngleOffsetID::EUN, kWithOffst),
+                        getVertices(AngleOffsetID::EUS, kWithOffst),
+                        getVertices(AngleOffsetID::WUS, kWithOffst),
+                        getVertices(AngleOffsetID::WUN, kWithOffst)
+                    };
+                case TileFaceID::DOWN:
+                    return {
+                        getVertices(AngleOffsetID::EDN, kWithOffst),
+                        getVertices(AngleOffsetID::EDS, kWithOffst),
+                        getVertices(AngleOffsetID::WDS, kWithOffst),
+                        getVertices(AngleOffsetID::WDN, kWithOffst)
+                    };
+                default:
+                    throw exception::LittleTilesException(exception::LittleTilesErrorCode::lt_unknow_face);
             }
         }
     };

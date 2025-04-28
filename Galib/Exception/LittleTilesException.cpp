@@ -19,12 +19,14 @@
 
 constexpr static const char *const STD_ERROR_MESSAGE[] = {
     "LittleTiles Box angle enum arg is invalid.",
-    "The NBT tag does not exist."
+    "The NBT tag does not exist.",
+    "LittleTiles Box face enum arg is invalid."
 };
 
 constexpr static const char *const STD_ERROR_CODE[] = {
     "lt_unknow_angle",
-    "lt_tage_not_exist"
+    "lt_tage_not_exist",
+    "lt_unknow_face"
 };
 
 constexpr static const char *const EXCEPTION_NAME = "LittleTiles Exception";
