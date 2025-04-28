@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2024 Gaksy (Fuhongren)
  * 
@@ -11,12 +12,13 @@
  
 /*
  * Author: Gaksy
- * Date Created: MM/dd/YYYY
+ * Date Created: 04/28/2025
  */
 
+#include "GalibNamespaceDef.h"
+#include "Minecraft/CgalSupport/CgalLtSupport.h"
+#include "Minecraft/CgalSupport/CgalTypeDef.h"
+#include "Minecraft/LittleTiles.h"
 
+using GALIB minecraft::littletiles::LittleTilesCoord;
 
-#ifndef GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H
-#define GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H
-
-#endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H

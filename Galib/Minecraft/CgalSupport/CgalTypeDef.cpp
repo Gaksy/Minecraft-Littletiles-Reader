@@ -11,8 +11,8 @@
  
 /*
  * Author: Gaksy
- * Date Created: MM/dd/YYYY
+ * Date Created: 04/28/2025
  */
 
-#include "Minecraft/CGAL_Support/CGAL_TypeDef.h"
+#include "Minecraft/CgalSupport/CgalTypeDef.h"
 
