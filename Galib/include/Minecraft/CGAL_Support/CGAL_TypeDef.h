@@ -29,6 +29,8 @@ namespace galib::minecraft::cgal_support{
     using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
     using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
     using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Cartesian<double>>>;
+
+
 }
 
 #endif //GALIB_MINECRAFT_CGALSUPPORT_CGALTYPEDEF_H

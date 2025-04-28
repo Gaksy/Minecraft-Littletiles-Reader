@@ -5,8 +5,11 @@ target_sources(${CMAKE_PROJECT_NAME} PUBLIC
     Minecraft/ChunkTileEntities.cpp
     Minecraft/BlockTileEntities.cpp
     Minecraft/LittleTilesFace.cpp
-    Minecraft/CGALSupport/CGALTypeDef.cpp
+    Minecraft/CGAL_Support/CGAL_TypeDef.cpp
+    Minecraft/CGAL_Support/CGAL_LtSupport.cpp
     File/FileState.cpp
     File/PathFormat.cpp
     Exception/MinecraftException.cpp
-    Exception/LittleTilesException.cpp)
+    Exception/LittleTilesException.cpp
+
+)
