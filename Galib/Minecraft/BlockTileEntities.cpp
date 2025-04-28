@@ -46,7 +46,11 @@ BlockTileEntities::BlockTileEntities():
 void BlockTileEntities::readBlockTileNBT(const tag_compound &kBlockTilesNBT) {
     // check block tiles root is not empty
     if (!kBlockTilesNBT.size()) {
-        throw LittleTilesException(LittleTilesErrorCode::lt_tage_not_exist, "The block tile data does not exist.", "BlockTiles");
+        throw LittleTilesException(
+            LittleTilesErrorCode::lt_tage_not_exist,
+            "The block tile data does not exist.",
+            "BlockTiles"
+        );
     }
 
     try {

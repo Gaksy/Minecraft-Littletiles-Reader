@@ -19,6 +19,8 @@
 #ifndef GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H
 #define GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H
 
+#include <CGAL/Surface_mesh/Surface_mesh.h>
+
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTilesCoord.h"
 #include "Minecraft/LittleTiles.h"
@@ -28,26 +30,7 @@ namespace galib::minecraft::cgal_support {
         return GALIB minecraft::cgal_support::LtPoint3(kLtCoord.x, kLtCoord.y, kLtCoord.z);
     }
 
-    void createMeshFromTileEntity(LtMesh& mesh, const GALIB minecraft::littletiles::TileEntity& tileEntity) {
-
-
-
-        // for (const GALIB minecraft::littletiles::AngleOffset& offset : tileEntity.offset_data) {
-        //     // 使用顶点和偏移来创建面
-        //     // 你需要根据具体的实现细节将顶点添加到 mesh 中
-        //     // LtPoint3 vertex1 = applyOffsetToPoint(pos1, offset);
-        //     // LtPoint3 vertex2 = applyOffsetToPoint(pos2, offset);
-        //     // LtPoint3 vertex3 = applyOffsetToPoint(pos3, offset);
-        //     // LtPoint3 vertex4 = applyOffsetToPoint(pos4, offset);
-        //
-        //     // 创建三角形并添加到 mesh
-        //     // 这里需要使用正确的顶点索引进行三角形添加
-        //     mesh.add_face(vertex1, vertex2, vertex3);
-        //     mesh.add_face(vertex2, vertex3, vertex4);
-        // }
-    }
-
-
+    void createMeshFromTileEntity(LtMesh& mesh, const GALIB minecraft::littletiles::TileEntity& tileEntity);
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H
