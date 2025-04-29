@@ -19,15 +19,22 @@
 #ifndef GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
 #define GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
 
+#include <vector>
+
 #include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTilesCoord.h"
 
 namespace galib::minecraft::cgal_support {
-    struct TileMesh {
-        LtMesh mesh;
-        GALIB minecraft::littletiles::GridType grid_type = 16;
+    class BlockMesh {
+    public:
+
+    private:
+        GALIB_STD vector<LtMesh> tiles_;
+        GALIB minecraft::littletiles::GridType grid_ = 16;
     };
+
+
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
