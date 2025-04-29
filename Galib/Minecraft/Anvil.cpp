@@ -20,10 +20,11 @@
 #include <boost/iostreams/device/back_inserter.hpp>
 
 #include "Minecraft/Anvil.h"
-#include "File/FileOperator.h"
 #include "GalibNamespaceDef.h"
+
 #include "File/FileState.h"
 #include "File/PathFormat.h"
+#include "File/FileOperator.h"
 #include "Coord/CoordString.h"
 
 using GALIB coord::Coord2DToString;

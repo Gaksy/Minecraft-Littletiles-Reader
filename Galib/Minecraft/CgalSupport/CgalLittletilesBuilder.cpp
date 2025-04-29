@@ -20,12 +20,13 @@
 using GALIB_STD vector;
 
 using GALIB minecraft::cgal_support::LtMesh;
-using GALIB minecraft::littletiles::BlockTileEntities;
-using GALIB minecraft::cgal_support::BlockMesh;
-using GALIB minecraft::littletiles::TileEntity;
 using GALIB minecraft::cgal_support::createMeshFromTileEntity;
-using GALIB minecraft::littletiles::BoxTileEnities;
+using GALIB minecraft::cgal_support::BlockMesh;
+
 using GALIB minecraft::littletiles::GridType;
+using GALIB minecraft::littletiles::TileEntity;
+using GALIB minecraft::littletiles::BoxTileEnities;
+using GALIB minecraft::littletiles::BlockTileEntities;
 
 BlockMesh::BlockMesh():
  grid_type_(16)
@@ -34,16 +35,17 @@ BlockMesh::BlockMesh():
 void BlockMesh::addTilesFromBlockTileEntities(const BlockTileEntities &kBlockTileEntities) {
     // tiles mesh array
     container tiles_mesh;
-    GridType grid_type = kBlockTileEntities.getGridType();
+    const GridType grid_type = kBlockTileEntities.getGridType();
 
     // BlockTile -> BoxTile -> Tile
+
     // For BlockTile
-    for(BlockTileEntities::const_iterator block_it = kBlockTileEntities.cbegin(); block_it != kBlockTileEntities.cend(); ++block_it) {
+    for(auto block_it = kBlockTileEntities.cbegin(); block_it != kBlockTileEntities.cend(); ++block_it) {
         // Get BoxTile entities
         const BoxTileEnities& box_tile_entities = block_it->second;
 
         // For BoxTile
-        for(BoxTileEnities::const_iterator tile_it = box_tile_entities.begin(); tile_it != box_tile_entities.end(); ++tile_it) {
+        for(auto tile_it = box_tile_entities.begin(); tile_it != box_tile_entities.end(); ++tile_it) {
 
             // Get Tile entities
             const TileEntity& tile_entity = *tile_it;
