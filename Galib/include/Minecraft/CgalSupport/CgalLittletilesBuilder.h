@@ -24,14 +24,26 @@
 #include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTilesCoord.h"
+#include "Minecraft/LittleTiles.h"
 
 namespace galib::minecraft::cgal_support {
     class BlockMesh {
     public:
+        using container = GALIB_STD vector<LtMesh>;
+        using const_iterator = GALIB_STD vector<LtMesh>::const_iterator;
+        using iterator = GALIB_STD vector<LtMesh>::iterator;
+
+    public:
+        BlockMesh();
+        ~BlockMesh()=default;
+
+    public:
+        void addTilesFromBlockTileEntities(const GALIB minecraft::littletiles::BlockTileEntities& kBlockTileEntities);
+        GALIB_NODISCARD const GALIB_STD vector<LtMesh>& getTilesMesh()const;
 
     private:
-        GALIB_STD vector<LtMesh> tiles_;
-        GALIB minecraft::littletiles::GridType grid_ = 16;
+        container tiles_;
+        GALIB minecraft::littletiles::GridType grid_type_;
     };
 
 

@@ -33,7 +33,7 @@ GALIB minecraft::littletiles::ChunkTileEntities::ChunkTileEntities():
     chunk_coordinate_({})
 { }
 
-void ChunkTileEntities::ReadChunk(
+void ChunkTileEntities::readChunk(
     const AnvilReader::ChunkDataReference &kChunkDataReference
 ) {
     // Check chunk root is not empty
@@ -69,7 +69,7 @@ void ChunkTileEntities::ReadChunk(
     block_tile_entities_.swap(block_tile_entities);
 }
 
-const ChunkCoordinate & ChunkTileEntities::GetChunkCoordinate() const {
+const ChunkCoordinate & ChunkTileEntities::getChunkCoordinate() const {
     return chunk_coordinate_;
 }
 
@@ -81,11 +81,11 @@ ChunkTileEntities::const_iterator ChunkTileEntities::cend() const {
     return block_tile_entities_.cend();
 }
 
-void ChunkTileEntities::Clear() {
+void ChunkTileEntities::clear() {
     chunk_coordinate_ = {0, 0};
     block_tile_entities_.clear();
 }
 
-bool ChunkTileEntities::IsEmpty() const {
+bool ChunkTileEntities::isEmpty() const {
     return block_tile_entities_.empty();
 }

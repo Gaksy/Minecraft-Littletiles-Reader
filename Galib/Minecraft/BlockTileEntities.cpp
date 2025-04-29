@@ -152,20 +152,25 @@ bool BlockTileEntities::readBoxesTilesNbt_(
                 const auto& int_array = it->as<tag_int_array>();
                 if (int_array.size() < 6) { continue; }     // pos must have 6 num (two vertices)
                 if (int_array.size() > 6) {                 // if > 6 , then have offset and flipped
-
+                    AngleOffset angle_offset_data[8];
+                    Flipped flipped_data;
                     // Get flipped and offert data
-                    if(!setAngleOffsetStateData_(int_array, temp.offset_data, &temp.flipped_data)) {
+                    if(!setAngleOffsetStateData_(int_array, angle_offset_data, &flipped_data)) {
                         // if error
                         continue;
                     }
+                    temp.setFlippedData(flipped_data);
+                    temp.setOffsetData(angle_offset_data);
                 }
-
-                temp.pos_1.x = int_array[0];
-                temp.pos_1.y = int_array[1];
-                temp.pos_1.z = int_array[2];
-                temp.pos_2.x = int_array[3];
-                temp.pos_2.y = int_array[4];
-                temp.pos_2.z = int_array[5];
+                LittleTilesCoord pos_1;
+                LittleTilesCoord pos_2;
+                pos_1.x = int_array[0];
+                pos_1.y = int_array[1];
+                pos_1.z = int_array[2];
+                pos_2.x = int_array[3];
+                pos_2.y = int_array[4];
+                pos_2.z = int_array[5];
+                temp.setPos(pos_1, pos_2);
 
                 box_tile_enity_array.push_back(temp);
             }catch ( ... ) { }

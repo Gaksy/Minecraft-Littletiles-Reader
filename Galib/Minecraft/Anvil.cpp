@@ -85,7 +85,7 @@ const string &AnvilReader::getRegionFolder() const {
     return region_folder_;
 }
 
-AnvilReader::ChunkDataReference AnvilReader::GetChunkDataReference(const ChunkCoordinate &kChunkCoord) {
+AnvilReader::ChunkDataReference AnvilReader::getChunkDataReference(const ChunkCoordinate &kChunkCoord) {
     // Get region chunk coord from chunk coord
     RegionCoordinate desc_region_coord = ChunkCoordToRegionCoord(kChunkCoord);
     const RegionChunkCoordinate desc_region_chunk_coord = ChunkCoordToRegionChunkCoord(kChunkCoord);
@@ -170,7 +170,7 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkDataReference(const ChunkCo
     };
 }
 
-void AnvilReader::Clear() {
+void AnvilReader::clear() {
     mca_cache_.clear();
     chunk_cache_.clear();
     region_folder_.clear();

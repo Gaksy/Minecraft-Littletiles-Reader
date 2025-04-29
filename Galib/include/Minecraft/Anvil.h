@@ -211,9 +211,9 @@ namespace galib::minecraft {
         GALIB_NODISCARD const GALIB_STD string &getRegionFolder() const;
 
         // Get the chunk data, requires passing the chunk coordinates. This function will throw an exception.
-        ChunkDataReference GetChunkDataReference(const GALIB minecraft::ChunkCoordinate &kChunkCoord);
+        ChunkDataReference getChunkDataReference(const GALIB minecraft::ChunkCoordinate &kChunkCoord);
 
-        void Clear();
+        void clear();
 
     private:
         // Build the mca file directory.

@@ -26,6 +26,8 @@
 #include "Minecraft/Anvil.h"
 
 namespace galib::minecraft::littletiles{
+    // ChunkTileEntity -> BlockTileEntity -> BoxTileTntity -> TileEntity
+
     enum class AngleID: GALIB_STD uint8_t {
         EUN = 0, // East Up North
         EUS = 1, // East Up South
@@ -60,6 +62,9 @@ namespace galib::minecraft::littletiles{
         }
     };
 
+    GALIB_STD uint8_t convertkAngleIdToInt(AngleID kAngleId);
+    AngleID convertIntToAngleId(GALIB_STD uint8_t kNumId);
+
     struct Flipped {
         bool down       { false };
         bool up         { false };
@@ -80,28 +85,29 @@ namespace galib::minecraft::littletiles{
         LittleTilesCoord pos_4 {0, 0, 0};
     };
 
-    struct TileEntity {
-        AngleOffset offset_data[8];
-        Flipped flipped_data;
-        LittleTilesCoord pos_1 {0, 0, 0};
-        LittleTilesCoord pos_2 {0, 0, 0};
-
+    class TileEntity {
+    public:
+        TileEntity();
+        ~TileEntity()=default;
+    public:
         GALIB_NODISCARD bool hasAnyOffsetEnable()const;
-
-        GALIB_NODISCARD LittleTilesCoord applyAngleOffset(AngleID angle_id)const;
-
-        GALIB_NODISCARD AngleOffset getAngleOffset(const AngleID kAngleID)const {
-            return offset_data[static_cast<GALIB_STD uint8_t>(kAngleID)];
-        }
-
+        GALIB_NODISCARD LittleTilesCoord applyAngleOffset(AngleID kAngleId)const;
+        GALIB_NODISCARD AngleOffset getAngleOffset(AngleID kAngleID)const;
         GALIB_NODISCARD LittleTilesCoord getVertices(AngleID kAngleId)const;
-
-        GALIB_NODISCARD LittleTilesCoord getVertices(const AngleID kAngleId, const bool kWithOffset)const {
-            if (kWithOffset) { return applyAngleOffset(kAngleId); }
-            return getVertices(kAngleId);
-        }
-
+        GALIB_NODISCARD LittleTilesCoord getVertices(AngleID kAngleId, bool kWithOffset)const;
+        GALIB_NODISCARD LittleTilesCoord getVerticesApplyGrid(AngleID kAngleId, GridType kGridType, bool kWithOffset)const;
         GALIB_NODISCARD TileFace getTileFace(TileFaceID kTileFaceID, bool kWithOffst = false)const;
+        GALIB_NODISCARD const Flipped& getFlippedData()const;
+        void setPos(const LittleTilesCoord& kPos1, const LittleTilesCoord& kPos2);
+        void setFlippedData(const Flipped& kFlippedData);
+        void setOffsetData(AngleID kAngleId, const AngleOffset& kAngleOffsetData);
+        void setOffsetData(const AngleOffset kOffsetData[8]);
+
+    private:
+        AngleOffset offset_data_[8];
+        Flipped flipped_data_;
+        LittleTilesCoord pos_1_;
+        LittleTilesCoord pos_2_;
     };
 
     using BoxTileEnities = GALIB_STD vector<TileEntity>;
@@ -156,14 +162,14 @@ namespace galib::minecraft::littletiles{
         ~ChunkTileEntities()=default;
 
     public:
-        void ReadChunk(const GALIB minecraft::AnvilReader::ChunkDataReference& kChunkDataReference);
-        GALIB_NODISCARD const GALIB minecraft::ChunkCoordinate& GetChunkCoordinate()const;
+        void readChunk(const GALIB minecraft::AnvilReader::ChunkDataReference& kChunkDataReference);
+        GALIB_NODISCARD const GALIB minecraft::ChunkCoordinate& getChunkCoordinate()const;
 
         GALIB_NODISCARD const_iterator cbegin()const;
         GALIB_NODISCARD const_iterator cend()const;
 
-        void Clear();
-        GALIB_NODISCARD bool IsEmpty()const;
+        void clear();
+        GALIB_NODISCARD bool isEmpty()const;
 
     private:
         GALIB minecraft::ChunkCoordinate chunk_coordinate_;

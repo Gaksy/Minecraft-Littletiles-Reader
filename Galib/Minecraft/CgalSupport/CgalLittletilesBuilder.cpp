@@ -1,4 +1,5 @@
-/*
+#include <Minecraft/CgalSupport/CgalLtSupport.h>
+;/*
  * Copyright (c) 2024 Gaksy (Fuhongren)
  * 
  * This work is licensed under the GNU Lesser General Public License v3.0.
@@ -16,3 +17,48 @@
 
 #include "Minecraft/CgalSupport/CgalLittletilesBuilder.h"
 
+using GALIB_STD vector;
+
+using GALIB minecraft::cgal_support::LtMesh;
+using GALIB minecraft::littletiles::BlockTileEntities;
+using GALIB minecraft::cgal_support::BlockMesh;
+using GALIB minecraft::littletiles::TileEntity;
+using GALIB minecraft::cgal_support::createMeshFromTileEntity;
+using GALIB minecraft::littletiles::BoxTileEnities;
+using GALIB minecraft::littletiles::GridType;
+
+BlockMesh::BlockMesh():
+ grid_type_(16)
+{ ; }
+
+void BlockMesh::addTilesFromBlockTileEntities(const BlockTileEntities &kBlockTileEntities) {
+    // tiles mesh array
+    container tiles_mesh;
+    GridType grid_type = kBlockTileEntities.getGridType();
+
+    // BlockTile -> BoxTile -> Tile
+    // For BlockTile
+    for(BlockTileEntities::const_iterator block_it = kBlockTileEntities.cbegin(); block_it != kBlockTileEntities.cend(); ++block_it) {
+        // Get BoxTile entities
+        const BoxTileEnities& box_tile_entities = block_it->second;
+
+        // For BoxTile
+        for(BoxTileEnities::const_iterator tile_it = box_tile_entities.begin(); tile_it != box_tile_entities.end(); ++tile_it) {
+
+            // Get Tile entities
+            const TileEntity& tile_entity = *tile_it;
+
+            // Convert to Lt Mesh
+            LtMesh mesh = createMeshFromTileEntity(tile_entity, grid_type);
+            tiles_mesh.push_back(mesh);
+        }
+    }
+
+    // Get GridType
+    grid_type_ = grid_type;
+    this->tiles_.swap(tiles_mesh);
+}
+
+const vector<LtMesh> & BlockMesh::getTilesMesh() const {
+    return this->tiles_;
+}

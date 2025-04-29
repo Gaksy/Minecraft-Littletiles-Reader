@@ -38,10 +38,10 @@ int main() {
     constexpr ChunkCoordinate chunk_coord = {-1, 0};
 
     anvil_reader.setRegionFolder(region_folder.c_str());
-    const AnvilReader::ChunkDataReference chunk_data_reference = anvil_reader.GetChunkDataReference(chunk_coord);
+    const AnvilReader::ChunkDataReference chunk_data_reference = anvil_reader.getChunkDataReference(chunk_coord);
 
     ChunkTileEntities chunk_tile_manager;
-    chunk_tile_manager.ReadChunk(chunk_data_reference);
+    chunk_tile_manager.readChunk(chunk_data_reference);
 
     return EXIT_SUCCESS;
 }
