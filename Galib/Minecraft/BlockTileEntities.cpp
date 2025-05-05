@@ -203,8 +203,8 @@ bool BlockTileEntities::setAngleOffsetStateData_(
     // Get Angle offset data array
     if (it + 1 != offset_nbt.cend()) {
         for (auto offset_it = it + 1; offset_it != offset_nbt.cend(); ++offset_it) {
-            angle_offset_array.push_back(static_cast<OffsetType>(*offset_it & 0x0000FFFF));             // Get 16bit
             angle_offset_array.push_back(static_cast<OffsetType>((*offset_it & 0xFFFF0000) >> 16));     // Get 16bit
+            angle_offset_array.push_back(static_cast<OffsetType>(*offset_it & 0x0000FFFF));             // Get 16bit
         }
     }
 
@@ -227,6 +227,7 @@ bool BlockTileEntities::setAngleOffsetStateData_(
                 p_offset_data->z_offset = *(offset_it++);
             }
         }
+        p_offset_data++;
     }
 
     // Get Flipped

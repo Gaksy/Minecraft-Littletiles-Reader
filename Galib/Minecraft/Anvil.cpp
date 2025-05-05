@@ -210,9 +210,9 @@ bool AnvilReader::getChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIt
 
     // Calculating chunk offset
     ByteIndex chunk_offset = 0;
-    chunk_offset = chunk_offset | (static_cast<ByteIndex>(kMcaData[chunk_offset_index]) << 16);
-    chunk_offset = chunk_offset | (static_cast<ByteIndex>(kMcaData[chunk_offset_index + 1]) << 8);
-    chunk_offset = chunk_offset | static_cast<ByteIndex>(kMcaData[chunk_offset_index + 2]);
+    chunk_offset = chunk_offset | (static_cast<uint8_t>(kMcaData[chunk_offset_index]) << 16);
+    chunk_offset = chunk_offset | (static_cast<uint8_t>(kMcaData[chunk_offset_index + 1]) << 8);
+    chunk_offset = chunk_offset | static_cast<uint8_t>(kMcaData[chunk_offset_index + 2]);
 
     // Chunk if the chunk exists
     if (!chunk_offset) {
@@ -223,7 +223,7 @@ bool AnvilReader::getChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIt
     }
 
     // Get chunk length
-    const ByteIndex chunk_length = static_cast<unsigned char>(kMcaData[chunk_offset_index + 3]);
+    const ByteIndex chunk_length = static_cast<ByteIndex>(kMcaData[chunk_offset_index + 3]);
 
     // Get desc chunk iterator index
     const ByteIndex chunk_begin_index = chunk_offset * 4096;
@@ -232,10 +232,10 @@ bool AnvilReader::getChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIt
     const ByteIndex chunk_valid_begin_index = chunk_begin_index + 5;
     ByteIndex chunk_valid_end_index = 0;
 
-    chunk_valid_end_index = chunk_valid_end_index | (static_cast<ByteIndex>(kMcaData[chunk_begin_index]) << 32);
-    chunk_valid_end_index = chunk_valid_end_index | (static_cast<ByteIndex>(kMcaData[chunk_begin_index + 1]) << 16);
-    chunk_valid_end_index = chunk_valid_end_index | (static_cast<ByteIndex>(kMcaData[chunk_begin_index + 2]) << 8);
-    chunk_valid_end_index = chunk_valid_end_index | static_cast<ByteIndex>(kMcaData[chunk_begin_index + 3]);
+    chunk_valid_end_index = chunk_valid_end_index | (static_cast<uint8_t>(kMcaData[chunk_begin_index]) << 32);
+    chunk_valid_end_index = chunk_valid_end_index | (static_cast<uint8_t>(kMcaData[chunk_begin_index + 1]) << 16);
+    chunk_valid_end_index = chunk_valid_end_index | (static_cast<uint8_t>(kMcaData[chunk_begin_index + 2]) << 8);
+    chunk_valid_end_index = chunk_valid_end_index | static_cast<uint8_t>(kMcaData[chunk_begin_index + 3]);
     ByteIndex chunk_valid_size = chunk_valid_end_index;
     chunk_valid_end_index += chunk_valid_begin_index;
 

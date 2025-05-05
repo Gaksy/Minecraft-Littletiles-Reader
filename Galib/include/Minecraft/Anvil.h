@@ -143,7 +143,7 @@ namespace galib::minecraft {
 
     class AnvilReader {
     public:
-        using ByteType = char;
+        using ByteType =  char;
         using ByteArray = GALIB_STD vector<ByteType>;
         using ByteIndex = ByteArray::size_type;
         using ByteIndexDifference = ByteArray::difference_type;
