@@ -44,7 +44,7 @@ if (DEFINED ENV{EASYX_ROOT})
     link_libraries(EasyXa)
     link_libraries(EasyXw)
 else()
-    message(FATAL_ERROR "EasyX is not found, please set EASYX_ROOT environment variable")
+    message(WARNING "EasyX is not found, please set EASYX_ROOT environment variable")
 endif()
 
 # Disable CGAL warnings about CMake build type
