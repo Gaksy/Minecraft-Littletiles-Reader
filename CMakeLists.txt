@@ -34,6 +34,19 @@ else()
     message(FATAL_ERROR "cgal is not found")
 endif()
 
+if (DEFINED ENV{EASYX_ROOT})
+    message(STATUS "Found EasyX: $ENV{EASYX_ROOT}")
+    set(EASYX_ROOT $ENV{EASYX_ROOT})
+    set(EASYX_INCLUDE ${EASYX_ROOT}\\include)
+    set(EASYX_LIBRARIES ${EASYX_ROOT}\\lib\\VC2015\\x64)
+    include_directories(${EASYX_INCLUDE})
+    link_directories(${EASYX_LINK})
+    link_libraries(EasyXa)
+    link_libraries(EasyXw)
+else()
+    message(FATAL_ERROR "EasyX is not found, please set EASYX_ROOT environment variable")
+endif()
+
 # Disable CGAL warnings about CMake build type
 set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
 
@@ -41,12 +54,21 @@ set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
 add_executable(${CMAKE_PROJECT_NAME} main.cpp)
 add_subdirectory(Galib)
 
+# Check EasyX
+if (DEFINED ENV{EASYX_ROOT})
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE HAS_EASYX=1)
+endif()
+
 # Link required libraries to the executable
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC Boost::iostreams ZLIB::ZLIB)
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${ZLIB_LIBRARIES})
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${CGAL_LIBRARIES})
+if (DEFINED ENV{EASYX_ROOT})
+    target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE ${EASYX_LIBRARIES})
+endif()
 
 # Link the libnbtplusplus library to your target
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC nbt++)
 # dll
 add_dependencies(LittleTilesReader CopyNBTDLL)
+

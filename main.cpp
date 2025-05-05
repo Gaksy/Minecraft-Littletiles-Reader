@@ -1,3 +1,15 @@
+
+#ifdef HAS_EASYX
+#include <cstdlib>
+#include <cstdio>
+#include <graphics.h>
+
+int main() {
+    printf("%s", GetEasyXVer());
+    return EXIT_SUCCESS;
+}
+
+#else
 #include <cstdlib>
 #include <string>
 #include <optional>
@@ -46,3 +58,4 @@ int main() {
 
     return EXIT_SUCCESS;
 }
+#endif
