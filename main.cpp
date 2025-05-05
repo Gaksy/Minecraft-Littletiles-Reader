@@ -5,7 +5,11 @@
 #include <graphics.h>
 
 int main() {
-    printf("%s", GetEasyXVer());
+    printf("EasyX Version: %s\n", GetEasyXVer());
+    initgraph(1280, 720);
+    while (true) {
+
+    }
     return EXIT_SUCCESS;
 }
 
