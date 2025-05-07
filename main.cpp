@@ -3,13 +3,22 @@
 #include <cstdlib>
 #include <cstdio>
 #include <graphics.h>
+#include <cinttypes>
+
+#include "Minecraft/MinecraftCoord.h"
 
 int main() {
-    printf("EasyX Version: %s\n", GetEasyXVer());
-    initgraph(1280, 720);
-    while (true) {
-
-    }
+    // printf("EasyX Version: %s\n", GetEasyXVer());
+    // initgraph(1280, 720);
+    // while (true) {
+    //
+    // }
+    int32_t x, z;
+    x = -9;
+    z = -10;
+    printf("%d, %d\n", x & 0x1F, z & 0x1F);
+    auto pos = galib::minecraft::ChunkCoordToRegionChunkCoord({x, z});
+    printf("%d, %d\n", pos.x, pos.z);
     return EXIT_SUCCESS;
 }
 
