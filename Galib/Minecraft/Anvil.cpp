@@ -206,12 +206,12 @@ bool AnvilReader::getChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIt
     //const ChunkCoord kChunkCoord = desc_chunk_iterator.chunk_info.chunk_coord;
 
     // Calculating chunk offset index
-    ByteIndex chunk_offset_index = 4 * ((kRegionChunkCoord.x & 31) + (static_cast<ByteIndex>(kRegionChunkCoord.z & 31)) * 32);
+    const ByteIndex chunk_offset_index = 4 * kRegionChunkCoord.x + kRegionChunkCoord.z * 32;
 
     // Calculating chunk offset
     ByteIndex chunk_offset = 0;
-    chunk_offset = chunk_offset | (static_cast<uint8_t>(kMcaData[chunk_offset_index]) << 16);
-    chunk_offset = chunk_offset | (static_cast<uint8_t>(kMcaData[chunk_offset_index + 1]) << 8);
+    chunk_offset = chunk_offset | static_cast<uint8_t>(kMcaData[chunk_offset_index]) << 16;
+    chunk_offset = chunk_offset | static_cast<uint8_t>(kMcaData[chunk_offset_index + 1]) << 8;
     chunk_offset = chunk_offset | static_cast<uint8_t>(kMcaData[chunk_offset_index + 2]);
 
     // Chunk if the chunk exists
