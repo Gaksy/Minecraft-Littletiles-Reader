@@ -6,13 +6,11 @@
  * Copyright (c) 2024 Gaksy (Fuhongren)
  *
  * Author: Gaksy
- * Date Created: 5/5/2025
+ * Date Created: 5/9/2025
  *
  * Additional Terms:
  * For commercial use of this software, you must obtain separate authorization from the original author.
  * Please contact Gaksy at gaksys@outlook.com to request commercial use authorization.
  */
-#ifndef GALIB_INCLUDE_MINECRAFT_EASYXSUPPORT_EASYXSUPPORT_H
-#define GALIB_INCLUDE_MINECRAFT_EASYXSUPPORT_EASYXSUPPORT_H
 
-#endif //GALIB_INCLUDE_MINECRAFT_EASYXSUPPORT_EASYXSUPPORT_H
+#include "EasyXSupport/WidgetBase.h"

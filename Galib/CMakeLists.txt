@@ -12,4 +12,6 @@ target_sources(${CMAKE_PROJECT_NAME} PUBLIC
     File/PathFormat.cpp
     Exception/MinecraftException.cpp
     Exception/LittleTilesException.cpp
+    EasyXSupport/WidgetBase.cpp
+    EasyXSupport/Button.cpp
 )

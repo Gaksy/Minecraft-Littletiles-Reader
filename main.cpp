@@ -1,4 +1,4 @@
-#undef HAS_EASYX
+
 #ifdef HAS_EASYX
 #include <cstdlib>
 #include <cstdio>
@@ -8,17 +8,8 @@
 #include "Minecraft/MinecraftCoord.h"
 
 int main() {
-    // printf("EasyX Version: %s\n", GetEasyXVer());
-    // initgraph(1280, 720);
-    // while (true) {
-    //
-    // }
-    int32_t x, z;
-    x = -9;
-    z = -10;
-    printf("%d, %d\n", x & 0x1F, z & 0x1F);
-    auto pos = galib::minecraft::ChunkCoordToRegionChunkCoord({x, z});
-    printf("%d, %d\n", pos.x, pos.z);
+    printf("EasyX Version: %s\n", GetEasyXVer());
+    
     return EXIT_SUCCESS;
 }
 
