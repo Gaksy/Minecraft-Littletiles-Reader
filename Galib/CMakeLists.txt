@@ -14,4 +14,5 @@ target_sources(${CMAKE_PROJECT_NAME} PUBLIC
     Exception/LittleTilesException.cpp
     EasyXSupport/WidgetBase.cpp
     EasyXSupport/Button.cpp
+    EasyXSupport/WidgetManager.cpp
 )

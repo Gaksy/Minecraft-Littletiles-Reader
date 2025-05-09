@@ -13,4 +13,34 @@
  * Please contact Gaksy at gaksys@outlook.com to request commercial use authorization.
  */
 
-#include "EasyXSupport/EasyXButton.h"
+#include "EasyXSupport/Button.h"
+
+#include <easyx.h>
+#include "GalibNamespaceDef.h"
+
+using GALIB easy_x::Button;
+
+Button::Button(WidgetManager *p_parent):
+    WidgetBase(p_parent)
+{ }
+
+void Button::setLabel(const std::string &kLabel) {
+    label_ = kLabel;
+}
+
+const std::string &Button::getLabel() const {
+    return label_;
+}
+
+
+void Button::drawWidget() const {
+    const int x = getDisplayPos().x;
+    const int y = getDisplayPos().z;
+
+    const int width = getWidgetWidth();
+    const int height = getWidgetHeight();
+
+    fillroundrect(x, y, x + width, y + height, 5,  5);
+}
+
+

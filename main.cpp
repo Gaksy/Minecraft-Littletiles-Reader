@@ -1,4 +1,6 @@
 
+#include <EasyXSupport/Button.h>
+#include <EasyXSupport/WidgetManager.h>
 #ifdef HAS_EASYX
 #include <cstdlib>
 #include <cstdio>
@@ -9,7 +11,14 @@
 
 int main() {
     printf("EasyX Version: %s\n", GetEasyXVer());
-    
+    galib::easy_x::WidgetManager window(600, 600);
+
+    galib::easy_x::Button button(&window);
+
+    button.setWidgetSize(100,20);
+    button.setDisplayPos(10, 10);
+
+    window.start();
     return EXIT_SUCCESS;
 }
 

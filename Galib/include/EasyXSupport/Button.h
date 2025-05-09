@@ -17,14 +17,20 @@
 
 #include <string>
 #include "GalibNamespaceDef.h"
+#include "WidgetBase.h"
 
 namespace galib::easy_x {
-    class Button {
-    private:
-
+    class Button: public WidgetBase {
     public:
-        int x_;
-        int y_;
+        explicit Button(WidgetManager* p_parent = nullptr);
+        ~Button() override = default;
+
+        void setLabel(const GALIB_STD string& kLabel);
+        GALIB_NODISCARD const GALIB_STD string& getLabel()const;
+
+        void drawWidget() const override;
+
+    private:
         GALIB_STD string label_;
     };
 }
