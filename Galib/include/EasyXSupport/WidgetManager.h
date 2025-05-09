@@ -16,11 +16,10 @@
 #define GALIB_EASYXSUPPORT_WIDGETMANAGER_H
 
 #include <list>
-
 #include "GalibNamespaceDef.h"
-#include "WidgetBase.h"
 
 namespace galib::easy_x {
+    class WidgetBase;
     class WidgetManager {
     public:
         WidgetManager(int width, int height);
@@ -41,10 +40,11 @@ namespace galib::easy_x {
     private:
         void drawAllWidgetBase_()const;
 
+        void emitEventMouseMove_(int mouse_x, int mouse_y);
+
     private:
         int window_width_;
         int window_height_;
-
         GALIB_STD list<WidgetBase*> widget_bases_;
     };
 }

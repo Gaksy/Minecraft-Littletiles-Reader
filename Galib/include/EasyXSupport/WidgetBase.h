@@ -16,10 +16,11 @@
 #define GALIB_EASYXSUPPORT_WIDGETBASE_H
 
 #include "GalibNamespaceDef.h"
-#include "WidgetManager.h"
 #include "Coord/Coord2D.h"
 
 namespace galib::easy_x {
+    class WidgetManager;
+
     class WidgetBase {
     public:
         explicit WidgetBase(WidgetManager* p_parent = nullptr);
@@ -37,10 +38,13 @@ namespace galib::easy_x {
         GALIB_NODISCARD int getWidgetWidth()const;
         GALIB_NODISCARD int getWidgetHeight()const;
 
-        virtual void drawWidget()const=0;
+        virtual void drawWidget();
 
         void setParent(WidgetManager* p_parent);
         void removeParent();
+
+    public:
+        virtual void eventMouseMove(int mouse_x, int mouse_y);
 
     protected:
         GALIB coord::Coordinate2D<int> display_pos_;

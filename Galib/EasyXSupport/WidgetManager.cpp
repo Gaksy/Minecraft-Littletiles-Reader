@@ -16,6 +16,7 @@
 #include "EasyXSupport/WidgetManager.h"
 
 #include <easyx.h>
+#include "EasyXSupport/WidgetBase.h"
 
 using GALIB easy_x::WidgetManager;
 
@@ -72,18 +73,37 @@ void WidgetManager::removeWidgetBase(WidgetBase *p_widget_base) {
 
 void WidgetManager::start() {
     BeginBatchDraw();
+    ExMessage easy_x_messager{};
 
     while (true) {
+        DWORD start_time = GetTickCount();
+        while (peekmessage(&easy_x_messager)) {
+            if(easy_x_messager.message == WM_MOUSEMOVE) {
+                this->emitEventMouseMove_(easy_x_messager.x, easy_x_messager.y);
+            }
+        }
+
         cleardevice();
-
-
-
+        drawAllWidgetBase_();
         FlushBatchDraw();
+
+        DWORD end_time = GetTickCount();
+        DWORD delta_time = end_time - start_time;
+
+        if (delta_time < 1000 / 60) {//(60fps)  游戏一帧刷新一次
+            Sleep(1000 / 60 - delta_time);
+        }
     }
 }
 
 void WidgetManager::drawAllWidgetBase_()const {
     for(list<WidgetBase*>::const_iterator it = widget_bases_.cbegin(); it != widget_bases_.cend(); ++it) {
+        (*it)->drawWidget();
+    }
+}
 
+void WidgetManager::emitEventMouseMove_(const int mouse_x, const int mouse_y) {
+    for(list<WidgetBase*>::iterator it = widget_bases_.begin(); it != widget_bases_.end(); ++it) {
+        (*it)->eventMouseMove(mouse_x, mouse_y);
     }
 }

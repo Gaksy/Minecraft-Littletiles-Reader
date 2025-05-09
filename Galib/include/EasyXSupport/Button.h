@@ -15,9 +15,11 @@
 #ifndef GALIB_EASYXSUPPORT_BUTTON_H
 #define GALIB_EASYXSUPPORT_BUTTON_H
 
+#include <easyx.h>
 #include <string>
 #include "GalibNamespaceDef.h"
 #include "WidgetBase.h"
+#include "WidgetManager.h"
 
 namespace galib::easy_x {
     class Button: public WidgetBase {
@@ -25,13 +27,21 @@ namespace galib::easy_x {
         explicit Button(WidgetManager* p_parent = nullptr);
         ~Button() override = default;
 
+    public:
         void setLabel(const GALIB_STD string& kLabel);
         GALIB_NODISCARD const GALIB_STD string& getLabel()const;
 
-        void drawWidget() const override;
+        void setRoundRect(int radius);
+
+    public:
+        void drawWidget() override;
+        void eventMouseMove(int mouse_x, int mouse_y) override;
 
     private:
         GALIB_STD string label_;
+        int radius_;
+        bool is_mouse_inner_;
+        COLORREF origin_color_;
     };
 }
 

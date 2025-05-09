@@ -14,6 +14,7 @@
  */
 
 #include "EasyXSupport/WidgetBase.h"
+#include "EasyXSupport/WidgetManager.h"
 
 using GALIB easy_x::WidgetBase;
 using GALIB coord::Coordinate2D;
@@ -71,6 +72,14 @@ int WidgetBase::getWidgetWidth() const {
 
 int WidgetBase::getWidgetHeight() const {
     return height_;
+}
+
+void WidgetBase::drawWidget() {
+    ; // nothing to do.
+}
+
+void WidgetBase::eventMouseMove(int mouse_x, int mouse_y) {
+    ; // nothing to do.
 }
 
 void WidgetBase::setParent(WidgetManager *p_parent) {

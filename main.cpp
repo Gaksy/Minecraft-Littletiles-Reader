@@ -15,8 +15,15 @@ int main() {
 
     galib::easy_x::Button button(&window);
 
-    button.setWidgetSize(100,20);
+    button.setWidgetSize(120,40);
     button.setDisplayPos(10, 10);
+    button.setLabel("Hello World");
+
+    galib::easy_x::Button button_2(&window);
+
+    button_2.setWidgetSize(120,40);
+    button_2.setDisplayPos(10, 55);
+    button_2.setLabel("WTF");
 
     window.start();
     return EXIT_SUCCESS;
