@@ -1,4 +1,4 @@
-function showGrid(grid_type)
+function showGrid(grid_type, min_value)
     figure;
     axis([0 grid_type 0 grid_type 0 grid_type]);     % 设置坐标轴范围更大一些以显示1,2,3
     axis equal;
@@ -14,11 +14,11 @@ function showGrid(grid_type)
     set(gca, 'XDir', 'reverse');
     
     % 设置刻度为1的倍数
-    xticks(-1:1:4);   % 设置 x 轴刻度
-    yticks(-1:1:4);   % 设置 y 轴刻度
-    zticks(-1:1:4);   % 设置 z 轴刻度（如果是 3D 图）
-    xlim([-1 4]);
-    ylim([-1 4]);
-    zlim([-1 4]);   % 同样适用于 3D 图
+    xticks(min_value:1:grid_type);   % 设置 x 轴刻度
+    yticks(min_value:1:grid_type);   % 设置 y 轴刻度
+    zticks(min_value:1:grid_type);   % 设置 z 轴刻度（如果是 3D 图）
+    xlim([min_value grid_type]);
+    ylim([min_value grid_type]);
+    zlim([min_value grid_type]);   % 同样适用于 3D 图
 
 end

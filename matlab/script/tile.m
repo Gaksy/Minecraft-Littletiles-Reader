@@ -13,6 +13,6 @@ WDS = LtPoint(0, 0, 2); %
 vertices = getLtCubVertices(EUN, EUS, EDN, EDS, WUN, WUS, WDN, WDS);
 
 % 绘制
-showGrid(grid_type);
+showGrid(grid_type, 0);
 patch('Vertices', vertices, 'Faces', getLtFaces(), 'FaceColor', 'cyan', 'FaceAlpha', 0.8);
 
