@@ -1,4 +1,4 @@
-function showGrid(grid_type, min_value)
+function showGrid(grid_type, min_value, max_value_add)
     % 显示网格，根据 grid_type 来限定网格范围
     figure;
     axis([0 grid_type 0 grid_type 0 grid_type]);     % 设置坐标轴范围更大一些以显示1,2,3
@@ -15,11 +15,11 @@ function showGrid(grid_type, min_value)
     set(gca, 'XDir', 'reverse');
     
     % 设置刻度为1的倍数
-    xticks(min_value:1:grid_type);   % 设置 x 轴刻度
-    yticks(min_value:1:grid_type);   % 设置 y 轴刻度
-    zticks(min_value:1:grid_type);   % 设置 z 轴刻度（如果是 3D 图）
-    xlim([min_value grid_type]);
-    ylim([min_value grid_type]);
-    zlim([min_value grid_type]);   % 同样适用于 3D 图
+    xticks(min_value:1:grid_type + max_value_add);   % 设置 x 轴刻度
+    yticks(min_value:1:grid_type + max_value_add);   % 设置 y 轴刻度
+    zticks(min_value:1:grid_type + max_value_add);   % 设置 z 轴刻度（如果是 3D 图）
+    xlim([min_value grid_type + max_value_add]);
+    ylim([min_value grid_type + max_value_add]);
+    zlim([min_value grid_type + max_value_add]);   % 同样适用于 3D 图
 
 end
