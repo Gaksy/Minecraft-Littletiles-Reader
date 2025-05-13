@@ -1,4 +1,5 @@
 function showGrid(grid_type, min_value)
+    % 显示网格，根据 grid_type 来限定网格范围
     figure;
     axis([0 grid_type 0 grid_type 0 grid_type]);     % 设置坐标轴范围更大一些以显示1,2,3
     axis equal;

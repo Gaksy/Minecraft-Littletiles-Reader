@@ -1,9 +1,10 @@
 classdef LtPoint
-   properties
+    % 三个轴向的坐标点
+    properties
        x
        y
        z
-   end
+    end
 
     methods
         function obj = LtPoint(x, y, z)
