@@ -1,6 +1,7 @@
 
 #include <EasyXSupport/Button.h>
 #include <EasyXSupport/WidgetManager.h>
+#undef HAS_EASYX
 #ifdef HAS_EASYX
 #include <cstdlib>
 #include <cstdio>
@@ -68,7 +69,7 @@ int main() {
     }
 
     AnvilReader anvil_reader;
-    constexpr ChunkCoordinate chunk_coord = {0, 1};
+    constexpr ChunkCoordinate chunk_coord = {0, 0};
 
     anvil_reader.setRegionFolder(region_folder.c_str());
     const AnvilReader::ChunkDataReference chunk_data_reference = anvil_reader.getChunkDataReference(chunk_coord);
