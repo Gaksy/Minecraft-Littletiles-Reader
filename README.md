@@ -16,20 +16,28 @@ The project is tested with Minecraft 1.12.2 and Little Tiles 1.5.66. The general
 8. Use the obj file builder to export the model to an obj file.
 
 # Notes
-This is the initial version, which has various bugs and performance issues. The author is working on the second version. This version can only export basic white models with the corresponding block IDs for each tile. The merging of normals, UV mapping, and other resources has not been implemented yet.
+The author is currently working on version 2 of this project, which is not yet fully operational. Please do not use this version for production.
 
-# Usage
+This project is developed and tested only on the Windows platform.
+
+# Usage (Windows)
 1. Use vcpkg to manage dependencies such as zlib, boost, and cgal.
-
-2. Configure the VCPKG_ROOT system environment variable.
-
-3. Since VCPKG_ROOT uses MSVC for compilation, the project should also be compiled with MSVC.
-
+2. Configure the `VCPKG_ROOT` system environment variable.
+3. Since `VCPKG_ROOT` uses MSVC for compilation, the project should also be compiled with MSVC.
 4. Clone the project and configure the toolchain and CMake.
-
-5. Execute CMakeLists, then build nbt++ to fulfill the dependency (this project relies on this library for NBT parsing).
-
+5. Execute `CMakeLists.txt`, then build `libnbt++` to fulfill the dependency (this project relies on this library for NBT parsing).
 6. Finally, compile and run LittleTilesReader.
+
+# Usage (Mac)
+1. Use Homebrew to manage dependencies such as zlib, boost, and cgal:
+    ```
+    brew install boost
+    brew install zlib
+    brew install cgal
+    ```
+2. Clone the project.
+3. Run CMake to configure the project; it will automatically check for required dependencies.
+4. Compile and run LittleTilesReader.
 
 # Development Plan (Feature Roadmap)
 
@@ -74,13 +82,24 @@ Windows SDK Version: 10.0
 
 仅在 Windows 平台开发测试
 
-# 使用方式
+# 使用方式 (Windows 平台)
 1. 使用 vcpkg 管理项目需要的 zlib、boost、cgal 依赖。
 2. 配置 VCPKG_ROOT 系统环境变量。
 3. 由于 VCPKG_ROOT 使用 msvc 进行编译，所以该项目的编译也应使用 MSVC。
 4. 克隆该项目，并配置 toolchain、cmake。
-5. 执行 CMakeLists，随后执行 nbt++ 以构建 nbt++ 依赖。（该项目的 nbt 解析由该库提供）
-6. 最后对 LittleTilesReader 进行编译运行
+5. 执行 CMakeLists，随后执行（自动） libnbt++ 以构建 libnbt++ 依赖。（该项目的 nbt 解析由该库提供）
+6. 最后对 LittleTilesReader 进行编译运行。
+
+# 使用方式 (Mac 平台)
+1. 使用 Homebrew 管理项目需要的 zlib、boost、cgal 依赖。
+    ```
+    brew install boost
+    brew install zlib
+    brew install cgal
+    ```
+2. 克隆该项目。
+3. 执行CMakeList，CMake 会自动检查所需依赖。
+4. 最后对 LittleTilesReader 进行编译运行。
 
 # 开发计划（画大饼）
 - [x] 使用 CMake 进行项目管理
