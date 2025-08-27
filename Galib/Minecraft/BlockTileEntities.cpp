@@ -13,10 +13,12 @@
  * Please contact Gaksy at gaksys@outlook.com to request commercial use authorization.
  */
 
+#include <iostream>
 #include "GalibNamespaceDef.h"
 #include "Minecraft/LittleTiles.h"
 #include "Minecraft/MinecraftCoord.h"
 #include "Exception/LittleTilesException.h"
+#include "nbt_tags.h"
 
 using GALIB minecraft::littletiles::GridType;
 using GALIB minecraft::littletiles::BlockTileEntities;
@@ -95,7 +97,7 @@ void BlockTileEntities::readBlockTileNBT(const tag_compound &kBlockTilesNBT) {
 
         // DONE!!
         grid_ = grid_type;
-        box_tile_enities_map_.swap(box_tile_enities_map);
+        box_tile_entities_map_.swap(box_tile_enities_map);
         little_tiles_id_.swap(little_tiles_id);
     }
     catch (...) {
@@ -116,11 +118,11 @@ const std::string & BlockTileEntities::getLittleTilesID() const {
 }
 
 BlockTileEntities::const_iterator BlockTileEntities::cbegin() const {
-    return box_tile_enities_map_.cbegin();
+    return box_tile_entities_map_.cbegin();
 }
 
 BlockTileEntities::const_iterator BlockTileEntities::cend() const {
-    return box_tile_enities_map_.cend();
+    return box_tile_entities_map_.cend();
 }
 
 bool BlockTileEntities::readBoxesTilesNbt_(
@@ -130,14 +132,14 @@ bool BlockTileEntities::readBoxesTilesNbt_(
     if (!kBoxesTilesNbt.size()) { return false; }
 
     try {
-        tag_list boxes;
+        tag_list boxes_pos;
 
         // Get struct
         if (kBoxesTilesNbt.has_key("boxes")) {
-            boxes = kBoxesTilesNbt.at("boxes").as<tag_list>();
+            boxes_pos = kBoxesTilesNbt.at("boxes").as<tag_list>();
         }
         else if (kBoxesTilesNbt.has_key("box")) {
-            boxes.push_back(nbt::value_initializer(kBoxesTilesNbt.at("box").as<tag_int_array>().clone()));
+            boxes_pos.push_back(nbt::value_initializer(kBoxesTilesNbt.at("box").as<tag_int_array>().clone()));
         }
         else {
             return false;
@@ -146,10 +148,18 @@ bool BlockTileEntities::readBoxesTilesNbt_(
         // Get tiles data
         BoxTileEnities box_tile_enity_array;
 
-        for (auto it = boxes.cbegin(); it != boxes.cend(); ++it) {
+        for (tag_list::const_iterator it = boxes_pos.cbegin(); it != boxes_pos.cend(); ++it) {
             try {
                 TileEntity temp;
-                const auto& int_array = it->as<tag_int_array>();
+                // const nbt::tag_int_array& int_array = it->as<nbt::tag_int_array>();
+                // const auto& int_array = it->as<nbt::tag_int_array>();
+                // std::cerr << "boxes element type: " << *it << std::endl;
+
+                // const tag_int_array& int_array = it->as<tag_int_array>();
+                // printf("a");
+
+                const tag_int_array& int_array = it->as<tag_int_array>();
+
                 if (int_array.size() < 6) { continue; }     // pos must have 6 num (two vertices)
                 if (int_array.size() > 6) {                 // if > 6 , then have offset and flipped
                     AngleOffset angle_offset_data[8];
@@ -173,7 +183,11 @@ bool BlockTileEntities::readBoxesTilesNbt_(
                 temp.setPos(pos_1, pos_2);
 
                 box_tile_enity_array.push_back(temp);
-            }catch ( ... ) { }
+            } catch (const std::exception &e) {
+                std::cerr << "Error parsing box tile entity: " << e.what() << std::endl;
+            } catch (...) {
+                std::cerr << "Unknown error parsing box tile entity." << std::endl;
+            }
         }
 
         // Cheak data
@@ -188,7 +202,7 @@ bool BlockTileEntities::readBoxesTilesNbt_(
 }
 
 bool BlockTileEntities::setAngleOffsetStateData_(
-    const nbt::tag_int_array &offset_nbt,
+    const tag_int_array &offset_nbt,
     AngleOffset *p_offset_data,
     Flipped *p_flipped_data
 ) {

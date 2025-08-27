@@ -27,26 +27,43 @@
 #include "Minecraft/LittleTiles.h"
 
 namespace galib::minecraft::cgal_support {
-    class BlockMesh {
+    // 存储 block 中的所有 tiles
+    // class BlockMesh {
+    // public:
+    //     using container = GALIB_STD vector<LtMesh>;
+    //     using const_iterator = GALIB_STD vector<LtMesh>::const_iterator;
+    //     using iterator = GALIB_STD vector<LtMesh>::iterator;
+    //
+    // public:
+    //     BlockMesh();
+    //     ~BlockMesh()=default;
+    //
+    // public:
+    //     void addTilesFromBlockTileEntities(const GALIB minecraft::littletiles::BlockTileEntities& kBlockTileEntities);
+    //     GALIB_NODISCARD const GALIB_STD vector<LtMesh>& getMeshArray()const;
+    //
+    // private:
+    //     container tiles_in_world_;
+    //     GALIB minecraft::BlockCoordinate block_coordinate_in_world_;
+    // };
+
+    class ChunkMesh {
     public:
         using container = GALIB_STD vector<LtMesh>;
         using const_iterator = GALIB_STD vector<LtMesh>::const_iterator;
         using iterator = GALIB_STD vector<LtMesh>::iterator;
 
     public:
-        BlockMesh();
-        ~BlockMesh()=default;
+        ChunkMesh()=default;
+        ~ChunkMesh()=default;
 
     public:
-        void addTilesFromBlockTileEntities(const GALIB minecraft::littletiles::BlockTileEntities& kBlockTileEntities);
-        GALIB_NODISCARD const GALIB_STD vector<LtMesh>& getTilesMesh()const;
+        void addTilesFromChukTileEntities(const GALIB minecraft::littletiles::ChunkTileEntities& kChunkTileEntities);
+        GALIB_NODISCARD const GALIB_STD vector<LtMesh>& getMeshArray()const;
 
     private:
-        container tiles_;
-        GALIB minecraft::littletiles::GridType grid_type_;
+        container tiles_in_world_;
     };
-
-
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H

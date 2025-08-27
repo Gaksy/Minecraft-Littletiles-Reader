@@ -149,7 +149,7 @@ namespace galib::minecraft::littletiles{
         GALIB minecraft::BlockCoordinate block_coordinate_;
         GALIB_STD string little_tiles_id_;
         GridType grid_;
-        container box_tile_enities_map_;
+        container box_tile_entities_map_;
     };
 
     class ChunkTileEntities {

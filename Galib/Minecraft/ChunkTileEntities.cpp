@@ -29,6 +29,9 @@ using GALIB exception::MinecraftErrorCode;
 using GALIB exception::LittleTilesException;
 using GALIB exception::LittleTilesErrorCode;
 
+using GALIB_NBT tag_compound;
+using GALIB_NBT tag_list;
+
 GALIB minecraft::littletiles::ChunkTileEntities::ChunkTileEntities():
     chunk_coordinate_({})
 { }
@@ -51,14 +54,14 @@ void ChunkTileEntities::readChunk(
     }
 
     // Get TileEnities
-    const GALIB_NBT tag_list& tiles_entities = kChunkDataReference.p_chunk_level->at("TileEntities").as<GALIB_NBT tag_list>();
+    const tag_list& tiles_entities = kChunkDataReference.p_chunk_level->at("TileEntities").as<tag_list>();
     container block_tile_entities;
 
     // Decode...
-    for(GALIB_NBT tag_list::const_iterator it = tiles_entities.cbegin(); it != tiles_entities.cend(); ++it) {
+    for(tag_list::const_iterator it = tiles_entities.cbegin(); it != tiles_entities.cend(); ++it) {
         try {
             BlockTileEntities block_tiles;
-            block_tiles.readBlockTileNBT(it->as<GALIB_NBT tag_compound>());
+            block_tiles.readBlockTileNBT(it->as<tag_compound>());
             block_tile_entities.push_back(block_tiles);
         }
         catch (...) { }

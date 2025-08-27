@@ -12,12 +12,10 @@ if(APPLE)
         message(FATAL_ERROR "Homebrew prefix not found. Please ensure Homebrew is installed and 'brew --prefix' works.")
     endif()
     message(STATUS "Homebrew prefix: ${HOMEBREW_PREFIX}")
-    # 设置 CMake 查找路径，优先搜索 Homebrew
     set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
     set(CMAKE_FIND_FRAMEWORK NEVER)
     set(CMAKE_FIND_APPBUNDLE NEVER)
 elseif(WIN32)
-    # Windows: 使用 vcpkg
     if(DEFINED ENV{VCPKG_ROOT})
         message(STATUS "VCPKG_ROOT is found: $ENV{VCPKG_ROOT}")
     else()
@@ -27,7 +25,6 @@ elseif(WIN32)
     message(STATUS "CMAKE_TOOLCHAIN_FILE is ${CMAKE_TOOLCHAIN_FILE}")
 endif()
 
-# 项目定义
 project(LittleTilesReader)
 set(CMAKE_CXX_STANDARD 14)
 
