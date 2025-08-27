@@ -118,51 +118,6 @@ void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities,
     }
 }
 
-// BlockMesh::BlockMesh():
-//     block_coordinate_in_world_({0, 0, 0})
-// { ; }
-//
-// void BlockMesh::addTilesFromBlockTileEntities(const BlockTileEntities &kBlockTileEntities) {
-//     // tiles mesh array
-//     container tiles_mesh;
-//     const GridType grid_type = kBlockTileEntities.getGridType();
-//
-//     // BlockTile -> BoxTile -> Tile
-//
-//     // For BlockTile 遍历 Block 中的所有 Tile
-//     for(auto box_it = kBlockTileEntities.cbegin(); box_it != kBlockTileEntities.cend(); ++box_it) {
-//         // Get BoxTile entities 获取每个 Box Tile
-//         const BoxTileEnities& box_tile_entities = box_it->second;
-//
-//         // For BoxTile 对于 Box Tile 中的每个 Tile，构建他的面
-//         for(auto tile_it = box_tile_entities.begin(); tile_it != box_tile_entities.end(); ++tile_it) {
-//
-//             // Get Tile entities
-//             const TileEntity& tile_entity = *tile_it;
-//
-//             // Convert to Lt Mesh 创建面并添加到 tiles_mesh 中
-//             LtMesh tile_mesh = createMeshFromTileEntity(tile_entity, grid_type);
-//             LtMesh intersection_cub_mesh = createIntersectionCube();
-//
-//             // Compute intersection (assuming CGAL corefinement is available) 进行交集计算
-//             LtMesh intersection_result;
-//             if(CGAL::Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
-//                 // Apply world offset based on block_coordinate_ 应用世界坐标偏移
-//                 LtMesh final_mesh = applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate());
-//                 tiles_mesh.push_back(final_mesh);
-//             }
-//         }
-//     }
-//
-//     // Get GridType
-//     block_coordinate_in_world_ = kBlockTileEntities.getBlockCoordinate();
-//     this->tiles_in_world_.swap(tiles_mesh);
-// }
-//
-// const vector<LtMesh> & BlockMesh::getMeshArray() const {
-//     return this->tiles_in_world_;
-// }
-
 void ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTileEntities) {
     for (auto block_it = kChunkTileEntities.cbegin(); block_it != kChunkTileEntities.cend(); ++block_it) {
         addTilesFromBlockTilesEntities(*block_it, this->tiles_in_world_);

@@ -27,26 +27,6 @@
 #include "Minecraft/LittleTiles.h"
 
 namespace galib::minecraft::cgal_support {
-    // 存储 block 中的所有 tiles
-    // class BlockMesh {
-    // public:
-    //     using container = GALIB_STD vector<LtMesh>;
-    //     using const_iterator = GALIB_STD vector<LtMesh>::const_iterator;
-    //     using iterator = GALIB_STD vector<LtMesh>::iterator;
-    //
-    // public:
-    //     BlockMesh();
-    //     ~BlockMesh()=default;
-    //
-    // public:
-    //     void addTilesFromBlockTileEntities(const GALIB minecraft::littletiles::BlockTileEntities& kBlockTileEntities);
-    //     GALIB_NODISCARD const GALIB_STD vector<LtMesh>& getMeshArray()const;
-    //
-    // private:
-    //     container tiles_in_world_;
-    //     GALIB minecraft::BlockCoordinate block_coordinate_in_world_;
-    // };
-
     class ChunkMesh {
     public:
         using container = GALIB_STD vector<LtMesh>;

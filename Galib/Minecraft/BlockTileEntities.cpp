@@ -155,11 +155,11 @@ bool BlockTileEntities::readBoxesTilesNbt_(
                 // const auto& int_array = it->as<nbt::tag_int_array>();
                 // std::cerr << "boxes element type: " << *it << std::endl;
 
-                // const tag_int_array& int_array = it->as<tag_int_array>();
+                const tag_int_array& int_array = it->as<tag_int_array>();
                 // printf("a");
 
-                const tag_int_array& int_array = it->as<tag_int_array>();
-
+                // const tag_int_array& int_array = it->as<tag_int_array>();
+                //
                 if (int_array.size() < 6) { continue; }     // pos must have 6 num (two vertices)
                 if (int_array.size() > 6) {                 // if > 6 , then have offset and flipped
                     AngleOffset angle_offset_data[8];
