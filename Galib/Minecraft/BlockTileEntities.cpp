@@ -14,6 +14,7 @@
  */
 
 #include <iostream>
+#include <typeinfo>
 #include "GalibNamespaceDef.h"
 #include "Minecraft/LittleTiles.h"
 #include "Minecraft/MinecraftCoord.h"
@@ -151,29 +152,28 @@ bool BlockTileEntities::readBoxesTilesNbt_(
         for (tag_list::const_iterator it = boxes_pos.cbegin(); it != boxes_pos.cend(); ++it) {
             try {
                 TileEntity temp;
-                // const nbt::tag_int_array& int_array = it->as<nbt::tag_int_array>();
-                // const auto& int_array = it->as<nbt::tag_int_array>();
-                // std::cerr << "boxes element type: " << *it << std::endl;
+                auto& inner_tag = it->get();
+                // 强制转换
+                const auto& int_array = static_cast<const nbt::tag_array<int32_t>&>(inner_tag);
 
-                const tag_int_array& int_array = it->as<tag_int_array>();
-                // printf("a");
+                // 输出调试信息
+                // std::cout << "Successfully casted inner_tag to tag_array<int32_t>\n";
+                // std::cout << "Type of inner_tag: " << typeid(inner_tag).name() << "\n";
+                // std::cout << "Address of inner_tag: " << &inner_tag << "\n";
+                // std::cout << "Array size: " << int_array.size() << "\n";
 
-                // const tag_int_array& int_array = it->as<tag_int_array>();
-                //
                 if (int_array.size() < 6) { continue; }     // pos must have 6 num (two vertices)
                 if (int_array.size() > 6) {                 // if > 6 , then have offset and flipped
                     AngleOffset angle_offset_data[8];
                     Flipped flipped_data;
-                    // Get flipped and offert data
                     if(!setAngleOffsetStateData_(int_array, angle_offset_data, &flipped_data)) {
-                        // if error
                         continue;
                     }
                     temp.setFlippedData(flipped_data);
                     temp.setOffsetData(angle_offset_data);
                 }
-                LittleTilesCoord pos_1;
-                LittleTilesCoord pos_2;
+
+                LittleTilesCoord pos_1, pos_2;
                 pos_1.x = int_array[0];
                 pos_1.y = int_array[1];
                 pos_1.z = int_array[2];
@@ -182,7 +182,6 @@ bool BlockTileEntities::readBoxesTilesNbt_(
                 pos_2.z = int_array[5];
                 temp.setPos(pos_1, pos_2);
 
-                box_tile_enity_array.push_back(temp);
             } catch (const std::exception &e) {
                 std::cerr << "Error parsing box tile entity: " << e.what() << std::endl;
             } catch (...) {
