@@ -109,11 +109,11 @@ void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities,
 
             // Compute intersection (assuming CGAL corefinement is available) 进行交集计算
             LtMesh intersection_result;
-            if(CGAL::Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
-                // Apply world offset based on block_coordinate_ 应用世界坐标偏移
-                LtMesh final_mesh = applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate());
-                mesh_array.push_back(final_mesh);
-            }
+            // if(CGAL::Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
+            //     // Apply world offset based on block_coordinate_ 应用世界坐标偏移
+            //     LtMesh final_mesh = applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate());
+            //     mesh_array.push_back(final_mesh);
+            // }
         }
     }
 }

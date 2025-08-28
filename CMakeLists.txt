@@ -64,6 +64,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${CGAL_LIBRARIES})
 target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC nbt++)
 
 # 添加依赖项，仅在 Windows 平台
-if(WIN32)
-    add_dependencies(LittleTilesReader CopyNBTDLL)
-endif()
+#if(WIN32)
+#    add_dependencies(LittleTilesReader CopyNBTDLL)
+#endif()
