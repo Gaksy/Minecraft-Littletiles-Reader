@@ -156,12 +156,6 @@ bool BlockTileEntities::readBoxesTilesNbt_(
                 // 强制转换
                 const auto& int_array = static_cast<const nbt::tag_array<int32_t>&>(inner_tag);
 
-                // 输出调试信息
-                // std::cout << "Successfully casted inner_tag to tag_array<int32_t>\n";
-                // std::cout << "Type of inner_tag: " << typeid(inner_tag).name() << "\n";
-                // std::cout << "Address of inner_tag: " << &inner_tag << "\n";
-                // std::cout << "Array size: " << int_array.size() << "\n";
-
                 if (int_array.size() < 6) { continue; }     // pos must have 6 num (two vertices)
                 if (int_array.size() > 6) {                 // if > 6 , then have offset and flipped
                     AngleOffset angle_offset_data[8];
@@ -182,6 +176,7 @@ bool BlockTileEntities::readBoxesTilesNbt_(
                 pos_2.z = int_array[5];
                 temp.setPos(pos_1, pos_2);
 
+                box_tile_enity_array.push_back(temp);
             } catch (const std::exception &e) {
                 std::cerr << "Error parsing box tile entity: " << e.what() << std::endl;
             } catch (...) {
