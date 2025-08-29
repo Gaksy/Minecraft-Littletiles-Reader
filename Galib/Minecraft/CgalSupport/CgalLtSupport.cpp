@@ -19,7 +19,6 @@
 #include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTiles.h"
-#include "Coord/CoordString.h"
 #include <CGAL/Polygon_mesh_processing/stitch_borders.h>
 #include <CGAL/Polygon_mesh_processing/repair.h>
 

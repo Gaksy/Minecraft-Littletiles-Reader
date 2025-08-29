@@ -36,6 +36,7 @@ int main() {
     ChunkMesh chunk_mesh_management;
     chunk_mesh_management.addTilesFromChukTileEntities(chunk_tile_manager);
 
+    const ChunkMesh::container& tile_array = chunk_mesh_management.getMeshArray();
 
 
     return EXIT_SUCCESS;

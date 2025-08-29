@@ -52,45 +52,48 @@ LtMesh applyWorldOffset(const LtMesh& mesh, const galib::minecraft::BlockCoordin
     return transformed;
 }
 
-LtMesh createIntersectionCube() {
-    LtMesh mesh;
+const LtMesh& createIntersectionCube() {
+    // 静态指针，确保只在第一次调用时创建
+    static LtMesh* cube = nullptr;
 
-    using Point = LtMesh::Point;
-    // Define 8 cube vertices
-    const SM_Vertex_index v0 = mesh.add_vertex(Point(0, 0, 0));
-    const SM_Vertex_index v1 = mesh.add_vertex(Point(1, 0, 0));
-    const SM_Vertex_index v2 = mesh.add_vertex(Point(1, 1, 0));
-    const SM_Vertex_index v3 = mesh.add_vertex(Point(0, 1, 0));
-    const SM_Vertex_index v4 = mesh.add_vertex(Point(0, 0, 1));
-    const SM_Vertex_index v5 = mesh.add_vertex(Point(1, 0, 1));
-    const SM_Vertex_index v6 = mesh.add_vertex(Point(1, 1, 1));
-    const SM_Vertex_index v7 = mesh.add_vertex(Point(0, 1, 1));
+    // 如果cube尚未创建，则构建它
+    if (!cube) {
+        cube = new LtMesh();
 
-    // Define cube faces (each face as a quad, split into two triangles)
-    mesh.add_face(v0, v1, v2);
-    mesh.add_face(v0, v2, v3);
+        // 构建正方体顶点 p1(0, 0, 0) 和 p2(1, 1, 1)
+        using Point = LtMesh::Point;
 
-    mesh.add_face(v4, v5, v6);
-    mesh.add_face(v4, v6, v7);
+        // 顶点坐标
+        const SM_Vertex_index v1 = cube->add_vertex(Point(1, 1, 0));
+        const SM_Vertex_index v2 = cube->add_vertex(Point(1, 1, 1));
+        const SM_Vertex_index v3 = cube->add_vertex(Point(1, 0, 0));
+        const SM_Vertex_index v4 = cube->add_vertex(Point(1, 0, 1));
+        const SM_Vertex_index v5 = cube->add_vertex(Point(0, 1, 0));
+        const SM_Vertex_index v6 = cube->add_vertex(Point(0, 1, 1));
+        const SM_Vertex_index v7 = cube->add_vertex(Point(0, 0, 0));
+        const SM_Vertex_index v8 = cube->add_vertex(Point(0, 0, 1));
 
-    mesh.add_face(v0, v1, v5);
-    mesh.add_face(v0, v5, v4);
+        // 创建正方体的面（六个面，每个面由两个三角形组成）
+        cube->add_face(v2, v1, v4);
+        cube->add_face(v4, v1, v3);
+        cube->add_face(v5, v6, v7);
+        cube->add_face(v7, v6, v8);
+        cube->add_face(v6, v2, v8);
+        cube->add_face(v8, v2, v4);
+        cube->add_face(v1, v5, v3);
+        cube->add_face(v3, v5, v7);
+        cube->add_face(v5, v1, v6);
+        cube->add_face(v6, v1, v2);
+        cube->add_face(v8, v4, v7);
+        cube->add_face(v7, v4, v3);
+    }
 
-    mesh.add_face(v1, v2, v6);
-    mesh.add_face(v1, v6, v5);
-
-    mesh.add_face(v2, v3, v7);
-    mesh.add_face(v2, v7, v6);
-
-    mesh.add_face(v3, v0, v4);
-    mesh.add_face(v3, v4, v7);
-
-    return mesh;
+    return *cube;  // 返回静态指针
 }
+
 
 void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities, vector<LtMesh>& mesh_array) {
     const GridType grid_type = kBlockTileEntities.getGridType();
-
     // BlockTile -> BoxTile -> Tile
 
     // For BlockTile 遍历 Block 中的所有 Tile
@@ -106,28 +109,35 @@ void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities,
 
             // Convert to Lt Mesh 创建面并添加到 tiles_mesh 中
             LtMesh tile_mesh = createMeshFromTileEntity(tile_entity, grid_type);
-            GALIB_STD cout << tile_mesh << GALIB_STD endl;
-            GALIB_STD cout << "closed " << ((GALIB_CGAL is_closed(tile_mesh)) ? "true" : "false") << GALIB_STD endl;
-            GALIB_STD cout << "--split--" << GALIB_STD endl;
+            // GALIB_STD cout << tile_mesh << GALIB_STD endl;
+            // GALIB_STD cout << "closed " << ((GALIB_CGAL is_closed(tile_mesh)) ? "true" : "false") << GALIB_STD endl;
+            // GALIB_STD cout << "--split--" << GALIB_STD endl;
 
-            // 合并位置相同的点
-            //
-            // try {
-            //     CGAL::Polygon_mesh_processing::remove_degenerate_faces(tile_mesh);
-            // } catch (const CGAL::Assertion_exception& e) {
-            //     std::cerr << "Warning: Degenerate face removal failed: " << e.what() << std::endl;
-            //     continue;
-            // }
-            //
-            // LtMesh intersection_cub_mesh = createIntersectionCube();
-            //
-            // // Compute intersection (assuming CGAL corefinement is available) 进行交集计算
-            // LtMesh intersection_result;
-            // if(CGAL::Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
-            //     // Apply world offset based on block_coordinate_ 应用世界坐标偏移
-            //     LtMesh final_mesh = applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate());
-            //     mesh_array.push_back(final_mesh);
-            // }
+            // Compute intersection (assuming CGAL corefinement is available) 进行交集计算
+
+            if(tile_entity.hasAnyOffsetEnable()) {
+                LtMesh intersection_result;
+                LtMesh intersection_cub_mesh = createIntersectionCube();
+                try {
+                    if(CGAL::Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
+                        // Apply world offset based on block_coordinate_ 应用世界坐标偏移
+
+                        LtMesh final_mesh = applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate());
+                        GALIB_STD cout << final_mesh << GALIB_STD endl;
+                        GALIB_STD cout << "closed " << ((GALIB_CGAL is_closed(final_mesh)) ? "true" : "false") << GALIB_STD endl;
+                        GALIB_STD cout << "--split--" << GALIB_STD endl;
+                        mesh_array.push_back(final_mesh);
+                    }
+                } catch (GALIB_STD exception e) {
+                    printf(e.what());
+                }
+            } else {
+                LtMesh final_mesh = applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate());
+                GALIB_STD cout << final_mesh << GALIB_STD endl;
+                GALIB_STD cout << "closed " << ((GALIB_CGAL is_closed(final_mesh)) ? "true" : "false") << GALIB_STD endl;
+                GALIB_STD cout << "--split--" << GALIB_STD endl;
+                mesh_array.push_back(final_mesh);
+            }
         }
     }
 }
