@@ -25,7 +25,7 @@
 namespace galib::minecraft::littletiles{
     using GridType = GALIB_STD int32_t;
     using OffsetType = GALIB_STD int16_t;
-    using LittleTilesCoord = GALIB coord::Coordinate3D<GALIB_STD int32_t>;
+    using LittleTilesCoord = GALIB coord::Coordinate3D<double>;
 }
 
 

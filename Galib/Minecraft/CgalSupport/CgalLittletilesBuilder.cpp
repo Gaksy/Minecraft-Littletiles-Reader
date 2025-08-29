@@ -1,5 +1,6 @@
 #include <Minecraft/CgalSupport/CgalLtSupport.h>
 #include <CGAL/Polygon_mesh_processing/corefinement.h>
+#include <CGAL/Polygon_mesh_processing/repair.h>
 ;/*
  * Copyright (c) 2024 Gaksy (Fuhongren)
  *
@@ -93,22 +94,37 @@ void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities,
     // BlockTile -> BoxTile -> Tile
 
     // For BlockTile 遍历 Block 中的所有 Tile
-    for(auto block_it = kBlockTileEntities.cbegin(); block_it != kBlockTileEntities.cend(); ++block_it) {
+    for(BlockTileEntities::const_iterator block_it = kBlockTileEntities.cbegin(); block_it != kBlockTileEntities.cend(); ++block_it) {
         // Get BoxTile entities 获取每个 Box Tile
         const BoxTileEnities& box_tile_entities = block_it->second;
 
         // For BoxTile 对于 Box Tile 中的每个 Tile，构建他的面
-        for(auto tile_it = box_tile_entities.begin(); tile_it != box_tile_entities.end(); ++tile_it) {
+        for(BoxTileEnities::const_iterator tile_it = box_tile_entities.cbegin(); tile_it != box_tile_entities.cend(); ++tile_it) {
 
             // Get Tile entities
             const TileEntity& tile_entity = *tile_it;
 
             // Convert to Lt Mesh 创建面并添加到 tiles_mesh 中
             LtMesh tile_mesh = createMeshFromTileEntity(tile_entity, grid_type);
-            LtMesh intersection_cub_mesh = createIntersectionCube();
+            GALIB_STD cout << tile_mesh << std::endl;
+            GALIB_STD cout << "--split--" << std::endl;
 
-            // Compute intersection (assuming CGAL corefinement is available) 进行交集计算
-            LtMesh intersection_result;
+            // 合并位置相同的点
+
+
+
+            //
+            // try {
+            //     CGAL::Polygon_mesh_processing::remove_degenerate_faces(tile_mesh);
+            // } catch (const CGAL::Assertion_exception& e) {
+            //     std::cerr << "Warning: Degenerate face removal failed: " << e.what() << std::endl;
+            //     continue;
+            // }
+            //
+            // LtMesh intersection_cub_mesh = createIntersectionCube();
+            //
+            // // Compute intersection (assuming CGAL corefinement is available) 进行交集计算
+            // LtMesh intersection_result;
             // if(CGAL::Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
             //     // Apply world offset based on block_coordinate_ 应用世界坐标偏移
             //     LtMesh final_mesh = applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate());
@@ -127,7 +143,3 @@ void ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTile
 const std::vector<LtMesh>& ChunkMesh::getMeshArray() const {
     return this->tiles_in_world_;
 }
-
-
-
-
