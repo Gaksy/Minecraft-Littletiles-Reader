@@ -41,35 +41,34 @@ void GALIB minecraft::cgal_support::createMeshFromTileEntity(
 ) {
     using VertexIndex = LtMesh::Vertex_index;
 
-    printf("EUN: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::EUN, kGridType, true)).c_str());
     const VertexIndex eun = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EUN, kGridType, true))
     );
-    printf("EUS: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::EUS, kGridType, true)).c_str());
+
     const VertexIndex eus = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EUS, kGridType, true))
     );
-    printf("EDN: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::EDN, kGridType, true)).c_str());
+
     const VertexIndex edn = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EDN, kGridType, true))
     );
-    printf("EDS: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::EDS, kGridType, true)).c_str());
+
     const VertexIndex eds = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EDS, kGridType, true))
     );
-    printf("WUN: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::WUN, kGridType, true)).c_str());
+
     const VertexIndex wun = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WUN, kGridType, true))
     );
-    printf("WUS: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::WUS, kGridType, true)).c_str());
+
     const VertexIndex wus = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WUS, kGridType, true))
     );
-    printf("WDN: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::WDN, kGridType, true)).c_str());
+
     const VertexIndex wdn = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WDN, kGridType, true))
     );
-    printf("WDS: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::WDS, kGridType, true)).c_str());
+
     const VertexIndex wds = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WDS, kGridType, true))
     );
@@ -82,53 +81,60 @@ void GALIB minecraft::cgal_support::createMeshFromTileEntity(
     const bool up_flipped = flipped_data.up;
     const bool down_flipped = flipped_data.down;
 
+    // East face (flipped)
     if (east_flipped) {
-        mesh.add_face(eun, eus, eds);
-        mesh.add_face(eun, eds, edn);
+        mesh.add_face(eus, edn, eds);
+        mesh.add_face(eus, eun, edn);
     } else {
-        mesh.add_face(eun, edn, eds);
-        mesh.add_face(eun, eds, eus);
+        mesh.add_face(eus, eun, eds);
+        mesh.add_face(eds, eun, edn);
     }
 
+    // West face (flipped)
     if (west_flipped) {
-        mesh.add_face(wun, wus, wds);
         mesh.add_face(wun, wds, wdn);
+        mesh.add_face(wun, wus, wds);
     } else {
-        mesh.add_face(wun, wdn, wds);
-        mesh.add_face(wun, wds, wus);
+        mesh.add_face(wun, wus, wdn);
+        mesh.add_face(wdn, wus, wds);
     }
 
+    // South face (flipped)
     if (south_flipped) {
-        mesh.add_face(wun, wus, eun);
-        mesh.add_face(wun, eun, eus);
+        mesh.add_face(wus, eds, wds);
+        mesh.add_face(wus, eus, eds);
     } else {
-        mesh.add_face(wun, eun, eus);
-        mesh.add_face(wun, eus, wus);
+        mesh.add_face(wus, eus, wds);
+        mesh.add_face(wds, eus, eds);
     }
 
+    // North face (flipped)
     if (north_flipped) {
-        mesh.add_face(wdn, wds, edn);
-        mesh.add_face(wdn, edn, eds);
+        mesh.add_face(eun, wdn, edn);
+        mesh.add_face(eun, wun, wdn);
     } else {
-        mesh.add_face(wdn, edn, eds);
-        mesh.add_face(wdn, eds, wds);
+        mesh.add_face(eun, wun, edn);
+        mesh.add_face(edn, wun, wdn);
     }
 
+    // Up face (flipped)
     if (up_flipped) {
-        mesh.add_face(eun, eus, wus);
-        mesh.add_face(eun, wus, wun);
+        mesh.add_face(wun, eus, wus);
+        mesh.add_face(wun, eun, eus);
     } else {
-        mesh.add_face(eun, wun, wus);
-        mesh.add_face(eun, wus, eus);
+        mesh.add_face(wun, eun, wus);
+        mesh.add_face(wus, eun, eus);
     }
 
+    // Down face (flipped)
     if (down_flipped) {
-        mesh.add_face(edn, eds, wds);
-        mesh.add_face(edn, wds, wdn);
+        mesh.add_face(wds, edn, wdn);
+        mesh.add_face(wds, eds, edn);
     } else {
-        mesh.add_face(edn, wdn, wds);
-        mesh.add_face(edn, wds, eds);
+        mesh.add_face(wds, eds, wdn);
+        mesh.add_face(wdn, eds, edn);
     }
+
 
     // Attempt to stitch and repair to ensure mesh is closed
     namespace PMP = CGAL::Polygon_mesh_processing;
