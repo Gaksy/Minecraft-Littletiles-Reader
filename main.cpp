@@ -10,6 +10,7 @@ using galib::minecraft::ChunkCoordinate;
 
 using galib::minecraft::littletiles::ChunkTileEntities;
 using galib::minecraft::cgal_support::ChunkMesh;
+using galib::minecraft::cgal_support::margeAndWriteToObj;
 
 #if WIN32
 #define REGION_FOLDER "../test_region"
@@ -35,9 +36,7 @@ int main() {
 
     ChunkMesh chunk_mesh_management;
     chunk_mesh_management.addTilesFromChukTileEntities(chunk_tile_manager);
-
-    const ChunkMesh::container& tile_array = chunk_mesh_management.getMeshArray();
-
+    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), "test.obj");
 
     return EXIT_SUCCESS;
 }

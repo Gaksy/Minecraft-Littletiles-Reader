@@ -44,6 +44,8 @@ namespace galib::minecraft::cgal_support {
     private:
         container tiles_in_world_;
     };
+
+    void margeAndWriteToObj(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename);
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H

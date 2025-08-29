@@ -20,6 +20,12 @@
 #include "Minecraft/CgalSupport/CgalLittletilesBuilder.h"
 
 using GALIB_STD vector;
+using GALIB_STD ofstream;
+using GALIB_STD distance;
+using GALIB_STD find;
+using GALIB_STD endl;
+using GALIB_STD cerr;
+using GALIB_STD map;
 
 using GALIB minecraft::cgal_support::LtMesh;
 using GALIB minecraft::cgal_support::createMeshFromTileEntity;
@@ -150,4 +156,66 @@ void ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTile
 
 const std::vector<LtMesh>& ChunkMesh::getMeshArray() const {
     return this->tiles_in_world_;
+}
+
+void  GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtMesh>& meshes, const char* const p_filename) {
+    // 创建一个新的网格用于合并所有网格
+    LtMesh merged_mesh;
+
+    // 用于追踪顶点的索引
+    map<typename LtMesh::Point, typename LtMesh::Vertex_index> vertex_map;
+
+    // 遍历每个网格
+    for (const auto& mesh : meshes) {
+        // 遍历网格中的每个顶点
+        for (auto v : mesh.vertices()) {
+            const auto& point = mesh.point(v);
+
+            // 如果顶点已存在，则跳过
+            if (vertex_map.find(point) == vertex_map.end()) {
+                vertex_map[point] = merged_mesh.add_vertex(point);
+            }
+        }
+
+        // 遍历网格中的每个面
+        for (auto f : mesh.faces()) {
+            vector<typename LtMesh::Vertex_index> face_vertices;
+            // 获取面上的顶点
+            for (auto v : mesh.vertices_around_face(mesh.halfedge(f))) {
+                face_vertices.push_back(vertex_map[mesh.point(v)]);
+            }
+
+            // 添加合并后的面
+            merged_mesh.add_face(face_vertices);
+        }
+    }
+
+    // 将合并后的网格写入 .obj 文件
+    ofstream obj_file(p_filename);
+    if (!obj_file) {
+        cerr << "can't open file " << p_filename << endl;
+        return;
+    }
+
+    // 写入顶点
+    for (const auto& v : merged_mesh.vertices()) {
+        const auto& point = merged_mesh.point(v);
+        obj_file << "v " << point.x() << " " << point.y() << " " << point.z() << endl;
+    }
+
+    // 写入面
+    for (const auto& f : merged_mesh.faces()) {
+        vector<int> face_indices;
+        for (auto v : merged_mesh.vertices_around_face(merged_mesh.halfedge(f))) {
+            face_indices.push_back(distance(merged_mesh.vertices().begin(), find(merged_mesh.vertices().begin(), merged_mesh.vertices().end(), v)) + 1);
+        }
+
+        obj_file << "f";
+        for (const auto& idx : face_indices) {
+            obj_file << " " << idx;
+        }
+        obj_file << endl;
+    }
+
+    obj_file.close();
 }
