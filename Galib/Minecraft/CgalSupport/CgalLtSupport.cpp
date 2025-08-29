@@ -19,6 +19,9 @@
 #include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTiles.h"
+#include "Coord/CoordString.h"
+#include <CGAL/Polygon_mesh_processing/stitch_borders.h>
+#include <CGAL/Polygon_mesh_processing/repair.h>
 
 using GALIB minecraft::littletiles::LittleTilesCoord;
 using GALIB minecraft::littletiles::GridType;
@@ -38,27 +41,35 @@ void GALIB minecraft::cgal_support::createMeshFromTileEntity(
 ) {
     using VertexIndex = LtMesh::Vertex_index;
 
+    printf("EUN: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::EUN, kGridType, true)).c_str());
     const VertexIndex eun = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EUN, kGridType, true))
     );
+    printf("EUS: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::EUS, kGridType, true)).c_str());
     const VertexIndex eus = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EUS, kGridType, true))
     );
+    printf("EDN: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::EDN, kGridType, true)).c_str());
     const VertexIndex edn = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EDN, kGridType, true))
     );
+    printf("EDS: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::EDS, kGridType, true)).c_str());
     const VertexIndex eds = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EDS, kGridType, true))
     );
+    printf("WUN: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::WUN, kGridType, true)).c_str());
     const VertexIndex wun = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WUN, kGridType, true))
     );
+    printf("WUS: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::WUS, kGridType, true)).c_str());
     const VertexIndex wus = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WUS, kGridType, true))
     );
+    printf("WDN: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::WDN, kGridType, true)).c_str());
     const VertexIndex wdn = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WDN, kGridType, true))
     );
+    printf("WDS: %s\n", coord::Coord3DToString(tileEntity.getVerticesApplyGrid(AngleID::WDS, kGridType, true)).c_str());
     const VertexIndex wds = mesh.add_vertex(
         convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WDS, kGridType, true))
     );
@@ -104,20 +115,27 @@ void GALIB minecraft::cgal_support::createMeshFromTileEntity(
     }
 
     if (up_flipped) {
-        mesh.add_face(wus, eun, eun);
-        mesh.add_face(wus, eun, eun);
+        mesh.add_face(eun, eus, wus);
+        mesh.add_face(eun, wus, wun);
     } else {
-        mesh.add_face(wus, eun, eun);
-        mesh.add_face(wus, eun, wus);
+        mesh.add_face(eun, wun, wus);
+        mesh.add_face(eun, wus, eus);
     }
 
     if (down_flipped) {
-        mesh.add_face(wdn, wds, edn);
-        mesh.add_face(wdn, edn, eds);
+        mesh.add_face(edn, eds, wds);
+        mesh.add_face(edn, wds, wdn);
     } else {
-        mesh.add_face(wdn, edn, eds);
-        mesh.add_face(wdn, eds, wds);
+        mesh.add_face(edn, wdn, wds);
+        mesh.add_face(edn, wds, eds);
     }
+
+    // Attempt to stitch and repair to ensure mesh is closed
+    namespace PMP = CGAL::Polygon_mesh_processing;
+    PMP::stitch_borders(mesh);
+    PMP::remove_isolated_vertices(mesh);
+    PMP::remove_degenerate_faces(mesh);
+    // Note: full closure is not guaranteed, but this improves chances
 }
 
 LtMesh (GALIB minecraft::cgal_support::createMeshFromTileEntity)(const TileEntity &tileEntity, const GridType kGridType) {

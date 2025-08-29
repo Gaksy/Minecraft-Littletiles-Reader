@@ -106,13 +106,11 @@ void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities,
 
             // Convert to Lt Mesh 创建面并添加到 tiles_mesh 中
             LtMesh tile_mesh = createMeshFromTileEntity(tile_entity, grid_type);
-            GALIB_STD cout << tile_mesh << std::endl;
-            GALIB_STD cout << "--split--" << std::endl;
+            GALIB_STD cout << tile_mesh << GALIB_STD endl;
+            GALIB_STD cout << "closed " << ((GALIB_CGAL is_closed(tile_mesh)) ? "true" : "false") << GALIB_STD endl;
+            GALIB_STD cout << "--split--" << GALIB_STD endl;
 
             // 合并位置相同的点
-
-
-
             //
             // try {
             //     CGAL::Polygon_mesh_processing::remove_degenerate_faces(tile_mesh);
