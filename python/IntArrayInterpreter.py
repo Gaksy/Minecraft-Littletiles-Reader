@@ -117,117 +117,115 @@ def formatBoxStr(box_str: str):
         if low16 & 0x8000:  # 如果最高位是1（负数）
             low16 = low16 - 0x10000  # 符号扩展为有符号整数
 
-        offset_data.append(low16)
         offset_data.append(high16)
+        offset_data.append(low16)
 
+    offset_data_index:int = len(offset_data) - 1
     print(offset_data)
-
-    offset_data_index:int = 0
-
     # WDS
     if (offset_info & 0x800000) != 0:
         box_data.angle_offset_data[ANGLE_WDS].z_enable = True
         box_data.angle_offset_data[ANGLE_WUS].z_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x400000) != 0:
         box_data.angle_offset_data[ANGLE_WDS].y_enable = True
         box_data.angle_offset_data[ANGLE_WUS].y_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x200000) != 0:
         box_data.angle_offset_data[ANGLE_WDS].x_enable = True
         box_data.angle_offset_data[ANGLE_WUS].x_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
 
     if (offset_info & 0x100000) != 0:
         box_data.angle_offset_data[ANGLE_WDN].z_enable = True
         box_data.angle_offset_data[ANGLE_WDN].z_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x80000) != 0:
         box_data.angle_offset_data[ANGLE_WDN].y_enable = True
         box_data.angle_offset_data[ANGLE_WDN].y_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x40000) != 0:
         box_data.angle_offset_data[ANGLE_WDN].x_enable = True
         box_data.angle_offset_data[ANGLE_WDN].x_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
 
     if (offset_info & 0x20000) != 0:
         box_data.angle_offset_data[ANGLE_WUS].z_enable = True
         box_data.angle_offset_data[ANGLE_WUS].z_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x10000) != 0:
         box_data.angle_offset_data[ANGLE_WUS].y_enable = True
         box_data.angle_offset_data[ANGLE_WUS].y_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x8000) != 0:
         box_data.angle_offset_data[ANGLE_WUS].x_enable = True
         box_data.angle_offset_data[ANGLE_WUS].x_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
 
     if (offset_info & 0x4000) != 0:
         box_data.angle_offset_data[ANGLE_WUN].z_enable = True
         box_data.angle_offset_data[ANGLE_WUN].z_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x2000) != 0:
         box_data.angle_offset_data[ANGLE_WUN].y_enable = True
         box_data.angle_offset_data[ANGLE_WUN].y_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x1000) != 0:
         box_data.angle_offset_data[ANGLE_WUN].x_enable = True
         box_data.angle_offset_data[ANGLE_WUN].x_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
 
     if (offset_info & 0x800) != 0:
         box_data.angle_offset_data[ANGLE_EDS].z_enable = True
         box_data.angle_offset_data[ANGLE_EDS].z_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x400) != 0:
         box_data.angle_offset_data[ANGLE_EDS].y_enable = True
         box_data.angle_offset_data[ANGLE_EDS].y_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x200) != 0:
         box_data.angle_offset_data[ANGLE_EDS].x_enable = True
         box_data.angle_offset_data[ANGLE_EDS].x_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
 
     if (offset_info & 0x100) != 0:
         box_data.angle_offset_data[ANGLE_EDN].z_enable = True
         box_data.angle_offset_data[ANGLE_EDN].z_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x80) != 0:
         box_data.angle_offset_data[ANGLE_EDN].y_enable = True
         box_data.angle_offset_data[ANGLE_EDN].y_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x40) != 0:
         box_data.angle_offset_data[ANGLE_EDN].x_enable = True
         box_data.angle_offset_data[ANGLE_EDN].x_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
 
     if (offset_info & 0x20) != 0:
         box_data.angle_offset_data[ANGLE_EUS].z_enable = True
         box_data.angle_offset_data[ANGLE_EUS].z_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x10) != 0:
         box_data.angle_offset_data[ANGLE_EUS].y_enable = True
         box_data.angle_offset_data[ANGLE_EUS].y_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x8) != 0:
         box_data.angle_offset_data[ANGLE_EUS].x_enable = True
         box_data.angle_offset_data[ANGLE_EUS].x_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
 
     if (offset_info & 0x4) != 0:
         box_data.angle_offset_data[ANGLE_EUN].z_enable = True
         box_data.angle_offset_data[ANGLE_EUN].z_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x2) != 0:
         box_data.angle_offset_data[ANGLE_EUN].y_enable = True
         box_data.angle_offset_data[ANGLE_EUN].y_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     if (offset_info & 0x1) != 0:
         box_data.angle_offset_data[ANGLE_EUN].x_enable = True
         box_data.angle_offset_data[ANGLE_EUN].x_offset = offset_data[offset_data_index]
-        offset_data_index += 1
+        offset_data_index -= 1
     print(offset_data_index)
     return box_data
 def main():
