@@ -39,6 +39,8 @@ int main() {
     chunk_mesh_management.addTilesFromChukTileEntities(chunk_tile_manager);
 #ifdef _WIN32
     margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/offs/test");
+#else
+    margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
 #endif
     return EXIT_SUCCESS;
 }
