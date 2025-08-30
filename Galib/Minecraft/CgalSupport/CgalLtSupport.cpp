@@ -81,65 +81,66 @@ void GALIB minecraft::cgal_support::createMeshFromTileEntity(
     const bool down_flipped = flipped_data.down;
 
     // East face (flipped)
-    if (east_flipped) {
-        mesh.add_face(eus, edn, eds);
-        mesh.add_face(eus, eun, edn);
+    if (!east_flipped) {
+        mesh.add_face(eds, edn, eus);
+        mesh.add_face(eus, edn, eun);
     } else {
-        mesh.add_face(eus, eun, eds);
-        mesh.add_face(eds, eun, edn);
+        mesh.add_face(eds, eun, eus);
+        mesh.add_face(eds, edn, eun);
     }
 
     // West face (flipped)
-    if (west_flipped) {
-        mesh.add_face(wun, wds, wdn);
-        mesh.add_face(wun, wus, wds);
+    if (!west_flipped) {
+        mesh.add_face(wdn, wds, wun);
+        mesh.add_face(wun, wds, wus);
     } else {
-        mesh.add_face(wun, wus, wdn);
-        mesh.add_face(wdn, wus, wds);
+        mesh.add_face(wdn, wus, wun);
+        mesh.add_face(wdn, wds, wus);
     }
 
     // South face (flipped)
-    if (south_flipped) {
-        mesh.add_face(wus, eds, wds);
-        mesh.add_face(wus, eus, eds);
+    if (!south_flipped) {
+        mesh.add_face(wds, eds, wus);
+        mesh.add_face(wus, eds, eus);
     } else {
-        mesh.add_face(wus, eus, wds);
-        mesh.add_face(wds, eus, eds);
+        mesh.add_face(wds, eus, wus);
+        mesh.add_face(wds, eds, eus);
     }
 
     // North face (flipped)
-    if (north_flipped) {
-        mesh.add_face(eun, wdn, edn);
-        mesh.add_face(eun, wun, wdn);
+    if (!north_flipped) {
+        mesh.add_face(edn, wdn, eun);
+        mesh.add_face(eun, wdn, wun);
     } else {
-        mesh.add_face(eun, wun, edn);
-        mesh.add_face(edn, wun, wdn);
+        mesh.add_face(edn, wun, eun);
+        mesh.add_face(edn, wdn, wun);
     }
 
     // Up face (flipped)
-    if (up_flipped) {
-        mesh.add_face(wun, eus, wus);
-        mesh.add_face(wun, eun, eus);
+    if (!up_flipped) {
+        mesh.add_face(wus, eus, wun);
+        mesh.add_face(wun, eus, eun);
     } else {
-        mesh.add_face(wun, eun, wus);
-        mesh.add_face(wus, eun, eus);
+        mesh.add_face(wus, eun, wun);
+        mesh.add_face(wus, eus, eun);
     }
 
     // Down face (flipped)
-    if (down_flipped) {
-        mesh.add_face(wds, edn, wdn);
-        mesh.add_face(wds, eds, edn);
+    if (!down_flipped) {
+        mesh.add_face(wdn, edn, wds);
+        mesh.add_face(wds, edn, eds);
     } else {
-        mesh.add_face(wds, eds, wdn);
-        mesh.add_face(wdn, eds, edn);
+        mesh.add_face(wdn, eds, wds);
+        mesh.add_face(wdn, edn, eds);
     }
 
 
     // Attempt to stitch and repair to ensure mesh is closed
-    namespace PMP = CGAL::Polygon_mesh_processing;
-    PMP::stitch_borders(mesh);
-    PMP::remove_isolated_vertices(mesh);
-    PMP::remove_degenerate_faces(mesh);
+    // namespace PMP = CGAL::Polygon_mesh_processing;
+    // PMP::stitch_borders(mesh);
+    // PMP::remove_isolated_vertices(mesh);
+    // PMP::remove_degenerate_faces(mesh);
+
     // Note: full closure is not guaranteed, but this improves chances
 }
 

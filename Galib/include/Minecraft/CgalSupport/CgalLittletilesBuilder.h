@@ -39,13 +39,15 @@ namespace galib::minecraft::cgal_support {
 
     public:
         void addTilesFromChukTileEntities(const GALIB minecraft::littletiles::ChunkTileEntities& kChunkTileEntities);
-        GALIB_NODISCARD const GALIB_STD vector<LtMesh>& getMeshArray()const;
+        GALIB_NODISCARD const container & getMeshArray()const;
+        void clear();
 
     private:
         container tiles_in_world_;
     };
 
     void margeAndWriteToObj(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename);
+    void margeAndWriteToOff(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename);
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H

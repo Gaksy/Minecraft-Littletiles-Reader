@@ -18,17 +18,16 @@
 #define GALIB_MINECRAFT_CGALSUPPORT_CGALTYPEDEF_H
 
 #include <CGAL/Cartesian.h>
-#include <CGAL/aff_transformation_tags.h>
 #include <CGAL/Vector_3.h>
 #include <CGAL/Surface_mesh/Surface_mesh.h>
 
 #include "GalibNamespaceDef.h"
 
 namespace galib::minecraft::cgal_support{
-    using LtKernel = GALIB_CGAL Cartesian<double>;
+    using LtKernel = GALIB_CGAL Cartesian<float>;
     using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
     using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
-    using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Cartesian<double>>>;
+    using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Cartesian<float>>>;
 }
 
 #endif //GALIB_MINECRAFT_CGALSUPPORT_CGALTYPEDEF_H

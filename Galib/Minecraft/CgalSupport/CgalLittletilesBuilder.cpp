@@ -39,6 +39,7 @@ using GALIB minecraft::littletiles::ChunkTileEntities;
 
 using GALIB_CGAL SM_Vertex_index;
 
+
 // Apply world coordinate offset to a mesh
 LtMesh applyWorldOffset(const LtMesh& mesh, const galib::minecraft::BlockCoordinate & block_coordinate) {
     LtMesh transformed = mesh;
@@ -70,28 +71,28 @@ const LtMesh& createIntersectionCube() {
         using Point = LtMesh::Point;
 
         // 顶点坐标
-        const SM_Vertex_index v1 = cube->add_vertex(Point(1, 1, 0));
-        const SM_Vertex_index v2 = cube->add_vertex(Point(1, 1, 1));
-        const SM_Vertex_index v3 = cube->add_vertex(Point(1, 0, 0));
-        const SM_Vertex_index v4 = cube->add_vertex(Point(1, 0, 1));
-        const SM_Vertex_index v5 = cube->add_vertex(Point(0, 1, 0));
-        const SM_Vertex_index v6 = cube->add_vertex(Point(0, 1, 1));
-        const SM_Vertex_index v7 = cube->add_vertex(Point(0, 0, 0));
-        const SM_Vertex_index v8 = cube->add_vertex(Point(0, 0, 1));
+        const SM_Vertex_index eun = cube->add_vertex(Point(1.01, 1.01, 0));
+        const SM_Vertex_index eus = cube->add_vertex(Point(1.01, 1.01, 1.01));
+        const SM_Vertex_index edn = cube->add_vertex(Point(1.01, 0, 0));
+        const SM_Vertex_index eds = cube->add_vertex(Point(1.01, 0, 1.01));
+        const SM_Vertex_index wun = cube->add_vertex(Point(0, 1.01, 0));
+        const SM_Vertex_index wus = cube->add_vertex(Point(0, 1.01, 1.01));
+        const SM_Vertex_index wdn = cube->add_vertex(Point(0, 0, 0));
+        const SM_Vertex_index wds = cube->add_vertex(Point(0, 0, 1.01));
 
         // 创建正方体的面（六个面，每个面由两个三角形组成）
-        cube->add_face(v2, v1, v4);
-        cube->add_face(v4, v1, v3);
-        cube->add_face(v5, v6, v7);
-        cube->add_face(v7, v6, v8);
-        cube->add_face(v6, v2, v8);
-        cube->add_face(v8, v2, v4);
-        cube->add_face(v1, v5, v3);
-        cube->add_face(v3, v5, v7);
-        cube->add_face(v5, v1, v6);
-        cube->add_face(v6, v1, v2);
-        cube->add_face(v8, v4, v7);
-        cube->add_face(v7, v4, v3);
+        cube->add_face(eds, eun, eus);
+        cube->add_face(eds, edn, eun);
+        cube->add_face(wdn, wus, wun);
+        cube->add_face(wdn, wds, wus);
+        cube->add_face(wds, eus, wus);
+        cube->add_face(wds, eds, eus);
+        cube->add_face(edn, wun, eun);
+        cube->add_face(edn, wdn, wun);
+        cube->add_face(wus, eun, wun);
+        cube->add_face(wus, eus, eun);
+        cube->add_face(wdn, eds, wds);
+        cube->add_face(wdn, edn, eds);
     }
 
     return *cube;  // 返回静态指针
@@ -115,34 +116,25 @@ void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities,
 
             // Convert to Lt Mesh 创建面并添加到 tiles_mesh 中
             LtMesh tile_mesh = createMeshFromTileEntity(tile_entity, grid_type);
-            // GALIB_STD cout << tile_mesh << GALIB_STD endl;
-            // GALIB_STD cout << "closed " << ((GALIB_CGAL is_closed(tile_mesh)) ? "true" : "false") << GALIB_STD endl;
-            // GALIB_STD cout << "--split--" << GALIB_STD endl;
 
             // Compute intersection (assuming CGAL corefinement is available) 进行交集计算
-
-            if(tile_entity.hasAnyOffsetEnable()) {
+            if (tile_entity.hasAnyOffsetEnable()) {
                 LtMesh intersection_result;
                 LtMesh intersection_cub_mesh = createIntersectionCube();
-                try {
-                    if(CGAL::Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
-                        // Apply world offset based on block_coordinate_ 应用世界坐标偏移
 
-                        LtMesh final_mesh = applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate());
-                        GALIB_STD cout << final_mesh << GALIB_STD endl;
-                        GALIB_STD cout << "closed " << ((GALIB_CGAL is_closed(final_mesh)) ? "true" : "false") << GALIB_STD endl;
-                        GALIB_STD cout << "--split--" << GALIB_STD endl;
-                        mesh_array.push_back(final_mesh);
+                try {
+                    if (!GALIB_CGAL Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
+
+                        mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
+                        continue;
                     }
-                } catch (GALIB_STD exception e) {
-                    printf(e.what());
+                } catch (const GALIB_STD exception& e) {
+                    mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
+                    continue;
                 }
+                mesh_array.push_back(applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate()));
             } else {
-                LtMesh final_mesh = applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate());
-                GALIB_STD cout << final_mesh << GALIB_STD endl;
-                GALIB_STD cout << "closed " << ((GALIB_CGAL is_closed(final_mesh)) ? "true" : "false") << GALIB_STD endl;
-                GALIB_STD cout << "--split--" << GALIB_STD endl;
-                mesh_array.push_back(final_mesh);
+                mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
             }
         }
     }
@@ -154,9 +146,14 @@ void ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTile
     }
 }
 
-const std::vector<LtMesh>& ChunkMesh::getMeshArray() const {
+const ChunkMesh::container & ChunkMesh::getMeshArray() const {
     return this->tiles_in_world_;
 }
+
+void ChunkMesh::clear() {
+    this->tiles_in_world_.clear();
+}
+
 
 void  GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtMesh>& meshes, const char* const p_filename) {
     // 创建一个新的网格用于合并所有网格
@@ -218,4 +215,53 @@ void  GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtMesh>& me
     }
 
     obj_file.close();
+}
+
+void writeMeshToOff(const LtMesh& mesh, const char* const p_filename) {
+    std::ofstream out(p_filename);
+    if (!out) {
+        std::cerr << "Error opening file: " << p_filename << std::endl;
+        return;
+    }
+
+    // Writing OFF header
+    out << "OFF\n";
+
+    // Count vertices and faces
+    size_t vertex_count = mesh.number_of_vertices();
+    size_t face_count = mesh.number_of_faces();
+
+    // Writing number of vertices, faces, and edges
+    out << vertex_count << " " << face_count << " 0\n";
+
+    // Writing vertices
+    for (auto v : mesh.vertices()) {
+        auto point = mesh.point(v);
+        out << point.x() << " " << point.y() << " " << point.z() << "\n";
+    }
+
+    // Writing faces
+    for (auto f : mesh.faces()) {
+        auto halfedges = mesh.halfedges_around_face(mesh.halfedge(f));
+        std::vector<int> vertices;
+        for (auto h : halfedges) {
+            vertices.push_back(mesh.target(h));
+        }
+        out << vertices.size();
+        for (int v : vertices) {
+            out << " " << v;
+        }
+        out << "\n";
+    }
+
+    out.close();
+}
+
+void GALIB minecraft::cgal_support::margeAndWriteToOff(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename) {
+    for (size_t i = 0; i < meshes.size(); ++i) {
+        // Generate a unique filename for each mesh
+        std::string mesh_filename = std::string(p_filename) + "_" + std::to_string(i) + ".off";
+        writeMeshToOff(meshes[i], mesh_filename.c_str());
+        std::cout << "Written mesh " << i << " to " << mesh_filename << std::endl;
+    }
 }
