@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2024 Gaksy (Fuhongren)
  * 
@@ -16,6 +15,9 @@
  */
 
 #include "Minecraft/CgalSupport/CgalLtSupport.h"
+
+#include <CGAL/Polygon_mesh_processing/repair.h>
+
 #include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTiles.h"
@@ -35,40 +37,41 @@ using GALIB_CGAL SM_Vertex_index;
 
 void GALIB minecraft::cgal_support::createMeshFromTileEntity(
     LtMesh& mesh,
-    const TileEntity& kTileEntity
+    const TileEntity& kTileEntity,
+    const bool kApplyOffset
 ) {
     using VertexIndex = LtMesh::Vertex_index;
 
     const VertexIndex eun = mesh.add_vertex(
-        convertToCGALPoint(kTileEntity.getVertices(AngleID::EUN, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::EUN, kApplyOffset))
     );
 
     const VertexIndex eus = mesh.add_vertex(
-        convertToCGALPoint(kTileEntity.getVertices(AngleID::EUS, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::EUS, kApplyOffset))
     );
 
     const VertexIndex edn = mesh.add_vertex(
-        convertToCGALPoint(kTileEntity.getVertices(AngleID::EDN, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::EDN, kApplyOffset))
     );
 
     const VertexIndex eds = mesh.add_vertex(
-        convertToCGALPoint(kTileEntity.getVertices(AngleID::EDS, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::EDS, kApplyOffset))
     );
 
     const VertexIndex wun = mesh.add_vertex(
-        convertToCGALPoint(kTileEntity.getVertices(AngleID::WUN, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::WUN, kApplyOffset))
     );
 
     const VertexIndex wus = mesh.add_vertex(
-        convertToCGALPoint(kTileEntity.getVertices(AngleID::WUS, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::WUS, kApplyOffset))
     );
 
     const VertexIndex wdn = mesh.add_vertex(
-        convertToCGALPoint(kTileEntity.getVertices(AngleID::WDN, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::WDN, kApplyOffset))
     );
 
     const VertexIndex wds = mesh.add_vertex(
-        convertToCGALPoint(kTileEntity.getVertices(AngleID::WDS, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::WDS, kApplyOffset))
     );
 
     const Flipped& flipped_data = kTileEntity.getFlippedData();
@@ -134,7 +137,7 @@ void GALIB minecraft::cgal_support::createMeshFromTileEntity(
     }
 }
 
-const LtMesh& GALIB minecraft::cgal_support::createIntersectionCube(const GALIB minecraft::littletiles::GridType kGrid) {
+const LtMesh& GALIB minecraft::cgal_support::createIntersectionCube(const GridType kGrid) {
     // 静态指针，确保只在第一次调用时创建
     static LtMesh* cube = nullptr;
 
@@ -171,4 +174,51 @@ const LtMesh& GALIB minecraft::cgal_support::createIntersectionCube(const GALIB 
     }
 
     return *cube;  // 返回静态指针
+}
+
+const LtMesh (GALIB minecraft::cgal_support::applyWorldOffset)(LtMesh& mesh, const galib::minecraft::BlockCoordinate & block_coordinate) {
+    LtMesh transformed = mesh;
+    using Point = LtMesh::Point;
+    const double offset_x = block_coordinate.x;
+    const double offset_y = block_coordinate.y;
+    const double offset_z = block_coordinate.z;
+
+    for(auto v : transformed.vertices()) {
+        Point p = transformed.point(v);
+        transformed.point(v) = Point(
+            p.x() + offset_x,
+            p.y() + offset_y,
+            p.z() + offset_z
+        );
+    }
+    return transformed;
+}
+
+const LtMesh (GALIB minecraft::cgal_support::applyGrid)(const LtMesh& mesh, const GridType grid) {
+    LtMesh transformed = mesh;
+    using Point = LtMesh::Point;
+
+    for(auto v : transformed.vertices()) {
+        Point p = transformed.point(v);
+        transformed.point(v) = Point(
+            p.x() / static_cast<float>(grid),
+            p.y() / static_cast<float>(grid),
+            p.z() / static_cast<float>(grid)
+        );
+    }
+    return transformed;
+}
+
+// 网格清理函数
+void (GALIB minecraft::cgal_support::cleanupMesh)(LtMesh& mesh) {
+    // 移除退化面
+    CGAL::Polygon_mesh_processing::remove_degenerate_faces(mesh);
+
+    // 移除孤立顶点
+    CGAL::Polygon_mesh_processing::remove_isolated_vertices(mesh);
+
+    // 确保网格是流形的
+    if (!is_valid_polygon_mesh(mesh)) {
+        std::cerr << "Warning: Mesh is not valid after cleanup" << std::endl;
+    }
 }

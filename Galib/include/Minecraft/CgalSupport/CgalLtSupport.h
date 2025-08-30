@@ -14,8 +14,6 @@
  * Date Created: 04/28/2025
  */
 
-
-
 #ifndef GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H
 #define GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H
 
@@ -31,8 +29,11 @@ namespace galib::minecraft::cgal_support {
         return GALIB minecraft::cgal_support::LtPoint3(kLtCoord.x, kLtCoord.y, kLtCoord.z);
     }
 
-    void createMeshFromTileEntity(LtMesh& mesh, const GALIB minecraft::littletiles::TileEntity& kTileEntity);
-    const LtMesh& createIntersectionCube(GALIB minecraft::littletiles::GridType kGrid);
+    void createMeshFromTileEntity(LtMesh& mesh, const GALIB minecraft::littletiles::TileEntity& kTileEntity, bool kApplyOffset = true);
+    const LtMesh& GALIB minecraft::cgal_support::createIntersectionCube(GALIB minecraft::littletiles::GridType kGrid);
+    const LtMesh applyWorldOffset(LtMesh& mesh, const galib::minecraft::BlockCoordinate & block_coordinate);
+    const LtMesh applyGrid(const LtMesh& mesh, GALIB minecraft::littletiles::GridType grid);
+    void cleanupMesh(LtMesh& mesh);
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H

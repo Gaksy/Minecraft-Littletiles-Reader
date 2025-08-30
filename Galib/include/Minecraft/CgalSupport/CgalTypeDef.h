@@ -19,15 +19,17 @@
 
 #include <CGAL/Cartesian.h>
 #include <CGAL/Vector_3.h>
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Point_set_3.h>
 #include <CGAL/Surface_mesh/Surface_mesh.h>
 
 #include "GalibNamespaceDef.h"
 
 namespace galib::minecraft::cgal_support{
-    using LtKernel = GALIB_CGAL Cartesian<float>;
+    using LtKernel = GALIB_CGAL Simple_cartesian<float>;
     using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
     using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
-    using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Cartesian<float>>>;
+    using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Simple_cartesian<float>>>;
 }
 
 #endif //GALIB_MINECRAFT_CGALSUPPORT_CGALTYPEDEF_H

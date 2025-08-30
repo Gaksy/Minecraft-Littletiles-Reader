@@ -23,7 +23,6 @@
 
 #include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
-#include "Minecraft/LittleTilesCoord.h"
 #include "Minecraft/LittleTiles.h"
 
 namespace galib::minecraft::cgal_support {
@@ -38,7 +37,7 @@ namespace galib::minecraft::cgal_support {
         ~ChunkMesh()=default;
 
     public:
-        void addTilesFromChukTileEntities(const GALIB minecraft::littletiles::ChunkTileEntities& kChunkTileEntities);
+        void addTilesFromChukTileEntities(const GALIB minecraft::littletiles::ChunkTileEntities& kChunkTileEntities, bool kApplyWorldOffset = true);
         GALIB_NODISCARD const container & getMeshArray()const;
         void clear();
 

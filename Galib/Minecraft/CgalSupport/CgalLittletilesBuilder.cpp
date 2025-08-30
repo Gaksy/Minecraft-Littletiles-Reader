@@ -1,7 +1,4 @@
-#include <Minecraft/CgalSupport/CgalLtSupport.h>
-#include <CGAL/Polygon_mesh_processing/corefinement.h>
-#include <CGAL/Polygon_mesh_processing/repair.h>
-;/*
+/*
  * Copyright (c) 2024 Gaksy (Fuhongren)
  *
  * This work is licensed under the GNU Lesser General Public License v3.0.
@@ -19,6 +16,10 @@
 
 #include "Minecraft/CgalSupport/CgalLittletilesBuilder.h"
 
+#include <Minecraft/CgalSupport/CgalLtSupport.h>
+#include <CGAL/Polygon_mesh_processing/corefinement.h>
+#include <CGAL/Polygon_mesh_processing/repair.h>
+
 using GALIB_STD vector;
 using GALIB_STD ofstream;
 using GALIB_STD distance;
@@ -30,6 +31,9 @@ using GALIB_STD map;
 using GALIB minecraft::cgal_support::LtMesh;
 using GALIB minecraft::cgal_support::createMeshFromTileEntity;
 using GALIB minecraft::cgal_support::ChunkMesh;
+using GALIB minecraft::cgal_support::applyGrid;
+using GALIB minecraft::cgal_support::applyWorldOffset;
+using GALIB minecraft::cgal_support::cleanupMesh;
 
 using GALIB minecraft::littletiles::GridType;
 using GALIB minecraft::littletiles::TileEntity;
@@ -38,31 +42,9 @@ using GALIB minecraft::littletiles::BlockTileEntities;
 using GALIB minecraft::littletiles::ChunkTileEntities;
 
 using GALIB_CGAL SM_Vertex_index;
+using GALIB_CGAL Polygon_mesh_processing::corefine_and_compute_intersection;
 
-
-// Apply world coordinate offset to a mesh
-LtMesh applyWorldOffset(const LtMesh& mesh, const galib::minecraft::BlockCoordinate & block_coordinate) {
-    LtMesh transformed = mesh;
-    using Point = LtMesh::Point;
-    const double offset_x = block_coordinate.x;
-    const double offset_y = block_coordinate.y;
-    const double offset_z = block_coordinate.z;
-
-    for(auto v : transformed.vertices()) {
-        Point p = transformed.point(v);
-        transformed.point(v) = Point(
-            p.x() + offset_x,
-            p.y() + offset_y,
-            p.z() + offset_z
-        );
-    }
-    return transformed;
-}
-
-
-
-
-void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities, vector<LtMesh>& mesh_array) {
+void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities, vector<LtMesh>& mesh_array, const bool kApplyWorldOffset) {
     const GridType grid_type = kBlockTileEntities.getGridType();
     // BlockTile -> BoxTile -> Tile
 
@@ -75,44 +57,46 @@ void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities,
         for(BoxTileEnities::const_iterator tile_it = box_tile_entities.cbegin(); tile_it != box_tile_entities.cend(); ++tile_it) {
 
             // Get Tile entities
-            const TileEntity& tile_entity = *tile_it;
+            const TileEntity& tile_lt_entity = *tile_it;
 
-            // Convert to Lt Mesh 创建面并添加到 tiles_mesh 中
-            LtMesh tile_mesh;
-            createMeshFromTileEntity(tile_mesh, tile_entity);
+            // 将 tile entities 转换为 cgal 网格
+            LtMesh tile_cgal_mesh;
+            createMeshFromTileEntity(tile_cgal_mesh, tile_lt_entity);
 
             // 如有偏移
-            if (tile_entity.hasAnyOffsetEnable()) {
-                LtMesh intersection_result;
+            if (tile_lt_entity.hasAnyOffsetEnable()) {
+                // 创建裁剪网格体
+                LtMesh tile_cgal_mehs_aabb;
+                createMeshFromTileEntity(tile_cgal_mehs_aabb, tile_lt_entity, false);
 
+                // 预处理网格：清理退化元素
+                cleanupMesh(tile_cgal_mesh);
+                cleanupMesh(tile_cgal_mehs_aabb);
+
+                // 计算裁剪
+                LtMesh tile_cgal_final_mesh;
+                try {
+                    if (corefine_and_compute_intersection(tile_cgal_mesh, tile_cgal_mehs_aabb, tile_cgal_final_mesh)) {
+                        std::swap(tile_cgal_mesh, tile_cgal_final_mesh);
+                    }
+                } catch ( ... ) {
+                    continue;
+                }
             }
 
-            // Compute intersection (assuming CGAL corefinement is available) 进行交集计算
-            // if (tile_entity.hasAnyOffsetEnable()) {
-            //     LtMesh intersection_result;
-            //     LtMesh intersection_cub_mesh = createIntersectionCube();
-            //
-            //     try {
-            //         if (!GALIB_CGAL Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
-            //
-            //             mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
-            //             continue;
-            //         }
-            //     } catch (const GALIB_STD exception& e) {
-            //         mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
-            //         continue;
-            //     }
-            //     mesh_array.push_back(applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate()));
-            // } else {
-            //     mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
-            // }
+            tile_cgal_mesh = applyGrid(tile_cgal_mesh, grid_type);
+            if (kApplyWorldOffset) {
+                tile_cgal_mesh = applyWorldOffset(tile_cgal_mesh, kBlockTileEntities.getBlockCoordinate());
+            }
+
+            mesh_array.push_back(tile_cgal_mesh);
         }
     }
 }
 
-void ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTileEntities) {
+void ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTileEntities, const bool kApplyWorldOffset) {
     for (auto block_it = kChunkTileEntities.cbegin(); block_it != kChunkTileEntities.cend(); ++block_it) {
-        addTilesFromBlockTilesEntities(*block_it, this->tiles_in_world_);
+        addTilesFromBlockTilesEntities(*block_it, this->tiles_in_world_, kApplyWorldOffset);
     }
 }
 
