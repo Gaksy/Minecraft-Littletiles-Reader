@@ -25,12 +25,12 @@
 #include "Minecraft/LittleTiles.h"
 
 namespace galib::minecraft::cgal_support {
-    inline GALIB minecraft::cgal_support::LtPoint3 convertToCGALPoint(const GALIB minecraft::littletiles::LittleTilesCoord& kLtCoord) {
+    inline LtPoint3 convertToCGALPoint(const GALIB minecraft::littletiles::LittleTilesCoord& kLtCoord) {
         return GALIB minecraft::cgal_support::LtPoint3(kLtCoord.x, kLtCoord.y, kLtCoord.z);
     }
 
     void createMeshFromTileEntity(LtMesh& mesh, const GALIB minecraft::littletiles::TileEntity& kTileEntity, bool kApplyOffset = true);
-    const LtMesh& GALIB minecraft::cgal_support::createIntersectionCube(GALIB minecraft::littletiles::GridType kGrid);
+    const LtMesh& createIntersectionCube(GALIB minecraft::littletiles::GridType kGrid);
     const LtMesh applyWorldOffset(LtMesh& mesh, const galib::minecraft::BlockCoordinate & block_coordinate);
     const LtMesh applyGrid(const LtMesh& mesh, GALIB minecraft::littletiles::GridType grid);
     void cleanupMesh(LtMesh& mesh);

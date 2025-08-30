@@ -26,6 +26,7 @@ using GALIB_STD distance;
 using GALIB_STD find;
 using GALIB_STD endl;
 using GALIB_STD cerr;
+using GALIB_STD cout;
 using GALIB_STD map;
 
 using GALIB minecraft::cgal_support::LtMesh;
@@ -108,68 +109,40 @@ void ChunkMesh::clear() {
     this->tiles_in_world_.clear();
 }
 
-
-void  GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtMesh>& meshes, const char* const p_filename) {
-    // 创建一个新的网格用于合并所有网格
+void GALIB minecraft::cgal_support::margeAndWriteToObj(const std::vector<LtMesh>& meshes, const char* const p_filename) {
+    // 创建一个空的合并网格
     LtMesh merged_mesh;
 
-    // 用于追踪顶点的索引
-    map<typename LtMesh::Point, typename LtMesh::Vertex_index> vertex_map;
+    // 顶点映射，用于避免重复添加顶点
+    std::unordered_map<typename LtMesh::Vertex_index, typename LtMesh::Vertex_index> vertex_map;
 
-    // 遍历每个网格
+    // 遍历每个网格并将它们合并到 merged_mesh 中
     for (const auto& mesh : meshes) {
-        // 遍历网格中的每个顶点
-        for (auto v : mesh.vertices()) {
-            const auto& point = mesh.point(v);
-
-            // 如果顶点已存在，则跳过
-            if (vertex_map.find(point) == vertex_map.end()) {
-                vertex_map[point] = merged_mesh.add_vertex(point);
+        // 复制当前网格的顶点到合并网格中
+        for (const auto& v : mesh.vertices()) {
+            // 如果该顶点未出现过，添加到合并网格中
+            if (vertex_map.find(v) == vertex_map.end()) {
+                vertex_map[v] = merged_mesh.add_vertex(mesh.point(v));
             }
         }
 
-        // 遍历网格中的每个面
-        for (auto f : mesh.faces()) {
-            vector<typename LtMesh::Vertex_index> face_vertices;
-            // 获取面上的顶点
-            for (auto v : mesh.vertices_around_face(mesh.halfedge(f))) {
-                face_vertices.push_back(vertex_map[mesh.point(v)]);
+        // 复制当前网格的面到合并网格中
+        for (const auto& f : mesh.faces()) {
+            std::vector<typename LtMesh::Vertex_index> face_vertices;
+
+            // 使用半边迭代器遍历面上的顶点
+            for (auto h : mesh.halfedges_around_face(mesh.halfedge(f))) {
+                face_vertices.push_back(vertex_map[mesh.target(h)]);  // 使用已合并的顶点
             }
-
-            // 添加合并后的面
-            merged_mesh.add_face(face_vertices);
+            merged_mesh.add_face(face_vertices); // 将面添加到合并网格
         }
     }
 
-    // 将合并后的网格写入 .obj 文件
-    ofstream obj_file(p_filename);
-    if (!obj_file) {
-        cerr << "can't open file " << p_filename << endl;
-        return;
-    }
-
-    // 写入顶点
-    for (const auto& v : merged_mesh.vertices()) {
-        const auto& point = merged_mesh.point(v);
-        obj_file << "v " << point.x() << " " << point.y() << " " << point.z() << endl;
-    }
-
-    // 写入面
-    for (const auto& f : merged_mesh.faces()) {
-        vector<int> face_indices;
-        for (auto v : merged_mesh.vertices_around_face(merged_mesh.halfedge(f))) {
-            face_indices.push_back(distance(merged_mesh.vertices().begin(), find(merged_mesh.vertices().begin(), merged_mesh.vertices().end(), v)) + 1);
-        }
-
-        obj_file << "f";
-        for (const auto& idx : face_indices) {
-            obj_file << " " << idx;
-        }
-        obj_file << endl;
-    }
-
-    obj_file.close();
+    // 将合并后的网格写入 obj 文件
+    CGAL::IO::write_polygon_mesh(p_filename, merged_mesh);
 }
+
+
 
 void writeMeshToOff(const LtMesh& mesh, const char* const p_filename) {
     std::ofstream out(p_filename);
@@ -211,7 +184,7 @@ void writeMeshToOff(const LtMesh& mesh, const char* const p_filename) {
     out.close();
 }
 
-void GALIB minecraft::cgal_support::margeAndWriteToOff(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename) {
+void GALIB minecraft::cgal_support::writeToOff(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename) {
     for (size_t i = 0; i < meshes.size(); ++i) {
         // Generate a unique filename for each mesh
         std::string mesh_filename = std::string(p_filename) + "_" + std::to_string(i) + ".off";

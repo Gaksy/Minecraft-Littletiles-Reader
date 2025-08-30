@@ -46,7 +46,7 @@ namespace galib::minecraft::cgal_support {
     };
 
     void margeAndWriteToObj(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename);
-    void margeAndWriteToOff(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename);
+    void writeToOff(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename);
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H

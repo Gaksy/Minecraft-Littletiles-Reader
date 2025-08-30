@@ -11,7 +11,7 @@ using galib::minecraft::ChunkCoordinate;
 using galib::minecraft::littletiles::ChunkTileEntities;
 using galib::minecraft::cgal_support::ChunkMesh;
 using galib::minecraft::cgal_support::margeAndWriteToObj;
-using galib::minecraft::cgal_support::margeAndWriteToOff;
+using galib::minecraft::cgal_support::writeToOff;
 
 #if WIN32
 #define REGION_FOLDER "../test_region"
@@ -38,7 +38,8 @@ int main() {
     ChunkMesh chunk_mesh_management;
     chunk_mesh_management.addTilesFromChukTileEntities(chunk_tile_manager);
 #ifdef _WIN32
-    margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/offs/test");
+    // margeAndWriteToObj(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/test.obj");
+    writeToOff(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/offs/test");
 #else
     margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
 #endif
