@@ -59,44 +59,7 @@ LtMesh applyWorldOffset(const LtMesh& mesh, const galib::minecraft::BlockCoordin
     return transformed;
 }
 
-const LtMesh& createIntersectionCube() {
-    // 静态指针，确保只在第一次调用时创建
-    static LtMesh* cube = nullptr;
 
-    // 如果cube尚未创建，则构建它
-    if (!cube) {
-        cube = new LtMesh();
-
-        // 构建正方体顶点 p1(0, 0, 0) 和 p2(1, 1, 1)
-        using Point = LtMesh::Point;
-
-        // 顶点坐标
-        const SM_Vertex_index eun = cube->add_vertex(Point(1.01, 1.01, 0));
-        const SM_Vertex_index eus = cube->add_vertex(Point(1.01, 1.01, 1.01));
-        const SM_Vertex_index edn = cube->add_vertex(Point(1.01, 0, 0));
-        const SM_Vertex_index eds = cube->add_vertex(Point(1.01, 0, 1.01));
-        const SM_Vertex_index wun = cube->add_vertex(Point(0, 1.01, 0));
-        const SM_Vertex_index wus = cube->add_vertex(Point(0, 1.01, 1.01));
-        const SM_Vertex_index wdn = cube->add_vertex(Point(0, 0, 0));
-        const SM_Vertex_index wds = cube->add_vertex(Point(0, 0, 1.01));
-
-        // 创建正方体的面（六个面，每个面由两个三角形组成）
-        cube->add_face(eds, eun, eus);
-        cube->add_face(eds, edn, eun);
-        cube->add_face(wdn, wus, wun);
-        cube->add_face(wdn, wds, wus);
-        cube->add_face(wds, eus, wus);
-        cube->add_face(wds, eds, eus);
-        cube->add_face(edn, wun, eun);
-        cube->add_face(edn, wdn, wun);
-        cube->add_face(wus, eun, wun);
-        cube->add_face(wus, eus, eun);
-        cube->add_face(wdn, eds, wds);
-        cube->add_face(wdn, edn, eds);
-    }
-
-    return *cube;  // 返回静态指针
-}
 
 
 void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities, vector<LtMesh>& mesh_array) {
@@ -115,27 +78,34 @@ void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities,
             const TileEntity& tile_entity = *tile_it;
 
             // Convert to Lt Mesh 创建面并添加到 tiles_mesh 中
-            LtMesh tile_mesh = createMeshFromTileEntity(tile_entity, grid_type);
+            LtMesh tile_mesh;
+            createMeshFromTileEntity(tile_mesh, tile_entity);
 
-            // Compute intersection (assuming CGAL corefinement is available) 进行交集计算
+            // 如有偏移
             if (tile_entity.hasAnyOffsetEnable()) {
                 LtMesh intersection_result;
-                LtMesh intersection_cub_mesh = createIntersectionCube();
 
-                try {
-                    if (!GALIB_CGAL Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
-
-                        mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
-                        continue;
-                    }
-                } catch (const GALIB_STD exception& e) {
-                    mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
-                    continue;
-                }
-                mesh_array.push_back(applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate()));
-            } else {
-                mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
             }
+
+            // Compute intersection (assuming CGAL corefinement is available) 进行交集计算
+            // if (tile_entity.hasAnyOffsetEnable()) {
+            //     LtMesh intersection_result;
+            //     LtMesh intersection_cub_mesh = createIntersectionCube();
+            //
+            //     try {
+            //         if (!GALIB_CGAL Polygon_mesh_processing::corefine_and_compute_intersection(tile_mesh, intersection_cub_mesh, intersection_result)) {
+            //
+            //             mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
+            //             continue;
+            //         }
+            //     } catch (const GALIB_STD exception& e) {
+            //         mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
+            //         continue;
+            //     }
+            //     mesh_array.push_back(applyWorldOffset(intersection_result, kBlockTileEntities.getBlockCoordinate()));
+            // } else {
+            //     mesh_array.push_back(applyWorldOffset(tile_mesh, kBlockTileEntities.getBlockCoordinate()));
+            // }
         }
     }
 }

@@ -86,7 +86,7 @@ LittleTilesCoord TileEntity::getVertices(
     const AngleID kAngleId,
     const bool kWithOffset
 ) const {
-    if (kWithOffset) { return applyAngleOffset(kAngleId); }
+    if (kWithOffset && hasAnyOffsetEnable()) { return applyAngleOffset(kAngleId); }
     return getVertices(kAngleId);
 }
 

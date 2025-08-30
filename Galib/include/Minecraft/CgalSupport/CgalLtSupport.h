@@ -31,8 +31,8 @@ namespace galib::minecraft::cgal_support {
         return GALIB minecraft::cgal_support::LtPoint3(kLtCoord.x, kLtCoord.y, kLtCoord.z);
     }
 
-    void createMeshFromTileEntity(LtMesh& mesh, const GALIB minecraft::littletiles::TileEntity& tileEntity, GALIB minecraft::littletiles::GridType kGridType = 1);
-    LtMesh createMeshFromTileEntity(const GALIB minecraft::littletiles::TileEntity& tileEntity, GALIB minecraft::littletiles::GridType kGridType = 1);
+    void createMeshFromTileEntity(LtMesh& mesh, const GALIB minecraft::littletiles::TileEntity& kTileEntity);
+    const LtMesh& createIntersectionCube(GALIB minecraft::littletiles::GridType kGrid);
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H

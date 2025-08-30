@@ -19,8 +19,6 @@
 #include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTiles.h"
-#include <CGAL/Polygon_mesh_processing/stitch_borders.h>
-#include <CGAL/Polygon_mesh_processing/repair.h>
 
 using GALIB minecraft::littletiles::LittleTilesCoord;
 using GALIB minecraft::littletiles::GridType;
@@ -33,46 +31,47 @@ using GALIB minecraft::littletiles::TileFace;
 
 using GALIB minecraft::cgal_support::LtMesh;
 
+using GALIB_CGAL SM_Vertex_index;
+
 void GALIB minecraft::cgal_support::createMeshFromTileEntity(
     LtMesh& mesh,
-    const TileEntity& tileEntity,
-    const GridType kGridType
+    const TileEntity& kTileEntity
 ) {
     using VertexIndex = LtMesh::Vertex_index;
 
     const VertexIndex eun = mesh.add_vertex(
-        convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EUN, kGridType, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::EUN, true))
     );
 
     const VertexIndex eus = mesh.add_vertex(
-        convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EUS, kGridType, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::EUS, true))
     );
 
     const VertexIndex edn = mesh.add_vertex(
-        convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EDN, kGridType, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::EDN, true))
     );
 
     const VertexIndex eds = mesh.add_vertex(
-        convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::EDS, kGridType, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::EDS, true))
     );
 
     const VertexIndex wun = mesh.add_vertex(
-        convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WUN, kGridType, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::WUN, true))
     );
 
     const VertexIndex wus = mesh.add_vertex(
-        convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WUS, kGridType, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::WUS, true))
     );
 
     const VertexIndex wdn = mesh.add_vertex(
-        convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WDN, kGridType, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::WDN, true))
     );
 
     const VertexIndex wds = mesh.add_vertex(
-        convertToCGALPoint(tileEntity.getVerticesApplyGrid(AngleID::WDS, kGridType, true))
+        convertToCGALPoint(kTileEntity.getVertices(AngleID::WDS, true))
     );
 
-    const Flipped& flipped_data = tileEntity.getFlippedData();
+    const Flipped& flipped_data = kTileEntity.getFlippedData();
     const bool east_flipped = flipped_data.east;
     const bool west_flipped = flipped_data.west;
     const bool south_flipped = flipped_data.south;
@@ -133,19 +132,43 @@ void GALIB minecraft::cgal_support::createMeshFromTileEntity(
         mesh.add_face(wdn, eds, wds);
         mesh.add_face(wdn, edn, eds);
     }
-
-
-    // Attempt to stitch and repair to ensure mesh is closed
-    // namespace PMP = CGAL::Polygon_mesh_processing;
-    // PMP::stitch_borders(mesh);
-    // PMP::remove_isolated_vertices(mesh);
-    // PMP::remove_degenerate_faces(mesh);
-
-    // Note: full closure is not guaranteed, but this improves chances
 }
 
-LtMesh (GALIB minecraft::cgal_support::createMeshFromTileEntity)(const TileEntity &tileEntity, const GridType kGridType) {
-    LtMesh mesh;
-    createMeshFromTileEntity(mesh, tileEntity, kGridType);
-    return mesh;
+const LtMesh& GALIB minecraft::cgal_support::createIntersectionCube(const GALIB minecraft::littletiles::GridType kGrid) {
+    // 静态指针，确保只在第一次调用时创建
+    static LtMesh* cube = nullptr;
+
+    // 如果cube尚未创建，则构建它
+    if (!cube) {
+        cube = new LtMesh();
+
+        // 构建正方体顶点 p1(0, 0, 0) 和 p2(1, 1, 1)
+        using Point = LtMesh::Point;
+
+        // 顶点坐标
+        const SM_Vertex_index eun = cube->add_vertex(Point(kGrid, kGrid, 0));
+        const SM_Vertex_index eus = cube->add_vertex(Point(kGrid, kGrid, kGrid));
+        const SM_Vertex_index edn = cube->add_vertex(Point(kGrid, 0, 0));
+        const SM_Vertex_index eds = cube->add_vertex(Point(kGrid, 0, kGrid));
+        const SM_Vertex_index wun = cube->add_vertex(Point(0, kGrid, 0));
+        const SM_Vertex_index wus = cube->add_vertex(Point(0, kGrid, kGrid));
+        const SM_Vertex_index wdn = cube->add_vertex(Point(0, 0, 0));
+        const SM_Vertex_index wds = cube->add_vertex(Point(0, 0, kGrid));
+
+        // 创建正方体的面（六个面，每个面由两个三角形组成）
+        cube->add_face(eds, eun, eus);
+        cube->add_face(eds, edn, eun);
+        cube->add_face(wdn, wus, wun);
+        cube->add_face(wdn, wds, wus);
+        cube->add_face(wds, eus, wus);
+        cube->add_face(wds, eds, eus);
+        cube->add_face(edn, wun, eun);
+        cube->add_face(edn, wdn, wun);
+        cube->add_face(wus, eun, wun);
+        cube->add_face(wus, eus, eun);
+        cube->add_face(wdn, eds, wds);
+        cube->add_face(wdn, edn, eds);
+    }
+
+    return *cube;  // 返回静态指针
 }
