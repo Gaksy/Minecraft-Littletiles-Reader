@@ -63,7 +63,7 @@ class BoxData:
         self.pos_2:Coord3D = pos_2
         self.flipped_dara: FlippedData = FlippedData()
         self.angle_offset_data:List[AngleOffset] = []
-        for i in range(0, 8):
+        for i in range(0, 9):
             self.angle_offset_data.append(AngleOffset())
 
     def __str__(self):
@@ -125,15 +125,15 @@ def formatBoxStr(box_str: str):
     # WDS
     if (offset_info & 0x800000) != 0:
         box_data.angle_offset_data[ANGLE_WDS].z_enable = True
-        box_data.angle_offset_data[ANGLE_WUS].z_offset = offset_data[offset_data_index]
+        box_data.angle_offset_data[ANGLE_WDS].z_offset = offset_data[offset_data_index]
         offset_data_index -= 1
     if (offset_info & 0x400000) != 0:
         box_data.angle_offset_data[ANGLE_WDS].y_enable = True
-        box_data.angle_offset_data[ANGLE_WUS].y_offset = offset_data[offset_data_index]
+        box_data.angle_offset_data[ANGLE_WDS].y_offset = offset_data[offset_data_index]
         offset_data_index -= 1
     if (offset_info & 0x200000) != 0:
         box_data.angle_offset_data[ANGLE_WDS].x_enable = True
-        box_data.angle_offset_data[ANGLE_WUS].x_offset = offset_data[offset_data_index]
+        box_data.angle_offset_data[ANGLE_WDS].x_offset = offset_data[offset_data_index]
         offset_data_index -= 1
 
     if (offset_info & 0x100000) != 0:
