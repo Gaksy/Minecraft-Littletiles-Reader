@@ -96,12 +96,13 @@ namespace galib::minecraft::littletiles{
         GALIB_NODISCARD LittleTilesCoord getVertices(AngleID kAngleId)const;
         GALIB_NODISCARD LittleTilesCoord getVertices(AngleID kAngleId, bool kWithOffset)const;
         GALIB_NODISCARD LittleTilesCoord getVerticesApplyGrid(AngleID kAngleId, GridType kGridType, bool kWithOffset)const;
-        GALIB_NODISCARD TileFace getTileFace(TileFaceID kTileFaceID, bool kWithOffst = false)const;
+        GALIB_NODISCARD TileFace getTileFace(TileFaceID kTileFaceID, bool kWithOffset = false)const;
         GALIB_NODISCARD const Flipped& getFlippedData()const;
         void setPos(const LittleTilesCoord& kPos1, const LittleTilesCoord& kPos2);
         void setFlippedData(const Flipped& kFlippedData);
         void setOffsetData(AngleID kAngleId, const AngleOffset& kAngleOffsetData);
         void setOffsetData(const AngleOffset kOffsetData[8]);
+        bool isOffsetOffBoundary()const;
 
     private:
         AngleOffset offset_data_[8];

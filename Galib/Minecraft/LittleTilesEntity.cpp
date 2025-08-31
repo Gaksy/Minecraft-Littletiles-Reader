@@ -98,49 +98,49 @@ LittleTilesCoord TileEntity::getVerticesApplyGrid(AngleID kAngleId, GridType kGr
     return temp;
 }
 
-TileFace TileEntity::getTileFace(const TileFaceID kTileFaceID, const bool kWithOffst) const {
+TileFace TileEntity::getTileFace(const TileFaceID kTileFaceID, const bool kWithOffset) const {
      switch (kTileFaceID) {
      case TileFaceID::EAST:
          return {
-             getVertices(AngleID::EUN, kWithOffst),
-             getVertices(AngleID::EUS, kWithOffst),
-             getVertices(AngleID::EDS, kWithOffst),
-             getVertices(AngleID::EDN, kWithOffst)
+             getVertices(AngleID::EUN, kWithOffset),
+             getVertices(AngleID::EUS, kWithOffset),
+             getVertices(AngleID::EDS, kWithOffset),
+             getVertices(AngleID::EDN, kWithOffset)
          };
      case TileFaceID::WEST:
          return {
-             getVertices(AngleID::WUN, kWithOffst),
-             getVertices(AngleID::WUS, kWithOffst),
-             getVertices(AngleID::WDS, kWithOffst),
-             getVertices(AngleID::WDN, kWithOffst)
+             getVertices(AngleID::WUN, kWithOffset),
+             getVertices(AngleID::WUS, kWithOffset),
+             getVertices(AngleID::WDS, kWithOffset),
+             getVertices(AngleID::WDN, kWithOffset)
          };
      case TileFaceID::SOUTH:
          return {
-             getVertices(AngleID::EUS, kWithOffst),
-             getVertices(AngleID::WUS, kWithOffst),
-             getVertices(AngleID::WDS, kWithOffst),
-             getVertices(AngleID::EDS, kWithOffst)
+             getVertices(AngleID::EUS, kWithOffset),
+             getVertices(AngleID::WUS, kWithOffset),
+             getVertices(AngleID::WDS, kWithOffset),
+             getVertices(AngleID::EDS, kWithOffset)
          };
      case TileFaceID::NORTH:
          return {
-             getVertices(AngleID::EUN, kWithOffst),
-             getVertices(AngleID::EUS, kWithOffst),
-             getVertices(AngleID::WUN, kWithOffst),
-             getVertices(AngleID::WUS, kWithOffst)
+             getVertices(AngleID::EUN, kWithOffset),
+             getVertices(AngleID::EUS, kWithOffset),
+             getVertices(AngleID::WUN, kWithOffset),
+             getVertices(AngleID::WUS, kWithOffset)
          };
      case TileFaceID::UP:
          return {
-             getVertices(AngleID::EUN, kWithOffst),
-             getVertices(AngleID::EUS, kWithOffst),
-             getVertices(AngleID::WUS, kWithOffst),
-             getVertices(AngleID::WUN, kWithOffst)
+             getVertices(AngleID::EUN, kWithOffset),
+             getVertices(AngleID::EUS, kWithOffset),
+             getVertices(AngleID::WUS, kWithOffset),
+             getVertices(AngleID::WUN, kWithOffset)
          };
      case TileFaceID::DOWN:
          return {
-             getVertices(AngleID::EDN, kWithOffst),
-             getVertices(AngleID::EDS, kWithOffst),
-             getVertices(AngleID::WDS, kWithOffst),
-             getVertices(AngleID::WDN, kWithOffst)
+             getVertices(AngleID::EDN, kWithOffset),
+             getVertices(AngleID::EDS, kWithOffset),
+             getVertices(AngleID::WDS, kWithOffset),
+             getVertices(AngleID::WDN, kWithOffset)
          };
      default:
          throw exception::LittleTilesException(exception::LittleTilesErrorCode::lt_unknow_face);
@@ -173,4 +173,29 @@ void TileEntity::setOffsetData(const AngleOffset kOffsetData[8]) {
     offset_data_[5] = kOffsetData[5];
     offset_data_[6] = kOffsetData[6];
     offset_data_[7] = kOffsetData[7];
+}
+
+bool TileEntity::isOffsetOffBoundary()const {
+    if (hasAnyOffsetEnable()) {
+        const LittleTilesCoord::NumericType x_min = pos_1_.x;
+        const LittleTilesCoord::NumericType x_max = pos_2_.x;
+
+        const LittleTilesCoord::NumericType y_min = pos_1_.y;
+        const LittleTilesCoord::NumericType y_max = pos_2_.y;
+
+        const LittleTilesCoord::NumericType z_min = pos_1_.z;
+        const LittleTilesCoord::NumericType z_max = pos_2_.z;
+
+        for (size_t index = 0; index < 8; ++index) {
+            const LittleTilesCoord current_coord = getVertices(static_cast<AngleID>(index), true);
+            if (!((current_coord.x >= x_min && current_coord.x <= x_max) &&
+                (current_coord.y >= y_min && current_coord.y <= y_max) &&
+                (current_coord.z >= z_min && current_coord.z <= z_max))
+            ){
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
 }

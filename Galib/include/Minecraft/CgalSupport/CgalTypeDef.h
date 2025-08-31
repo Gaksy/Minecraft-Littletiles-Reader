@@ -26,10 +26,17 @@
 #include "GalibNamespaceDef.h"
 
 namespace galib::minecraft::cgal_support{
+#ifdef _WIN32
     using LtKernel = GALIB_CGAL Simple_cartesian<float>;
     using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
     using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
     using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Simple_cartesian<float>>>;
+#elif __APPLE__
+    using LtKernel = GALIB_CGAL Simple_cartesian<double>;
+    using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
+    using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
+    using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Simple_cartesian<double>>>;
+#endif
 }
 
 #endif //GALIB_MINECRAFT_CGALSUPPORT_CGALTYPEDEF_H

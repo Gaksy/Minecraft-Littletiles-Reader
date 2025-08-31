@@ -5,6 +5,8 @@ cmake-build-debug-visual-studio/
 
 # ignore doc
 **/~$*.docx
+/python/offs/**
+/python/objs/**
 
 #
 # We don't want to ignore the following even if they are dot-files

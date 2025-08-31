@@ -41,7 +41,8 @@ int main() {
     // margeAndWriteToObj(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/test.obj");
     writeToOff(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/offs/test");
 #else
-    margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
+    // margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
+    writeToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
 #endif
     return EXIT_SUCCESS;
 }

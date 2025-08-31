@@ -64,8 +64,8 @@ void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities,
             LtMesh tile_cgal_mesh;
             createMeshFromTileEntity(tile_cgal_mesh, tile_lt_entity);
 
-            // 如有偏移
-            if (tile_lt_entity.hasAnyOffsetEnable()) {
+            // 如有偏移且超出边界
+            if (tile_lt_entity.isOffsetOffBoundary()) {
                 // 创建裁剪网格体
                 LtMesh tile_cgal_mehs_aabb;
                 createMeshFromTileEntity(tile_cgal_mehs_aabb, tile_lt_entity, false);
