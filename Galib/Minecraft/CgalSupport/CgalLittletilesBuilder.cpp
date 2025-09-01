@@ -28,6 +28,7 @@ using GALIB_STD endl;
 using GALIB_STD cerr;
 using GALIB_STD cout;
 using GALIB_STD map;
+using GALIB_STD size_t;
 
 using GALIB minecraft::cgal_support::LtMesh;
 using GALIB minecraft::cgal_support::createMeshFromTileEntity;
@@ -45,8 +46,9 @@ using GALIB minecraft::littletiles::ChunkTileEntities;
 using GALIB_CGAL SM_Vertex_index;
 using GALIB_CGAL Polygon_mesh_processing::corefine_and_compute_intersection;
 
-void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities, vector<LtMesh>& mesh_array, const bool kApplyWorldOffset) {
+size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities, vector<LtMesh>& mesh_array, const bool kApplyWorldOffset) {
     const GridType grid_type = kBlockTileEntities.getGridType();
+    size_t processed_tile_count = 0;
     // BlockTile -> BoxTile -> Tile
 
     // For BlockTile 遍历 Block 中的所有 Tile
@@ -89,16 +91,20 @@ void addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities,
             if (kApplyWorldOffset) {
                 tile_cgal_mesh = applyWorldOffset(tile_cgal_mesh, kBlockTileEntities.getBlockCoordinate());
             }
-
             mesh_array.push_back(tile_cgal_mesh);
+            ++processed_tile_count;
         }
     }
+
+    return processed_tile_count;
 }
 
-void ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTileEntities, const bool kApplyWorldOffset) {
+size_t ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTileEntities, const bool kApplyWorldOffset) {
+    size_t processed_tile_count = 0;
     for (auto block_it = kChunkTileEntities.cbegin(); block_it != kChunkTileEntities.cend(); ++block_it) {
-        addTilesFromBlockTilesEntities(*block_it, this->tiles_in_world_, kApplyWorldOffset);
+        processed_tile_count += addTilesFromBlockTilesEntities(*block_it, this->tiles_in_world_, kApplyWorldOffset);
     }
+    return processed_tile_count;
 }
 
 const ChunkMesh::container & ChunkMesh::getMeshArray() const {
@@ -141,8 +147,6 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(const std::vector<LtMesh>
     // 将合并后的网格写入 obj 文件
     CGAL::IO::write_polygon_mesh(p_filename, merged_mesh);
 }
-
-
 
 void writeMeshToOff(const LtMesh& mesh, const char* const p_filename) {
     std::ofstream out(p_filename);

@@ -19,9 +19,9 @@
 #include "Exception/MinecraftException.h"
 #include "Exception/LittleTilesException.h"
 
+using GALIB_STD size_t;
 
 using GALIB minecraft::littletiles::ChunkTileEntities;
-
 using GALIB minecraft::ChunkCoordinate;
 
 using GALIB exception::MinecraftException;
@@ -92,3 +92,14 @@ void ChunkTileEntities::clear() {
 bool ChunkTileEntities::isEmpty() const {
     return block_tile_entities_.empty();
 }
+
+size_t ChunkTileEntities::tileNums() const {
+    size_t num = 0;
+    for (const_iterator chunk_it = cbegin(); chunk_it != cend(); ++chunk_it) {
+        for (BlockTileEntities::const_iterator block_it = chunk_it->cbegin(); block_it != chunk_it->cend(); ++block_it) {
+            num += block_it->second.size();
+        }
+    }
+    return num;
+}
+

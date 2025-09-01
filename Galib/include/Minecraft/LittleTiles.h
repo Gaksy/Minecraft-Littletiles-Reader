@@ -172,6 +172,8 @@ namespace galib::minecraft::littletiles{
         void clear();
         GALIB_NODISCARD bool isEmpty()const;
 
+        GALIB_STD size_t tileNums()const;
+
     private:
         GALIB minecraft::ChunkCoordinate chunk_coordinate_;
         container block_tile_entities_;
