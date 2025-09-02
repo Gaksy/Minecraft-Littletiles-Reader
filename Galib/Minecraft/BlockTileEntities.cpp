@@ -1,17 +1,19 @@
 /*
- * This Source Code Form is subject to the terms of the GNU Lesser General Public License,
- * v. 3.0. If a copy of the LGPL was not distributed with this file, You can obtain one at
- * https://www.gnu.org/licenses/lgpl-3.0.html.
- *
  * Copyright (c) 2024 Gaksy (Fuhongren)
  *
+ * This work is licensed under the GNU Lesser General Public License v3.0.
+ * You may obtain a copy of the license at https://www.gnu.org/licenses/lgpl-3.0.html.
+ *
+ * This source code form is subject to the terms of the LGPL v3.0 license.
+ * If a copy of the LGPL was not distributed with this file, you can obtain one
+ * at the above license URL.
+ */
+
+/*
  * Author: Gaksy
  * Date Created: 12/22/2024
- *
- * Additional Terms:
- * For commercial use of this software, you must obtain separate authorization from the original author.
- * Please contact Gaksy at gaksys@outlook.com to request commercial use authorization.
  */
+
 
 #include <iostream>
 #include <typeinfo>
@@ -248,6 +250,7 @@ bool BlockTileEntities::setAngleOffsetStateData_(
             angle_offset_array.push_back(static_cast<OffsetType>(*offset_it & 0x0000FFFF));             // Get 16bit
         }
     }
+
 
     // Get Angle offset state and set offset value
     auto offset_it = angle_offset_array.cbegin();

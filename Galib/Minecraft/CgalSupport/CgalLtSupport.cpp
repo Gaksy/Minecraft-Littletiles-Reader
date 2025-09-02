@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Gaksy (Fuhongren)
+ * Copyright (c) 2025 Gaksy (Fuhongren)
  * 
  * This work is licensed under the GNU Lesser General Public License v3.0.
  * You may obtain a copy of the license at https://www.gnu.org/licenses/lgpl-3.0.html.

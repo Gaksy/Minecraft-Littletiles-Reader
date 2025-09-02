@@ -12,7 +12,6 @@
 /*
  * Author: Gaksy
  * Date Created: 12/24/2024
- *
  */
 
 #ifndef GALIB_MINECRAFT_MINECRAFTCOORD_H

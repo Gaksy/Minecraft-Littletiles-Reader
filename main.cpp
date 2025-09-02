@@ -43,8 +43,8 @@ int main() {
 
     printf("all tile count: %zu, porcessed tile count: %zu\n", all_tile_count, processed_tile_count);
 #ifdef _WIN32
-    // margeAndWriteToObj(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/test.obj");
-    writeToOff(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/offs/test");
+    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/test.obj");
+    // writeToOff(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/offs/test");
 #else
     // margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
 
