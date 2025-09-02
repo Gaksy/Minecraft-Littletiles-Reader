@@ -27,7 +27,7 @@ int main() {
     printf("region folder path is %s\n", region_folder.c_str());
 
     AnvilReader anvil_reader;
-    constexpr ChunkCoordinate chunk_coord = {-1, 0};
+    constexpr ChunkCoordinate chunk_coord = {0, -1};
 
     anvil_reader.setRegionFolder(region_folder.c_str());
     const AnvilReader::ChunkDataReference chunk_data_reference = anvil_reader.getChunkDataReference(chunk_coord);
