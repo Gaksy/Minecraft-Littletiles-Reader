@@ -215,7 +215,7 @@ bool BlockTileEntities::readBoxesTilesNbt_(
     catch (...) { return false; }
 #else
     catch (const GALIB_STD exception& e) {
-        printf("ChunkTileEntities::readChunk error: %s\n", e.what());
+        printf("ChunkTileEntities::readBoxesTilesNbt_ error: %s\n", e.what());
         return false;
     }
 #endif
