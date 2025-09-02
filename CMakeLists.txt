@@ -52,7 +52,9 @@ endif()
 set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
 
 # 定义可执行目标
-add_executable(${CMAKE_PROJECT_NAME} main.cpp)
+add_executable(${CMAKE_PROJECT_NAME} main.cpp
+        Galib/Minecraft/CgalSupport/CgalTypeDef.cpp
+)
 add_subdirectory(Galib)
 
 # 将所需的库链接到可执行文件

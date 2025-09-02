@@ -28,10 +28,10 @@
 namespace galib::minecraft::cgal_support {
     class ChunkMesh {
     public:
-        using container = GALIB_STD vector<LtMesh>;
-        using const_iterator = GALIB_STD vector<LtMesh>::const_iterator;
-        using iterator = GALIB_STD vector<LtMesh>::iterator;
-        using size_type = GALIB_STD vector<LtMesh>::size_type;
+        using container = GALIB_STD vector<LtSurfaceMesh>;
+        using const_iterator = GALIB_STD vector<LtSurfaceMesh>::const_iterator;
+        using iterator = GALIB_STD vector<LtSurfaceMesh>::iterator;
+        using size_type = GALIB_STD vector<LtSurfaceMesh>::size_type;
 
     public:
         ChunkMesh()=default;
@@ -46,8 +46,8 @@ namespace galib::minecraft::cgal_support {
         container tiles_in_world_;
     };
 
-    void margeAndWriteToObj(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename);
-    void writeToOff(const GALIB_STD vector<LtMesh>& meshes, const char* const p_filename);
+    void margeAndWriteToObj(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* const p_filename);
+    void writeToOff(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* const p_filename);
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H

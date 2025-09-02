@@ -31,16 +31,17 @@ using GALIB minecraft::littletiles::Flipped;
 using GALIB minecraft::littletiles::TileEntity;
 using GALIB minecraft::littletiles::TileFace;
 
-using GALIB minecraft::cgal_support::LtMesh;
+using GALIB minecraft::cgal_support::LtSurfaceMesh;
 
 using GALIB_CGAL SM_Vertex_index;
 
 void GALIB minecraft::cgal_support::createMeshFromTileEntity(
-    LtMesh& mesh,
+    LtSurfaceMesh& mesh_data,
     const TileEntity& kTileEntity,
     const bool kApplyOffset
 ) {
-    using VertexIndex = LtMesh::Vertex_index;
+    LtSurfaceMesh::SurfaceMeshType& mesh = mesh_data.getMesh();
+    using VertexIndex = LtSurfaceMesh::SurfaceMeshType::Vertex_index;
 
     const VertexIndex eun = mesh.add_vertex(
         convertToCGALPoint(kTileEntity.getVertices(AngleID::EUN, kApplyOffset))
@@ -137,48 +138,49 @@ void GALIB minecraft::cgal_support::createMeshFromTileEntity(
     }
 }
 
-const LtMesh& GALIB minecraft::cgal_support::createIntersectionCube(const GridType kGrid) {
+const LtSurfaceMesh& GALIB minecraft::cgal_support::createIntersectionCube(const GridType kGrid) {
     // 静态指针，确保只在第一次调用时创建
-    static LtMesh* cube = nullptr;
+    static LtSurfaceMesh* p_lt_surface_mesh = nullptr;
 
     // 如果cube尚未创建，则构建它
-    if (!cube) {
-        cube = new LtMesh();
+    if (!p_lt_surface_mesh) {
+        p_lt_surface_mesh = new LtSurfaceMesh();
+        LtSurfaceMesh::SurfaceMeshType& cube = p_lt_surface_mesh->getMesh();
 
         // 构建正方体顶点 p1(0, 0, 0) 和 p2(1, 1, 1)
-        using Point = LtMesh::Point;
+        using Point = LtSurfaceMesh::SurfaceMeshType::Point;
 
         // 顶点坐标
-        const SM_Vertex_index eun = cube->add_vertex(Point(kGrid, kGrid, 0));
-        const SM_Vertex_index eus = cube->add_vertex(Point(kGrid, kGrid, kGrid));
-        const SM_Vertex_index edn = cube->add_vertex(Point(kGrid, 0, 0));
-        const SM_Vertex_index eds = cube->add_vertex(Point(kGrid, 0, kGrid));
-        const SM_Vertex_index wun = cube->add_vertex(Point(0, kGrid, 0));
-        const SM_Vertex_index wus = cube->add_vertex(Point(0, kGrid, kGrid));
-        const SM_Vertex_index wdn = cube->add_vertex(Point(0, 0, 0));
-        const SM_Vertex_index wds = cube->add_vertex(Point(0, 0, kGrid));
+        const SM_Vertex_index eun = cube.add_vertex(Point(kGrid, kGrid, 0));
+        const SM_Vertex_index eus = cube.add_vertex(Point(kGrid, kGrid, kGrid));
+        const SM_Vertex_index edn = cube.add_vertex(Point(kGrid, 0, 0));
+        const SM_Vertex_index eds = cube.add_vertex(Point(kGrid, 0, kGrid));
+        const SM_Vertex_index wun = cube.add_vertex(Point(0, kGrid, 0));
+        const SM_Vertex_index wus = cube.add_vertex(Point(0, kGrid, kGrid));
+        const SM_Vertex_index wdn = cube.add_vertex(Point(0, 0, 0));
+        const SM_Vertex_index wds = cube.add_vertex(Point(0, 0, kGrid));
 
         // 创建正方体的面（六个面，每个面由两个三角形组成）
-        cube->add_face(eds, eun, eus);
-        cube->add_face(eds, edn, eun);
-        cube->add_face(wdn, wus, wun);
-        cube->add_face(wdn, wds, wus);
-        cube->add_face(wds, eus, wus);
-        cube->add_face(wds, eds, eus);
-        cube->add_face(edn, wun, eun);
-        cube->add_face(edn, wdn, wun);
-        cube->add_face(wus, eun, wun);
-        cube->add_face(wus, eus, eun);
-        cube->add_face(wdn, eds, wds);
-        cube->add_face(wdn, edn, eds);
+        cube.add_face(eds, eun, eus);
+        cube.add_face(eds, edn, eun);
+        cube.add_face(wdn, wus, wun);
+        cube.add_face(wdn, wds, wus);
+        cube.add_face(wds, eus, wus);
+        cube.add_face(wds, eds, eus);
+        cube.add_face(edn, wun, eun);
+        cube.add_face(edn, wdn, wun);
+        cube.add_face(wus, eun, wun);
+        cube.add_face(wus, eus, eun);
+        cube.add_face(wdn, eds, wds);
+        cube.add_face(wdn, edn, eds);
     }
 
-    return *cube;  // 返回静态指针
+    return *p_lt_surface_mesh;  // 返回静态指针
 }
 
-const LtMesh (GALIB minecraft::cgal_support::applyWorldOffset)(LtMesh& mesh, const galib::minecraft::BlockCoordinate & block_coordinate) {
-    LtMesh transformed = mesh;
-    using Point = LtMesh::Point;
+void (GALIB minecraft::cgal_support::applyWorldOffset)(LtSurfaceMesh& mesh, const BlockCoordinate & block_coordinate) {
+    LtSurfaceMesh::SurfaceMeshType& transformed = mesh.getMesh();
+    using Point = LtSurfaceMesh::SurfaceMeshType::Point;
     const double offset_x = block_coordinate.x;
     const double offset_y = block_coordinate.y;
     const double offset_z = block_coordinate.z;
@@ -191,12 +193,11 @@ const LtMesh (GALIB minecraft::cgal_support::applyWorldOffset)(LtMesh& mesh, con
             p.z() + offset_z
         );
     }
-    return transformed;
 }
 
-const LtMesh (GALIB minecraft::cgal_support::applyGrid)(const LtMesh& mesh, const GridType grid) {
-    LtMesh transformed = mesh;
-    using Point = LtMesh::Point;
+void (GALIB minecraft::cgal_support::applyGrid)(LtSurfaceMesh& mesh, const GridType grid) {
+    LtSurfaceMesh::SurfaceMeshType& transformed = mesh.getMesh();
+    using Point = LtSurfaceMesh::SurfaceMeshType::Point;
 
     for(auto v : transformed.vertices()) {
         Point p = transformed.point(v);
@@ -206,19 +207,18 @@ const LtMesh (GALIB minecraft::cgal_support::applyGrid)(const LtMesh& mesh, cons
             p.z() / static_cast<float>(grid)
         );
     }
-    return transformed;
 }
 
 // 网格清理函数
-void (GALIB minecraft::cgal_support::cleanupMesh)(LtMesh& mesh) {
+void (GALIB minecraft::cgal_support::cleanupMesh)(LtSurfaceMesh& mesh) {
     // 移除退化面
-    CGAL::Polygon_mesh_processing::remove_degenerate_faces(mesh);
+    CGAL::Polygon_mesh_processing::remove_degenerate_faces(mesh.getMesh());
 
     // 移除孤立顶点
-    CGAL::Polygon_mesh_processing::remove_isolated_vertices(mesh);
+    CGAL::Polygon_mesh_processing::remove_isolated_vertices(mesh.getMesh());
 
     // 确保网格是流形的
-    if (!is_valid_polygon_mesh(mesh)) {
+    if (!CGAL::is_valid_polygon_mesh(mesh.getMesh())) {
         std::cerr << "Warning: Mesh is not valid after cleanup" << std::endl;
     }
 }

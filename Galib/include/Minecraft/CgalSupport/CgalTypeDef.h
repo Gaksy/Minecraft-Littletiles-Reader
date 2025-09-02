@@ -30,13 +30,29 @@ namespace galib::minecraft::cgal_support{
     using LtKernel = GALIB_CGAL Simple_cartesian<float>;
     using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
     using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
-    using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Simple_cartesian<float>>>;
+    // using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Simple_cartesian<float>>>;
 #elif __APPLE__
     using LtKernel = GALIB_CGAL Simple_cartesian<double>;
     using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
     using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
-    using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Simple_cartesian<double>>>;
+    // using LtSurfaceMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Simple_cartesian<double>>>;
 #endif
+
+    class LtSurfaceMesh {
+    public:
+        using SurfaceMeshType = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<LtKernel>>;
+
+    public:
+        LtSurfaceMesh() = default;
+        LtSurfaceMesh(const SurfaceMeshType& mesh);
+        ~LtSurfaceMesh() = default;
+
+        SurfaceMeshType& getMesh();
+        const SurfaceMeshType& getMesh()const;
+
+    private:
+        SurfaceMeshType surface_mesh_;
+    };
 }
 
 #endif //GALIB_MINECRAFT_CGALSUPPORT_CGALTYPEDEF_H

@@ -29,11 +29,11 @@ namespace galib::minecraft::cgal_support {
         return GALIB minecraft::cgal_support::LtPoint3(kLtCoord.x, kLtCoord.y, kLtCoord.z);
     }
 
-    void createMeshFromTileEntity(LtMesh& mesh, const GALIB minecraft::littletiles::TileEntity& kTileEntity, bool kApplyOffset = true);
-    const LtMesh& createIntersectionCube(GALIB minecraft::littletiles::GridType kGrid);
-    const LtMesh applyWorldOffset(LtMesh& mesh, const galib::minecraft::BlockCoordinate & block_coordinate);
-    const LtMesh applyGrid(const LtMesh& mesh, GALIB minecraft::littletiles::GridType grid);
-    void cleanupMesh(LtMesh& mesh);
+    void createMeshFromTileEntity(LtSurfaceMesh& mesh, const GALIB minecraft::littletiles::TileEntity& kTileEntity, bool kApplyOffset = true);
+    const LtSurfaceMesh& createIntersectionCube(GALIB minecraft::littletiles::GridType kGrid);
+    void applyWorldOffset(LtSurfaceMesh& mesh, const BlockCoordinate & block_coordinate);
+    void applyGrid(LtSurfaceMesh& mesh, GALIB minecraft::littletiles::GridType grid);
+    void cleanupMesh(LtSurfaceMesh& mesh);
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H
