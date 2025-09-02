@@ -14,8 +14,6 @@
  * Date Created: 12/24/2024
  */
 
-
-
 #ifndef GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
 #define GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
 
@@ -46,8 +44,29 @@ namespace galib::minecraft::cgal_support {
         container tiles_in_world_;
     };
 
-    void margeAndWriteToObj(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* const p_filename);
-    void writeToOff(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* const p_filename);
+    // class ObjFormatBuilder {
+    // public:
+    //     ObjFormatBuilder() = default;
+    //     ~ObjFormatBuilder() = default;
+    //
+    // private:
+    //     struct FaceData {
+    //         GALIB_STD vector<GALIB minecraft::littletiles::LittleTilesCoord>::size_type point_index;
+    //         const LtSurfaceMesh& desc_face;
+    //     };
+    //
+    // public:
+    //     bool exportToFile(const char* p_file_path, const GALIB_STD vector<LtSurfaceMesh>& meshes);
+    //
+    // public:
+    //     GALIB_STD vector<GALIB minecraft::littletiles::LittleTilesCoord> coord_array_;
+    //
+    // };
+
+    void margeAndWriteToObj(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* p_filename);
+
+    void writeToOff(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* p_filename);
+
 }
 
 #endif //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
