@@ -36,7 +36,7 @@ GALIB minecraft::littletiles::ChunkTileEntities::ChunkTileEntities():
     chunk_coordinate_({})
 { }
 
-void ChunkTileEntities::readChunk(
+ChunkTileEntities::size_type ChunkTileEntities::readChunk(
     const AnvilReader::ChunkDataReference &kChunkDataReference
 ) {
     // Check chunk root is not empty
@@ -57,11 +57,13 @@ void ChunkTileEntities::readChunk(
     const tag_list& tiles_entities = kChunkDataReference.p_chunk_level->at("TileEntities").as<tag_list>();
     container block_tile_entities;
 
+    size_type tile_count = 0;
+
     // Decode...
     for(tag_list::const_iterator it = tiles_entities.cbegin(); it != tiles_entities.cend(); ++it) {
         try {
             BlockTileEntities block_tiles;
-            block_tiles.readBlockTileNBT(it->as<tag_compound>());
+            tile_count += block_tiles.readBlockTileNBT(it->as<tag_compound>());
             block_tile_entities.push_back(block_tiles);
         }
         catch (...) { }
@@ -70,6 +72,8 @@ void ChunkTileEntities::readChunk(
     // DONE!!
     chunk_coordinate_ = kChunkDataReference.chunk_info.chunk_coord;
     block_tile_entities_.swap(block_tile_entities);
+
+    return tile_count;
 }
 
 const ChunkCoordinate & ChunkTileEntities::getChunkCoordinate() const {
@@ -93,12 +97,10 @@ bool ChunkTileEntities::isEmpty() const {
     return block_tile_entities_.empty();
 }
 
-size_t ChunkTileEntities::tileNums() const {
+ChunkTileEntities::size_type ChunkTileEntities::tileCount() const {
     size_t num = 0;
     for (const_iterator chunk_it = cbegin(); chunk_it != cend(); ++chunk_it) {
-        for (BlockTileEntities::const_iterator block_it = chunk_it->cbegin(); block_it != chunk_it->cend(); ++block_it) {
-            num += block_it->second.size();
-        }
+        num += chunk_it->tileCount();
     }
     return num;
 }

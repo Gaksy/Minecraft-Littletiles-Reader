@@ -31,13 +31,14 @@ namespace galib::minecraft::cgal_support {
         using container = GALIB_STD vector<LtMesh>;
         using const_iterator = GALIB_STD vector<LtMesh>::const_iterator;
         using iterator = GALIB_STD vector<LtMesh>::iterator;
+        using size_type = GALIB_STD vector<LtMesh>::size_type;
 
     public:
         ChunkMesh()=default;
         ~ChunkMesh()=default;
 
     public:
-        GALIB_STD size_t addTilesFromChukTileEntities(const GALIB minecraft::littletiles::ChunkTileEntities& kChunkTileEntities, bool kApplyWorldOffset = true);
+        size_type addTilesFromChukTileEntities(const GALIB minecraft::littletiles::ChunkTileEntities& kChunkTileEntities, bool kApplyWorldOffset = true);
         GALIB_NODISCARD const container & getMeshArray()const;
         void clear();
 

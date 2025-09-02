@@ -46,7 +46,7 @@ BlockTileEntities::BlockTileEntities():
     grid_(0)
 { }
 
-void BlockTileEntities::readBlockTileNBT(const tag_compound &kBlockTilesNBT) {
+BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(const tag_compound &kBlockTilesNBT) {
     // check block tiles root is not empty
     if (!kBlockTilesNBT.size()) {
         throw LittleTilesException(
@@ -73,6 +73,7 @@ void BlockTileEntities::readBlockTileNBT(const tag_compound &kBlockTilesNBT) {
 
         // Process block tiles
         container box_tile_enities_map;
+        size_type tile_count = 0;
 
         for (auto it = tiles.begin(); it != tiles.cend(); ++it) {
             tag_compound* p_boxes = &it->as<tag_compound>();   // Get boxes
@@ -80,12 +81,13 @@ void BlockTileEntities::readBlockTileNBT(const tag_compound &kBlockTilesNBT) {
 
             // is haved block_id
             if(box_tile_enities_map.find(block_id) != box_tile_enities_map.end()) {
-                continue;
+                continue; // that is not should happed
             }
 
             // Get data, If Get successful, then insert data
             if(BoxTileEnities box_tile_enities; readBoxesTilesNbt_(*p_boxes, box_tile_enities)) {
                 box_tile_enities_map.insert(container_pair(block_id, box_tile_enities));
+                ++tile_count;
             }
         }
 
@@ -100,6 +102,8 @@ void BlockTileEntities::readBlockTileNBT(const tag_compound &kBlockTilesNBT) {
         grid_ = grid_type;
         box_tile_entities_map_.swap(box_tile_enities_map);
         little_tiles_id_.swap(little_tiles_id);
+
+        return tile_count;
     }
     catch (...) {
         throw LittleTilesException(LittleTilesErrorCode::lt_tage_not_exist, "Some tag not exist.", "BlockTiles");
@@ -125,6 +129,15 @@ BlockTileEntities::const_iterator BlockTileEntities::cbegin() const {
 BlockTileEntities::const_iterator BlockTileEntities::cend() const {
     return box_tile_entities_map_.cend();
 }
+
+BlockTileEntities::size_type BlockTileEntities::tileCount() const {
+    size_type tile_count = 0;
+    for (const_iterator it = box_tile_entities_map_.cbegin(); it != box_tile_entities_map_.cend(); ++it) {
+        tile_count += it->second.size();
+    }
+    return tile_count;
+}
+
 
 bool BlockTileEntities::readBoxesTilesNbt_(
     const tag_compound &kBoxesTilesNbt,

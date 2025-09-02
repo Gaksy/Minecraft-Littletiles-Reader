@@ -98,11 +98,11 @@ namespace galib::minecraft::littletiles{
         GALIB_NODISCARD LittleTilesCoord getVerticesApplyGrid(AngleID kAngleId, GridType kGridType, bool kWithOffset)const;
         GALIB_NODISCARD TileFace getTileFace(TileFaceID kTileFaceID, bool kWithOffset = false)const;
         GALIB_NODISCARD const Flipped& getFlippedData()const;
+        GALIB_NODISCARD bool isOffsetOffBoundary()const;
         void setPos(const LittleTilesCoord& kPos1, const LittleTilesCoord& kPos2);
         void setFlippedData(const Flipped& kFlippedData);
         void setOffsetData(AngleID kAngleId, const AngleOffset& kAngleOffsetData);
         void setOffsetData(const AngleOffset kOffsetData[8]);
-        bool isOffsetOffBoundary()const;
 
     private:
         AngleOffset offset_data_[8];
@@ -119,13 +119,14 @@ namespace galib::minecraft::littletiles{
         // <block_id, array of box>
         using container = GALIB_STD map<GALIB_STD string, BoxTileEnities>;
         using container_pair = GALIB_STD pair<GALIB_STD string, BoxTileEnities>;
+        using size_type = GALIB_STD map<GALIB_STD string, BoxTileEnities>::size_type;
 
     public:
         BlockTileEntities();
         ~BlockTileEntities()=default;
 
     public:
-        void readBlockTileNBT(const GALIB_NBT tag_compound& kBlockTilesNBT);
+        size_type readBlockTileNBT(const GALIB_NBT tag_compound& kBlockTilesNBT);
 
         GALIB_NODISCARD const GALIB minecraft::BlockCoordinate& getBlockCoordinate()const;
         GALIB_NODISCARD const GridType& getGridType()const;
@@ -133,6 +134,8 @@ namespace galib::minecraft::littletiles{
 
         GALIB_NODISCARD const_iterator cbegin()const;
         GALIB_NODISCARD const_iterator cend()const;
+
+        GALIB_NODISCARD size_type tileCount()const;
 
     private:
         GALIB_NODISCARD static bool readBoxesTilesNbt_(
@@ -157,13 +160,14 @@ namespace galib::minecraft::littletiles{
     public:
         using const_iterator = GALIB_STD vector<BlockTileEntities>::const_iterator;
         using container = GALIB_STD vector<BlockTileEntities>;
+        using size_type = GALIB_STD vector<BlockTileEntities>::size_type;
 
     public:
         ChunkTileEntities();
         ~ChunkTileEntities()=default;
 
     public:
-        void readChunk(const GALIB minecraft::AnvilReader::ChunkDataReference& kChunkDataReference);
+        size_type readChunk(const GALIB minecraft::AnvilReader::ChunkDataReference& kChunkDataReference);
         GALIB_NODISCARD const GALIB minecraft::ChunkCoordinate& getChunkCoordinate()const;
 
         GALIB_NODISCARD const_iterator cbegin()const;
@@ -172,7 +176,7 @@ namespace galib::minecraft::littletiles{
         void clear();
         GALIB_NODISCARD bool isEmpty()const;
 
-        GALIB_STD size_t tileNums()const;
+        GALIB_NODISCARD size_type tileCount()const;
 
     private:
         GALIB minecraft::ChunkCoordinate chunk_coordinate_;

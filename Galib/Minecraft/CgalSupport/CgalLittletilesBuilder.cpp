@@ -99,7 +99,7 @@ size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntitie
     return processed_tile_count;
 }
 
-size_t ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTileEntities, const bool kApplyWorldOffset) {
+ChunkMesh::size_type ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTileEntities, const bool kApplyWorldOffset) {
     size_t processed_tile_count = 0;
     for (auto block_it = kChunkTileEntities.cbegin(); block_it != kChunkTileEntities.cend(); ++block_it) {
         processed_tile_count += addTilesFromBlockTilesEntities(*block_it, this->tiles_in_world_, kApplyWorldOffset);

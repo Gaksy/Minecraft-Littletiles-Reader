@@ -36,7 +36,7 @@ int main() {
     chunk_tile_manager.readChunk(chunk_data_reference);
 
     ChunkMesh chunk_mesh_management;
-    const size_t all_tile_count = chunk_tile_manager.tileNums();
+    const size_t all_tile_count = chunk_tile_manager.tileCount();
     const size_t processed_tile_count = chunk_mesh_management.addTilesFromChukTileEntities(chunk_tile_manager);
 
     printf("all tile count: %zu, porcessed tile count: %zu\n", all_tile_count, processed_tile_count);
