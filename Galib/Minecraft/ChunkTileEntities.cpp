@@ -37,7 +37,8 @@ GALIB minecraft::littletiles::ChunkTileEntities::ChunkTileEntities():
 { }
 
 ChunkTileEntities::size_type ChunkTileEntities::readChunk(
-    const AnvilReader::ChunkDataReference &kChunkDataReference
+    const AnvilReader::ChunkDataReference &kChunkDataReference,
+    size_type* p_boxes_count
 ) {
     // Check chunk root is not empty
     if (!kChunkDataReference.p_chunk_root) {
@@ -58,12 +59,15 @@ ChunkTileEntities::size_type ChunkTileEntities::readChunk(
     container block_tile_entities;
 
     size_type tile_count = 0;
+    size_type boxes_count = 0;
 
     // Decode...
     for(tag_list::const_iterator it = tiles_entities.cbegin(); it != tiles_entities.cend(); ++it) {
         try {
             BlockTileEntities block_tiles;
-            tile_count += block_tiles.readBlockTileNBT(it->as<tag_compound>());
+            size_type block_boxes_count = 0;
+            tile_count += block_tiles.readBlockTileNBT(it->as<tag_compound>(), &block_boxes_count);
+            boxes_count += block_boxes_count;
             block_tile_entities.push_back(block_tiles);
         }
         catch (...) { }
@@ -72,6 +76,10 @@ ChunkTileEntities::size_type ChunkTileEntities::readChunk(
     // DONE!!
     chunk_coordinate_ = kChunkDataReference.chunk_info.chunk_coord;
     block_tile_entities_.swap(block_tile_entities);
+
+#ifdef GALIB_DEBUG
+    printf("ChunkTileEntities::readChunk Tile count: %zu, Boxes count: %zu\n", tile_count, boxes_count);
+#endif
 
     return tile_count;
 }

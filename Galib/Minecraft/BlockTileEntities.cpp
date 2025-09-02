@@ -46,7 +46,7 @@ BlockTileEntities::BlockTileEntities():
     grid_(0)
 { }
 
-BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(const tag_compound &kBlockTilesNBT) {
+BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(const tag_compound &kBlockTilesNBT, size_type* p_boxes_count) {
     // check block tiles root is not empty
     if (!kBlockTilesNBT.size()) {
         throw LittleTilesException(
@@ -74,6 +74,7 @@ BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(const tag_compo
         // Process block tiles
         container box_tile_enities_map;
         size_type tile_count = 0;
+        size_type boxes_count = 0;
 
         for (auto it = tiles.begin(); it != tiles.cend(); ++it) {
             tag_compound* p_boxes = &it->as<tag_compound>();   // Get boxes
@@ -85,9 +86,9 @@ BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(const tag_compo
             }
 
             // Get data, If Get successful, then insert data
-            if(BoxTileEnities box_tile_enities; readBoxesTilesNbt_(*p_boxes, box_tile_enities)) {
+            if(BoxTileEnities box_tile_enities; readBoxesTilesNbt_(*p_boxes, box_tile_enities, tile_count)) {
                 box_tile_enities_map.insert(container_pair(block_id, box_tile_enities));
-                ++tile_count;
+                ++boxes_count;
             }
         }
 
@@ -103,6 +104,12 @@ BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(const tag_compo
         box_tile_entities_map_.swap(box_tile_enities_map);
         little_tiles_id_.swap(little_tiles_id);
 
+#ifdef GALIB_DEBUG
+        printf("BlockTileEntities::readBlockTileNBT Boxes count: %zu, Tile count: %zu\n", boxes_count, tile_count);
+#endif
+        if(p_boxes_count) {
+            *p_boxes_count = boxes_count;
+        }
         return tile_count;
     }
     catch (...) {
@@ -141,7 +148,8 @@ BlockTileEntities::size_type BlockTileEntities::tileCount() const {
 
 bool BlockTileEntities::readBoxesTilesNbt_(
     const tag_compound &kBoxesTilesNbt,
-    BoxTileEnities &desc_box_tile_enities
+    BoxTileEnities &desc_box_tile_enities,
+    size_type& tile_count
 ) {
     if (!kBoxesTilesNbt.size()) { return false; }
 
@@ -190,6 +198,7 @@ bool BlockTileEntities::readBoxesTilesNbt_(
                 temp.setPos(pos_1, pos_2);
 
                 box_tile_enity_array.push_back(temp);
+                ++tile_count;
             } catch (const std::exception &e) {
                 std::cerr << "Error parsing box tile entity: " << e.what() << std::endl;
             } catch (...) {

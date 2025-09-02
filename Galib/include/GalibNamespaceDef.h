@@ -24,6 +24,8 @@
 #define GALIB_CGAL   ::CGAL::
 #define GALIB        ::galib::
 
+#define GALIB_DEBUG
+
 #if defined(__GNUC__) || defined(__clang__)
     #if __cplusplus >= 201703L
         #define GALIB_NODISCARD [[nodiscard]]

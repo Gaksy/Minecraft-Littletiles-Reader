@@ -126,7 +126,7 @@ namespace galib::minecraft::littletiles{
         ~BlockTileEntities()=default;
 
     public:
-        size_type readBlockTileNBT(const GALIB_NBT tag_compound& kBlockTilesNBT);
+        size_type readBlockTileNBT(const GALIB_NBT tag_compound& kBlockTilesNBT, size_type* p_boxes_count = nullptr);
 
         GALIB_NODISCARD const GALIB minecraft::BlockCoordinate& getBlockCoordinate()const;
         GALIB_NODISCARD const GridType& getGridType()const;
@@ -140,7 +140,8 @@ namespace galib::minecraft::littletiles{
     private:
         GALIB_NODISCARD static bool readBoxesTilesNbt_(
             const GALIB_NBT tag_compound& kBoxesTilesNbt,
-            BoxTileEnities& desc_box_tile_enities
+            BoxTileEnities& desc_box_tile_enities,
+            size_type& tile_count
         );
 
         GALIB_NODISCARD static bool setAngleOffsetStateData_(
@@ -167,7 +168,7 @@ namespace galib::minecraft::littletiles{
         ~ChunkTileEntities()=default;
 
     public:
-        size_type readChunk(const GALIB minecraft::AnvilReader::ChunkDataReference& kChunkDataReference);
+        size_type readChunk(const GALIB minecraft::AnvilReader::ChunkDataReference& kChunkDataReference, size_type* p_boxes_count = nullptr);
         GALIB_NODISCARD const GALIB minecraft::ChunkCoordinate& getChunkCoordinate()const;
 
         GALIB_NODISCARD const_iterator cbegin()const;

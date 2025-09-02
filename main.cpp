@@ -33,7 +33,9 @@ int main() {
     const AnvilReader::ChunkDataReference chunk_data_reference = anvil_reader.getChunkDataReference(chunk_coord);
 
     ChunkTileEntities chunk_tile_manager;
-    chunk_tile_manager.readChunk(chunk_data_reference);
+    ChunkTileEntities::size_type tile_count = chunk_tile_manager.readChunk(chunk_data_reference);
+
+    printf("nbt tile processed count: %zu\n", tile_count);
 
     ChunkMesh chunk_mesh_management;
     const size_t all_tile_count = chunk_tile_manager.tileCount();
