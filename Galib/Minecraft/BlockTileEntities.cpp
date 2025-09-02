@@ -161,7 +161,11 @@ bool BlockTileEntities::readBoxesTilesNbt_(
             boxes_pos = kBoxesTilesNbt.at("boxes").as<tag_list>();
         }
         else if (kBoxesTilesNbt.has_key("box")) {
+#ifdef _WIN32
             boxes_pos.push_back(nbt::value_initializer(kBoxesTilesNbt.at("box").as<tag_int_array>().clone()));
+#elif __APPLE__
+            boxes_pos.push_back(nbt::value_initializer(static_cast<const nbt::tag_array<int32_t>&>(kBoxesTilesNbt.at("box").get()).clone()));
+#endif
         }
         else {
             return false;
@@ -175,7 +179,11 @@ bool BlockTileEntities::readBoxesTilesNbt_(
                 TileEntity temp;
                 auto& inner_tag = it->get();
                 // 强制转换
+#ifdef __APPLE__
                 const auto& int_array = static_cast<const nbt::tag_array<int32_t>&>(inner_tag);
+#elif _WIN32
+                const auto& int_array = it->as<tag_int_array>();
+#endif
 
                 if (int_array.size() < 6) { continue; }     // pos must have 6 num (two vertices)
                 if (int_array.size() > 6) {                 // if > 6 , then have offset and flipped
@@ -201,8 +209,6 @@ bool BlockTileEntities::readBoxesTilesNbt_(
                 ++tile_count;
             } catch (const std::exception &e) {
                 std::cerr << "Error parsing box tile entity: " << e.what() << std::endl;
-            } catch (...) {
-                std::cerr << "Unknown error parsing box tile entity." << std::endl;
             }
         }
 
