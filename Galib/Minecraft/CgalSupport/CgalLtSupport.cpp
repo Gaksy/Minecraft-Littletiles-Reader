@@ -179,15 +179,18 @@ const LtSurfaceMesh& GALIB minecraft::cgal_support::createIntersectionCube(const
 }
 
 void (GALIB minecraft::cgal_support::applyWorldOffset)(LtSurfaceMesh& mesh, const BlockCoordinate & block_coordinate) {
-    LtSurfaceMesh::SurfaceMeshType& transformed = mesh.getMesh();
+    applyWorldOffset(mesh.getMesh(), block_coordinate);
+}
+
+void (GALIB minecraft::cgal_support::applyWorldOffset)(LtSurfaceMesh::SurfaceMeshType& mesh, const BlockCoordinate & block_coordinate) {
     using Point = LtSurfaceMesh::SurfaceMeshType::Point;
     const double offset_x = block_coordinate.x;
     const double offset_y = block_coordinate.y;
     const double offset_z = block_coordinate.z;
 
-    for(auto v : transformed.vertices()) {
-        Point p = transformed.point(v);
-        transformed.point(v) = Point(
+    for(auto v : mesh.vertices()) {
+        Point p = mesh.point(v);
+        mesh.point(v) = Point(
             p.x() + offset_x,
             p.y() + offset_y,
             p.z() + offset_z

@@ -46,15 +46,15 @@ using GALIB minecraft::littletiles::ChunkTileEntities;
 using GALIB_CGAL SM_Vertex_index;
 using GALIB_CGAL Polygon_mesh_processing::corefine_and_compute_intersection;
 
-size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities, vector<LtSurfaceMesh>& mesh_array, const bool kApplyWorldOffset) {
+size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities, vector<LtSurfaceMesh>& mesh_array) {
     const GridType grid_type = kBlockTileEntities.getGridType();
     size_t processed_tile_count = 0;
     // BlockTile -> BoxTile -> Tile
 
-    // For BlockTile 遍历 Block 中的所有 Tile
-    for(BlockTileEntities::const_iterator block_it = kBlockTileEntities.cbegin(); block_it != kBlockTileEntities.cend(); ++block_it) {
+    // For BlockTile 遍历 Block 中的所有 boxes
+    for(BlockTileEntities::const_iterator box_it = kBlockTileEntities.cbegin(); box_it != kBlockTileEntities.cend(); ++box_it) {
         // Get BoxTile entities 获取每个 Box Tile
-        const BoxTileEnities& box_tile_entities = block_it->second;
+        const BoxTileEnities& box_tile_entities = box_it->second;
 
         // For BoxTile 对于 Box Tile 中的每个 Tile，构建他的面
         for(BoxTileEnities::const_iterator tile_it = box_tile_entities.cbegin(); tile_it != box_tile_entities.cend(); ++tile_it) {
@@ -96,9 +96,9 @@ size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntitie
             }
 
             applyGrid(tile_cgal_mesh, grid_type);
-            if (kApplyWorldOffset) {
-                applyWorldOffset(tile_cgal_mesh, kBlockTileEntities.getBlockCoordinate());
-            }
+            tile_cgal_mesh.setBlockCoordInWorld(kBlockTileEntities.getBlockCoordinate());
+            tile_cgal_mesh.setBlockID(box_it->first);
+            tile_cgal_mesh.applyOffset(tile_cgal_mesh.getBlockCoord());
             mesh_array.push_back(tile_cgal_mesh);
             ++processed_tile_count;
         }
@@ -107,10 +107,10 @@ size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntitie
     return processed_tile_count;
 }
 
-ChunkMesh::size_type ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTileEntities, const bool kApplyWorldOffset) {
+ChunkMesh::size_type ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTileEntities) {
     size_t processed_tile_count = 0;
     for (auto block_it = kChunkTileEntities.cbegin(); block_it != kChunkTileEntities.cend(); ++block_it) {
-        processed_tile_count += addTilesFromBlockTilesEntities(*block_it, this->tiles_in_world_, kApplyWorldOffset);
+        processed_tile_count += addTilesFromBlockTilesEntities(*block_it, this->tiles_in_world_);
     }
     return processed_tile_count;
 }

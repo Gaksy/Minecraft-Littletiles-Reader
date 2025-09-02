@@ -17,13 +17,13 @@
 #ifndef GALIB_MINECRAFT_CGALSUPPORT_CGALTYPEDEF_H
 #define GALIB_MINECRAFT_CGALSUPPORT_CGALTYPEDEF_H
 
-#include <CGAL/Cartesian.h>
 #include <CGAL/Vector_3.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Point_set_3.h>
 #include <CGAL/Surface_mesh/Surface_mesh.h>
 
 #include "GalibNamespaceDef.h"
+#include "Minecraft/MinecraftCoord.h"
 
 namespace galib::minecraft::cgal_support{
 #ifdef _WIN32
@@ -44,14 +44,22 @@ namespace galib::minecraft::cgal_support{
 
     public:
         LtSurfaceMesh() = default;
-        LtSurfaceMesh(const SurfaceMeshType& mesh);
+        explicit LtSurfaceMesh(const SurfaceMeshType& mesh);
         ~LtSurfaceMesh() = default;
 
-        SurfaceMeshType& getMesh();
-        const SurfaceMeshType& getMesh()const;
+        GALIB_NODISCARD SurfaceMeshType& getMesh();
+        GALIB_NODISCARD const SurfaceMeshType& getMesh()const;
+        void setBlockID(const GALIB_STD string& str);
+        GALIB_NODISCARD const GALIB_STD string& getBlockID()const;
+        void setBlockCoordInWorld(const GALIB minecraft::BlockCoordinate& kBlockCoord);
+        const GALIB minecraft::BlockCoordinate& getBlockCoord()const;
+        SurfaceMeshType getMesWithOffset(const GALIB minecraft::BlockCoordinate& offset)const;
+        void applyOffset(const GALIB minecraft::BlockCoordinate& offset);
 
     private:
         SurfaceMeshType surface_mesh_;
+        GALIB_STD string block_id_;
+        GALIB minecraft::BlockCoordinate block_coord_in_world_;
     };
 }
 

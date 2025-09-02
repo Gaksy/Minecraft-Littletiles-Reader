@@ -38,7 +38,7 @@ namespace galib::minecraft::cgal_support {
         ~ChunkMesh()=default;
 
     public:
-        size_type addTilesFromChukTileEntities(const GALIB minecraft::littletiles::ChunkTileEntities& kChunkTileEntities, bool kApplyWorldOffset = true);
+        size_type addTilesFromChukTileEntities(const GALIB minecraft::littletiles::ChunkTileEntities& kChunkTileEntities);
         GALIB_NODISCARD const container & getMeshArray()const;
         void clear();
 
