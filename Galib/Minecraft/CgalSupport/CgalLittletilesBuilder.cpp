@@ -67,7 +67,7 @@ size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntitie
             createMeshFromTileEntity(tile_cgal_mesh, tile_lt_entity);
 
             // 如有偏移且超出边界
-            if (tile_lt_entity.isOffsetOffBoundary()) {
+            if (tile_lt_entity.hasAnyOffsetEnable()) {
                 // 创建裁剪网格体
                 LtMesh tile_cgal_mehs_aabb;
                 createMeshFromTileEntity(tile_cgal_mehs_aabb, tile_lt_entity, false);
@@ -77,12 +77,20 @@ size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntitie
                 cleanupMesh(tile_cgal_mehs_aabb);
 
                 // 计算裁剪
-                LtMesh tile_cgal_final_mesh;
+                LtMesh tile_cgal_cut_final_mesh;
                 try {
-                    if (corefine_and_compute_intersection(tile_cgal_mesh, tile_cgal_mehs_aabb, tile_cgal_final_mesh)) {
-                        std::swap(tile_cgal_mesh, tile_cgal_final_mesh);
+                    if (corefine_and_compute_intersection(tile_cgal_mesh, tile_cgal_mehs_aabb, tile_cgal_cut_final_mesh)) {
+                        GALIB_STD swap(tile_cgal_mesh, tile_cgal_cut_final_mesh);
                     }
-                } catch ( ... ) {
+#ifdef GALIB_DEBUG
+                    else {
+                        printf("CgalLittletilesBuilder::addTilesFromBlockTilesEntities error: intersection error\n");
+                    }
+#endif
+                } catch (const GALIB_STD exception& e) {
+#ifdef GALIB_DEBUG
+                    printf("CgalLittletilesBuilder::addTilesFromBlockTilesEntities error: %s\n", e.what());
+#endif
                     continue;
                 }
             }
