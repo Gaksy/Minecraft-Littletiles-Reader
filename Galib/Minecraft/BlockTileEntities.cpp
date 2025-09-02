@@ -211,9 +211,14 @@ bool BlockTileEntities::readBoxesTilesNbt_(
         // Save data
         desc_box_tile_enities.swap(box_tile_enity_array);
     }
-    catch ( ... ) {
+#ifndef GALIB_DEBUG
+    catch (...) { return false; }
+#else
+    catch (const GALIB_STD exception& e) {
+        printf("ChunkTileEntities::readChunk error: %s\n", e.what());
         return false;
     }
+#endif
     return true;
 }
 

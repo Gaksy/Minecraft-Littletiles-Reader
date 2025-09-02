@@ -70,7 +70,13 @@ ChunkTileEntities::size_type ChunkTileEntities::readChunk(
             boxes_count += block_boxes_count;
             block_tile_entities.push_back(block_tiles);
         }
+#ifndef GALIB_DEBUG
         catch (...) { }
+#else
+        catch (const GALIB_STD exception& e) {
+            printf("ChunkTileEntities::readChunk error: %s\n", e.what());
+        }
+#endif
     }
 
     // DONE!!
