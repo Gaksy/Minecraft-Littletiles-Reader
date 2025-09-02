@@ -168,21 +168,26 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtSurfaceMes
                 try {
                     marged_mesh.add_face(face_vertices[0], face_vertices[1], face_vertices[2]);
                 } catch (...) {
-                    std::cerr << "警告: 无法添加面，可能是重复面或无效几何" << std::endl;
+#ifdef GALIB_DEBUG
+                    printf("警告: 无法添加面，可能是重复面或无效几何\n");
+#endif
                 }
             } else {
-                std::cerr << "警告: 发现非三角面，顶点数: " << face_vertices.size() << std::endl;
+#ifdef GALIB_DEBUG
+                printf("警告: 发现非三角面，顶点数: %zu\n", face_vertices.size());
+#endif
             }
         }
 
         // 清理当前mesh的顶点映射，为下一个mesh准备
         vertex_index_map.clear();
     }
-
+#ifdef GALIB_DEBUG
     // 检查合并后的网格
-    std::cout << "合并后网格统计: " << std::endl;
-    std::cout << "顶点数: " << marged_mesh.number_of_vertices() << std::endl;
-    std::cout << "面数: " << marged_mesh.number_of_faces() << std::endl;
+    printf("合并后网格统计: ");
+    printf("顶点数: %u\n", marged_mesh.number_of_vertices());
+    printf("面数: %u\n", marged_mesh.number_of_faces());
+#endif
 
     // 导出为OBJ文件
     std::ofstream out(p_filename);
