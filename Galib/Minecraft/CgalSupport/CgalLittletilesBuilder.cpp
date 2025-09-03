@@ -71,7 +71,7 @@ size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntitie
             createMeshFromTileEntity(tile_cgal_mesh, tile_lt_entity);
 
             // 如有偏移且超出边界
-            if (tile_lt_entity.hasAnyOffsetEnable()) {
+            if (tile_lt_entity.isOffsetOffBoundary()) {
                 // 创建裁剪网格体
                 LtSurfaceMesh tile_cgal_mesh_aabb;
                 createMeshFromTileEntity(tile_cgal_mesh_aabb, tile_lt_entity, false);
@@ -84,6 +84,9 @@ size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntitie
                 LtSurfaceMesh tile_cgal_cut_final_mesh;
                 try {
                     if (corefine_and_compute_intersection(tile_cgal_mesh.getMesh(), tile_cgal_mesh_aabb.getMesh(), tile_cgal_cut_final_mesh.getMesh())) {
+                        GALIB_CGAL Polygon_mesh_processing::remove_isolated_vertices(tile_cgal_cut_final_mesh.getMesh());
+                        GALIB_CGAL Polygon_mesh_processing::remove_degenerate_faces(tile_cgal_cut_final_mesh.getMesh());
+                        GALIB_CGAL Polygon_mesh_processing::keep_largest_connected_components(tile_cgal_cut_final_mesh.getMesh(), 1);
                         GALIB_STD swap(tile_cgal_mesh, tile_cgal_cut_final_mesh);
                     }
 #ifdef GALIB_DEBUG
