@@ -13,6 +13,9 @@ using galib::minecraft::cgal_support::ChunkMesh;
 using galib::minecraft::cgal_support::margeAndWriteToObj;
 using galib::minecraft::cgal_support::writeToOff;
 
+using std::string;
+using std::to_string;
+
 #if WIN32
 #define REGION_FOLDER "../test_region"
 #elif __APPLE__
@@ -50,12 +53,18 @@ int main() {
     const size_t processed_tile_count = chunk_mesh_management.addTilesFromChukTileEntities(chunk_tile_manager);
 
     printf("all tile count: %zu, porcessed tile count: %zu\n", all_tile_count, processed_tile_count);
+
+    string obj_file_path = "../out_file/marge_obj_from_chunk_";
+    obj_file_path.append(to_string(chunk_x));
+    obj_file_path.append("_");
+    obj_file_path.append(to_string(chunk_z));
+    obj_file_path.append(".obj");
 #ifdef _WIN32
-    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/test.obj");
+    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), obj_file_path.c_str());
     // writeToOff(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/offs/test");
 #else
     // margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
-    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), "../python/test.obj");
+    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), obj_file_path.c_str());
     // writeToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
 #endif
     return EXIT_SUCCESS;
