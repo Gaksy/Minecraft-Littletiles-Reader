@@ -192,10 +192,9 @@ bool TileEntity::isOffsetOffBoundary()const {
                 (current_coord.y >= y_min && current_coord.y <= y_max) &&
                 (current_coord.z >= z_min && current_coord.z <= z_max))
             ){
-                return false;
+                return true;
             }
         }
-        return true;
     }
     return false;
 }
