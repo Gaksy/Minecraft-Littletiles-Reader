@@ -27,7 +27,15 @@ int main() {
     printf("region folder path is %s\n", region_folder.c_str());
 
     AnvilReader anvil_reader;
-    constexpr ChunkCoordinate chunk_coord = {0, -1};
+    ChunkCoordinate::NumericType chunk_x = 0;
+    ChunkCoordinate::NumericType chunk_z = 0;
+
+    printf("chunk x: ");
+    scanf("%d", &chunk_x);
+    printf("chunk z: ");
+    scanf("%d", &chunk_z);
+
+    ChunkCoordinate chunk_coord {.x = chunk_x, .z = chunk_z};
 
     anvil_reader.setRegionFolder(region_folder.c_str());
     const AnvilReader::ChunkDataReference chunk_data_reference = anvil_reader.getChunkDataReference(chunk_coord);
@@ -47,8 +55,8 @@ int main() {
     // writeToOff(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/offs/test");
 #else
     // margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
-
-    writeToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
+    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), "../python/test.obj");
+    // writeToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
 #endif
     return EXIT_SUCCESS;
 }
