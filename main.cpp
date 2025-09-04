@@ -40,7 +40,7 @@ int main() {
     printf("chunk z: ");
     scanf("%d", &chunk_z);
 
-    ChunkCoordinate chunk_coord {.x = chunk_x, .z = chunk_z};
+    ChunkCoordinate chunk_coord {chunk_x, chunk_z};
 
     anvil_reader.setRegionFolder(region_folder.c_str());
     const AnvilReader::ChunkDataReference chunk_data_reference = anvil_reader.getChunkDataReference(chunk_coord);
