@@ -3,28 +3,41 @@
 
 ### EGUS
 # V2 Introduction
-This project is used to parse Minecraft save files and extract model structures from the Little Tiles mod, converting them into Obj format files.
 
-At this stage, the V2 version has implemented basic functionalities, enabling the export of OFF model files for each tile and supporting their conversion to OBJ files one by one via Python. This allows for subsequent editing in third-party modeling software. The project now supports cross-platform compilation for both Windows and macOS. However, due to platform differences, the model calculation results on macOS differ somewhat from those on the Windows platform.
+This project is designed to parse **Minecraft** save files, extract model structures from the [Little Tiles](https://github.com/CreativeMD/LittleTiles) mod, and convert them into **OBJ** format files.
 
-Therefore, the V2 version will serve as the official release, replacing the first version. Subsequent feature updates and technical support will be based on this version.
+## Current Status
 
-The project is tested with Minecraft 1.12.2 and Little Tiles 1.5.66. The general processing flow after obtaining the block coordinates to be parsed is as follows:
-1. Calculate the region coordinates;
-2. Read the `mca` binary files to get the index of the 8KiB region;
-3. Calculate the corresponding chunk index and read its compressed binary data;
-4. Decompress the data using [boost](https://archives.boost.io) and [zlib](https://zlib.net/);
-5. Parse the data using [libnbt++](https://github.com/ljfa-ag/libnbtplusplus);
-6. Pass the chunk root NBT to the Little Tiles parser for processing;
-7. Pass the parsed Little Tiles data to the obj builder for model construction, where we use the [CGAL](https://www.cgal.org) library to handle the "cutting" parts of the Little Tiles;
-8. Use the obj file builder to export the model to an obj file.
+At the current stage, **Version 2** has implemented the core functionality:
 
-# Notes
-The author is currently working on version 2 of this project, which is not yet fully operational. Please do not use this version for production.
+- Export each tile as an **OFF** model file  
+- Convert OFF files to **OBJ** via Python for editing in third-party modeling software  
+- Cross-platform compilation support for **Windows** and **macOS**  
 
-This project is developed and tested only on the Windows platform.
+⚠️ Due to platform differences, model computation results may vary slightly between Windows and macOS.  
 
-# Usage (Windows)
+Therefore, **Version 2** officially replaces the first version and will serve as the foundation for future feature updates and technical support.  
+
+## Tested Environment
+
+- **Minecraft 1.12.2**  
+- **Little Tiles 1.5.66**  
+
+## Processing Workflow
+
+Once the target chunk coordinates are provided, the approximate processing steps are:
+
+1. Compute the corresponding region coordinates  
+2. Read the `mca` binary file to obtain the 8KiB region index  
+3. Calculate the corresponding chunk index and read its compressed binary data  
+4. Decompress using [boost](https://archives.boost.io) and [zlib](https://zlib.net/)  
+5. Parse the data with [libnbt++](https://github.com/ljfa-ag/libnbtplusplus)  
+6. Pass the chunk’s root NBT data to the **Little Tiles parser** for interpretation  
+7. Use [CGAL](https://www.cgal.org/2023/07/28/cgal56/) to construct the geometric structure of the Little Tiles data  
+8. Finally, use the **OBJ file builder** to generate an OBJ file from the constructed geometry  
+
+# Usage 
+## For Windows
 1. Use vcpkg to manage dependencies such as zlib, boost, and cgal.
 2. Configure the `VCPKG_ROOT` system environment variable.
 3. Since `VCPKG_ROOT` uses MSVC for compilation, the project should also be compiled with MSVC.
@@ -32,7 +45,7 @@ This project is developed and tested only on the Windows platform.
 5. Execute `CMakeLists.txt`, then build `libnbt++` to fulfill the dependency (this project relies on this library for NBT parsing).
 6. Finally, compile and run LittleTilesReader.
 
-# Usage (Mac)
+## For Mac
 1. Use Homebrew to manage dependencies such as zlib, boost, and cgal:
     ```
     brew install boost
@@ -48,15 +61,16 @@ This project is developed and tested only on the Windows platform.
 - [x] Use CMake for project management
 - [x] Refactoring
 - [ ] UV, normals, and texture data construction
-- [ ] CGAL Branch - Acceleration support
 - [ ] ...
 
 # Language
 C++ Standard: ISO C++14
 
-Platform Toolset: Visual Studio 2022 (v143)
+Platform Toolset: Visual Studio 2022 (v143) (msvc)
 
 Windows SDK Version: 10.0
+
+⚠️ Do not use MingW toolchain
 
 # Library Dependencies
 
@@ -107,28 +121,41 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 
 ### ZHCN
 # V2 简介
-本项目用于解析《Minecraft》存档从中获取 [Little Tiles](https://github.com/CreativeMD/LittleTiles) 模组中的模型结构将其转换为 Obj 格式的文件。
 
-现阶段，V2版本已实现基础功能，能够导出每个 tile 的 OFF 模型文件，并支持通过 Python 将其逐一转换为 OBJ 文件，以便在第三方模型编辑软件中进行后续编辑。该项目现已支持 Windows 与 macOS 的跨平台编译，但由于平台差异，macOS 上的模型计算结果与 Windows 平台存在一定区别。
+本项目用于解析 **Minecraft** 存档，从 [Little Tiles](https://github.com/CreativeMD/LittleTiles) 模组中提取模型结构，并将其转换为 **OBJ** 格式文件。
 
-因此，V2 版本将作为正式版本替代第一版，并基于该版本提供后续功能更新与技术支持。
+## 当前状态
 
-本项目基于《Minecraft 1.12.2》，Little Tiles 1.5.66 进行测试，当得到需要解析的区块坐标后的大致处理流程：
-1. 计算其区域坐标；
-2. 读取 ```mca``` 二进制文件获取 8KiB 区的索引；
-3. 计算对应区块索引并读取其压缩二进制数据；
-4. 通过 [boost](https://archives.boost.io) 和 [zlib](https://zlib.net/) 进行解压；
-5. 通过 [libnbt++](https://github.com/ljfa-ag/libnbtplusplus) 进行解析；
-6. 将区块根 NBT 交由 Little Tiles 解析器进行解析；
-7. 将解析后的 Little Tiles 数据交由 obj 构建器进行构建模型，其中我们使用 [CGAL](https://www.cgal.org) 库对； Little tiles 的“切割”部分进行处理；
-8. 使用 obj 文件构建器将 obj 模型构建到 obj 文件中。
+在现阶段，**Version 2** 已经实现了基础功能：
 
-# 注意
-作者正在构建第二版（也就是该分支），还未能够正常运行，请勿使用！
+- 将每个 tile 导出为 **OFF** 模型文件  
+- 通过 Python 将 OFF 文件转换为 **OBJ**，以便在第三方建模软件中进行编辑  
+- 支持 **Windows** 与 **macOS** 的跨平台编译  
 
-仅在 Windows 平台开发测试
+⚠️ 由于平台差异，模型计算结果在 Windows 和 macOS 上可能会略有不同。  
 
-# 使用方式 (Windows 平台)
+因此，**Version 2** 将正式取代第一版，并作为后续功能更新与技术支持的基础。  
+
+## 测试环境
+
+- **Minecraft 1.12.2**  
+- **Little Tiles 1.5.66**  
+
+## 处理流程
+
+当获得目标区块坐标后，大致的处理步骤如下：
+
+1. 计算对应的区域坐标  
+2. 读取 `mca` 二进制文件以获取 8KiB 区域索引  
+3. 计算对应区块索引并读取其压缩的二进制数据  
+4. 使用 [boost](https://archives.boost.io) 和 [zlib](https://zlib.net/) 进行解压  
+5. 使用 [libnbt++](https://github.com/ljfa-ag/libnbtplusplus) 进行解析  
+6. 将区块的根 NBT 数据交由 **Little Tiles 解析器** 进行解析  
+7. 使用 [CGAL](https://www.cgal.org/2023/07/28/cgal56/) 对 Little Tiles 的几何结构数据进行构建  
+8. 最后使用 **OBJ 文件构建器** 将几何结构生成 OBJ 文件  
+
+# 使用方式
+## Windows 平台
 1. 使用 vcpkg 管理项目需要的 zlib、boost、cgal 依赖。
 2. 配置 VCPKG_ROOT 系统环境变量。
 3. 由于 VCPKG_ROOT 使用 msvc 进行编译，所以该项目的编译也应使用 MSVC。
@@ -136,7 +163,7 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 5. 执行 CMakeLists，随后执行（自动） libnbt++ 以构建 libnbt++ 依赖。（该项目的 nbt 解析由该库提供）
 6. 最后对 LittleTilesReader 进行编译运行。
 
-# 使用方式 (Mac 平台)
+## Mac 平台
 1. 使用 Homebrew 管理项目需要的 zlib、boost、cgal 依赖。
     ```
     brew install boost
@@ -151,15 +178,16 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 - [x] 使用 CMake 进行项目管理
 - [x] 重构
 - [ ] UV、法线、材质等数据的构建
-- [ ] CGAL 分支 - 加速计算支持
 - [ ] ...
 
 # 语言
 C++ 语言标准: ISO C++14 标准
 
-平台工具集：Visual Studio 2022 (v143)
+平台工具集：Visual Studio 2022 (v143) (msvc)
 
 Windows SDK 版本：10.0
+
+⚠️ 请勿使用 MingW 工具链 (Toolchain)
 
 # 库依赖
 | 库名称 | 版本 |
