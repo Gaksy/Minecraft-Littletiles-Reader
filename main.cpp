@@ -18,8 +18,10 @@ using std::to_string;
 
 #if WIN32
 #define REGION_FOLDER "../test_region"
+#define OUT_OBJ_FILE_NAME "../out_file/marge_obj_from_chunk_"
 #elif __APPLE__
 #define REGION_FOLDER "../test_region"
+#define OUT_OBJ_FILE_NAME "../out_file/marge_obj_from_chunk_"
 #endif
 
 
@@ -54,7 +56,7 @@ int main() {
 
     printf("all tile count: %zu, porcessed tile count: %zu\n", all_tile_count, processed_tile_count);
 
-    string obj_file_path = "../out_file/marge_obj_from_chunk_";
+    string obj_file_path = OUT_OBJ_FILE_NAME;
     obj_file_path.append(to_string(chunk_x));
     obj_file_path.append("_");
     obj_file_path.append(to_string(chunk_z));
