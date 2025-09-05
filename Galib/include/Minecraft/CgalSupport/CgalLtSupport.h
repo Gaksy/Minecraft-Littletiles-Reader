@@ -32,7 +32,7 @@ namespace galib::minecraft::cgal_support {
     void createMeshFromTileEntity(LtSurfaceMesh& mesh, const GALIB minecraft::littletiles::TileEntity& kTileEntity, bool kApplyOffset = true);
     const LtSurfaceMesh& createIntersectionCube(GALIB minecraft::littletiles::GridType kGrid);
     void applyWorldOffset(LtSurfaceMesh& mesh, const BlockCoordinate & block_coordinate);
-    void applyWorldOffset(LtSurfaceMesh::SurfaceMeshType& mesh, const BlockCoordinate & block_coordinate);
+    void applyWorldOffset(SurfaceMeshType& mesh, const BlockCoordinate & block_coordinate);
     void applyGrid(LtSurfaceMesh& mesh, GALIB minecraft::littletiles::GridType grid);
     void cleanupMesh(LtSurfaceMesh& mesh);
 }

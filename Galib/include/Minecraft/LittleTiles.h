@@ -62,7 +62,7 @@ namespace galib::minecraft::littletiles{
         }
     };
 
-    GALIB_STD uint8_t convertkAngleIdToInt(AngleID kAngleId);
+    GALIB_STD uint8_t convertAngleIdToInt(AngleID kAngleId);
     AngleID convertIntToAngleId(GALIB_STD uint8_t kNumId);
 
     struct Flipped {

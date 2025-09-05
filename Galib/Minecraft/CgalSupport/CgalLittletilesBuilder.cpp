@@ -39,6 +39,7 @@ using GALIB minecraft::cgal_support::applyGrid;
 using GALIB minecraft::cgal_support::applyWorldOffset;
 using GALIB minecraft::cgal_support::cleanupMesh;
 using GALIB minecraft::cgal_support::LtPoint3;
+using GALIB minecraft::cgal_support::SurfaceMeshType;
 
 using GALIB minecraft::littletiles::GridType;
 using GALIB minecraft::littletiles::TileEntity;
@@ -131,8 +132,6 @@ void ChunkMesh::clear() {
 }
 
 void GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtSurfaceMesh>& meshes, const char* const p_filename) {
-    using SurfaceMeshType = LtSurfaceMesh::SurfaceMeshType;
-
     SurfaceMeshType marged_mesh;
     // 使用顶点坐标作为键值可能不够精确，改用容差比较或者直接映射原始顶点索引
     unordered_map<SurfaceMeshType::Vertex_index, SurfaceMeshType::Vertex_index> vertex_index_map;

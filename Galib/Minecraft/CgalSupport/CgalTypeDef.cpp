@@ -20,20 +20,22 @@
 #include "Minecraft/CgalSupport/CgalLtSupport.h"
 
 using GALIB_STD string;
+using GALIB_STD replace;
 
 using GALIB minecraft::cgal_support::LtSurfaceMesh;
 using GALIB minecraft::BlockCoordinate;
 using GALIB minecraft::cgal_support::applyWorldOffset;
+using GALIB minecraft::cgal_support::SurfaceMeshType;
 
 LtSurfaceMesh::LtSurfaceMesh(const SurfaceMeshType& mesh):
     surface_mesh_(mesh)
 { }
 
-LtSurfaceMesh::SurfaceMeshType& LtSurfaceMesh::getMesh() {
+SurfaceMeshType& LtSurfaceMesh::getMesh() {
     return this->surface_mesh_;
 }
 
-const LtSurfaceMesh::SurfaceMeshType& LtSurfaceMesh::getMesh()const {
+const SurfaceMeshType& LtSurfaceMesh::getMesh()const {
     return this->surface_mesh_;
 }
 
@@ -54,7 +56,7 @@ const BlockCoordinate& LtSurfaceMesh::getBlockCoord() const {
     return this->block_coord_in_world_;
 }
 
-LtSurfaceMesh::SurfaceMeshType LtSurfaceMesh::getMesWithOffset(const BlockCoordinate& offset)const {
+SurfaceMeshType LtSurfaceMesh::getMeshWithOffset(const BlockCoordinate& offset)const {
     SurfaceMeshType mesh = getMesh();
     applyWorldOffset(mesh, offset);
     return mesh;
@@ -62,5 +64,11 @@ LtSurfaceMesh::SurfaceMeshType LtSurfaceMesh::getMesWithOffset(const BlockCoordi
 
 void LtSurfaceMesh::applyOffset(const BlockCoordinate& offset) {
     applyWorldOffset(surface_mesh_, offset);
+}
+
+string LtSurfaceMesh::getFormatBlockID()const {
+    string formated_block_id = block_id_;
+    replace(formated_block_id.begin(), formated_block_id.end(), ':', '_');
+    return formated_block_id;
 }
 

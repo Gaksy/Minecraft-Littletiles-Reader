@@ -40,8 +40,8 @@ void GALIB minecraft::cgal_support::createMeshFromTileEntity(
     const TileEntity& kTileEntity,
     const bool kApplyOffset
 ) {
-    LtSurfaceMesh::SurfaceMeshType& mesh = mesh_data.getMesh();
-    using VertexIndex = LtSurfaceMesh::SurfaceMeshType::Vertex_index;
+    SurfaceMeshType& mesh = mesh_data.getMesh();
+    using VertexIndex = SurfaceMeshType::Vertex_index;
 
     const VertexIndex eun = mesh.add_vertex(
         convertToCGALPoint(kTileEntity.getVertices(AngleID::EUN, kApplyOffset))
@@ -145,10 +145,10 @@ const LtSurfaceMesh& GALIB minecraft::cgal_support::createIntersectionCube(const
     // 如果cube尚未创建，则构建它
     if (!p_lt_surface_mesh) {
         p_lt_surface_mesh = new LtSurfaceMesh();
-        LtSurfaceMesh::SurfaceMeshType& cube = p_lt_surface_mesh->getMesh();
+        SurfaceMeshType& cube = p_lt_surface_mesh->getMesh();
 
         // 构建正方体顶点 p1(0, 0, 0) 和 p2(1, 1, 1)
-        using Point = LtSurfaceMesh::SurfaceMeshType::Point;
+        using Point = SurfaceMeshType::Point;
 
         // 顶点坐标
         const SM_Vertex_index eun = cube.add_vertex(Point(kGrid, kGrid, 0));
@@ -182,8 +182,8 @@ void (GALIB minecraft::cgal_support::applyWorldOffset)(LtSurfaceMesh& mesh, cons
     applyWorldOffset(mesh.getMesh(), block_coordinate);
 }
 
-void (GALIB minecraft::cgal_support::applyWorldOffset)(LtSurfaceMesh::SurfaceMeshType& mesh, const BlockCoordinate & block_coordinate) {
-    using Point = LtSurfaceMesh::SurfaceMeshType::Point;
+void (GALIB minecraft::cgal_support::applyWorldOffset)(SurfaceMeshType& mesh, const BlockCoordinate & block_coordinate) {
+    using Point = SurfaceMeshType::Point;
     const double offset_x = block_coordinate.x;
     const double offset_y = block_coordinate.y;
     const double offset_z = block_coordinate.z;
@@ -199,8 +199,8 @@ void (GALIB minecraft::cgal_support::applyWorldOffset)(LtSurfaceMesh::SurfaceMes
 }
 
 void (GALIB minecraft::cgal_support::applyGrid)(LtSurfaceMesh& mesh, const GridType grid) {
-    LtSurfaceMesh::SurfaceMeshType& transformed = mesh.getMesh();
-    using Point = LtSurfaceMesh::SurfaceMeshType::Point;
+    SurfaceMeshType& transformed = mesh.getMesh();
+    using Point = SurfaceMeshType::Point;
 
     for(auto v : transformed.vertices()) {
         Point p = transformed.point(v);
