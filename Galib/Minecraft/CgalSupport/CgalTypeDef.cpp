@@ -26,6 +26,7 @@ using GALIB minecraft::cgal_support::LtSurfaceMesh;
 using GALIB minecraft::BlockCoordinate;
 using GALIB minecraft::cgal_support::applyWorldOffset;
 using GALIB minecraft::cgal_support::SurfaceMeshType;
+using GALIB minecraft::cgal_support::UVData;
 
 LtSurfaceMesh::LtSurfaceMesh(const SurfaceMeshType& mesh):
     surface_mesh_(mesh)
@@ -71,4 +72,9 @@ string LtSurfaceMesh::getFormatBlockID()const {
     replace(formated_block_id.begin(), formated_block_id.end(), ':', '_');
     return formated_block_id;
 }
+
+UVData LtSurfaceMesh::calculateFaceUV(const SurfaceMeshType::face_index& kFaceIndex){
+    return {};
+}
+
 

@@ -61,8 +61,7 @@ namespace galib::minecraft::cgal_support{
         SurfaceMeshType getMeshWithOffset(const GALIB minecraft::BlockCoordinate& offset)const;
         void applyOffset(const GALIB minecraft::BlockCoordinate& offset);
         GALIB_STD string getFormatBlockID()const;
-        // UVData calculateFaceUV(const SurfaceMeshType::face_index& kFaceIndex);
-
+        UVData calculateFaceUV(const SurfaceMeshType::face_index& kFaceIndex);
 
     private:
         SurfaceMeshType surface_mesh_;

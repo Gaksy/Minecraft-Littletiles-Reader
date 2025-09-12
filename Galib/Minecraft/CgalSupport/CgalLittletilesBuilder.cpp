@@ -142,7 +142,7 @@ void ChunkMesh::clear() {
 }
 
 void GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtSurfaceMesh>& meshes, const char* const p_filename) {
-    using SurfaceMeshType = LtSurfaceMesh::SurfaceMeshType;
+    using SurfaceMeshType = SurfaceMeshType;
     using Point = SurfaceMeshType::Point;
     using Vector = CGAL::Vector_3<CGAL::Simple_cartesian<double>>;
 
