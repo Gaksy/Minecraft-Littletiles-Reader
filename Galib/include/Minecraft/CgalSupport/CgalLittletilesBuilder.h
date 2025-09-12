@@ -63,7 +63,7 @@ namespace galib::minecraft::cgal_support {
     //
     // };
 
-    void margeAndWriteToObj(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* p_filename);
+    void margeAndWriteToObj(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* p_filename, bool geom_center = true);
 
     void writeToOff(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* p_filename);
 

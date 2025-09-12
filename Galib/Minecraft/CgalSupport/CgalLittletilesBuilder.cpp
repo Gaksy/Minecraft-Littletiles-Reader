@@ -141,7 +141,11 @@ void ChunkMesh::clear() {
     this->tiles_in_world_.clear();
 }
 
-void GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtSurfaceMesh>& meshes, const char* const p_filename) {
+void GALIB minecraft::cgal_support::margeAndWriteToObj(
+    const vector<LtSurfaceMesh>& meshes,
+    const char* const p_filename,
+    const bool geom_center
+) {
     using SurfaceMeshType = SurfaceMeshType;
     using Point = SurfaceMeshType::Point;
     using Vector = CGAL::Vector_3<CGAL::Simple_cartesian<double>>;
@@ -200,7 +204,7 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtSurfaceMes
     }
 
     // 计算包围盒并平移网格到原点
-    if (marged_mesh.number_of_vertices() > 0) {
+    if (marged_mesh.number_of_vertices() > 0 && geom_center) {
         CGAL::Bbox_3 bbox;
         bool first = true;
 
