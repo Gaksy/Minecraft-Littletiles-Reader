@@ -28,8 +28,10 @@ using std::to_string;
 int main() {
     printf("Hello, There is LittleTile Reader\n");
 
-    const std::string region_folder = REGION_FOLDER;
-    printf("region folder path is %s\n", region_folder.c_str());
+    printf("please key in region folder:");
+    char region_folder[256];
+    scanf("%s", region_folder);
+    printf("region folder path is %s\n", region_folder);
 
     AnvilReader anvil_reader;
     ChunkCoordinate::NumericType chunk_x = 0;
@@ -42,7 +44,7 @@ int main() {
 
     ChunkCoordinate chunk_coord {chunk_x, chunk_z};
 
-    anvil_reader.setRegionFolder(region_folder.c_str());
+    anvil_reader.setRegionFolder(region_folder);
     const AnvilReader::ChunkDataReference chunk_data_reference = anvil_reader.getChunkDataReference(chunk_coord);
 
     ChunkTileEntities chunk_tile_manager;
@@ -61,12 +63,22 @@ int main() {
     obj_file_path.append("_");
     obj_file_path.append(to_string(chunk_z));
     obj_file_path.append(".obj");
+
+    bool is_need_gemo_center = false;
+
+    char choice = 'n';
+    printf("if need gemo center, press y (y/n):");
+    scanf("%c", &choice);
+    if (choice == 'y' || choice == 'Y') {
+        is_need_gemo_center = true;
+    }
+
 #ifdef _WIN32
     margeAndWriteToObj(chunk_mesh_management.getMeshArray(), obj_file_path.c_str());
     // writeToOff(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/offs/test");
 #else
     // margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
-    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), obj_file_path.c_str());
+    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), obj_file_path.c_str(), is_need_gemo_center);
     // writeToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
 #endif
     return EXIT_SUCCESS;
