@@ -116,7 +116,18 @@ size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntitie
 
 ChunkMesh::size_type ChunkMesh::addTilesFromChukTileEntities(const ChunkTileEntities& kChunkTileEntities) {
     size_t processed_tile_count = 0;
+#ifdef GALIB_DEBUG
+    size_t all_tile_count = kChunkTileEntities.tileCount();
+#endif
     for (auto block_it = kChunkTileEntities.cbegin(); block_it != kChunkTileEntities.cend(); ++block_it) {
+#ifdef GALIB_DEBUG
+        printf("ChunkMesh::addTilesFromChukTileEntities build block (%zu / %zu): %d %d %d\n",
+            processed_tile_count + 1,
+            all_tile_count,
+            block_it->getBlockCoordinate().x,
+            block_it->getBlockCoordinate().y,
+            block_it->getBlockCoordinate().z);
+#endif
         processed_tile_count += addTilesFromBlockTilesEntities(*block_it, this->tiles_in_world_);
     }
     return processed_tile_count;
@@ -132,6 +143,8 @@ void ChunkMesh::clear() {
 
 void GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtSurfaceMesh>& meshes, const char* const p_filename) {
     using SurfaceMeshType = LtSurfaceMesh::SurfaceMeshType;
+    using Point = SurfaceMeshType::Point;
+    using Vector = CGAL::Vector_3<CGAL::Simple_cartesian<double>>;
 
     SurfaceMeshType marged_mesh;
     // 使用顶点坐标作为键值可能不够精确，改用容差比较或者直接映射原始顶点索引
@@ -185,6 +198,38 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(const vector<LtSurfaceMes
         // 清理当前mesh的顶点映射，为下一个mesh准备
         vertex_index_map.clear();
     }
+
+    // 计算包围盒并平移网格到原点
+    if (marged_mesh.number_of_vertices() > 0) {
+        CGAL::Bbox_3 bbox;
+        bool first = true;
+
+        // 计算所有顶点的包围盒
+        for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
+            const Point& p = marged_mesh.point(v);
+            if (first) {
+                bbox = p.bbox();
+                first = false;
+            } else {
+                bbox = bbox + p.bbox();
+            }
+        }
+
+        // 计算包围盒中心
+        Point center((bbox.xmin() + bbox.xmax()) / 2.0,
+                     (bbox.ymin() + bbox.ymax()) / 2.0,
+                     (bbox.zmin() + bbox.zmax()) / 2.0);
+
+        // 创建平移向量（从中心到原点）
+        Vector translation(-center.x(), -center.y(), -center.z());
+
+        // 应用平移
+        for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
+            Point& p = marged_mesh.point(v);
+            p = Point(p.x() - center.x(), p.y() - center.y(), p.z() - center.z());
+        }
+    }
+
 #ifdef GALIB_DEBUG
     // 检查合并后的网格
     printf("合并后网格统计: ");

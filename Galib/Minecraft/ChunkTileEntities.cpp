@@ -63,6 +63,10 @@ ChunkTileEntities::size_type ChunkTileEntities::readChunk(
     size_type tile_count = 0;
     size_type boxes_count = 0;
 
+#ifdef GALIB_DEBUG
+    printf("ChunkTileEntities::readChunk read chunk: %d %d\n",kChunkDataReference.chunk_info.chunk_coord.x, kChunkDataReference.chunk_info.chunk_coord.z);
+#endif
+
     // Decode...
     for(tag_list::const_iterator it = tiles_entities.cbegin(); it != tiles_entities.cend(); ++it) {
         try {

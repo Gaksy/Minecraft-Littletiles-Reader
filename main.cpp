@@ -17,10 +17,10 @@ using std::string;
 using std::to_string;
 
 #if WIN32
-#define REGION_FOLDER "../test_region"
+#define REGION_FOLDER "../test_region_medim"
 #define OUT_OBJ_FILE_NAME "../out_file/marge_obj_from_chunk_"
 #elif __APPLE__
-#define REGION_FOLDER "../test_region"
+#define REGION_FOLDER "../test_region_medim"
 #define OUT_OBJ_FILE_NAME "../out_file/marge_obj_from_chunk_"
 #endif
 

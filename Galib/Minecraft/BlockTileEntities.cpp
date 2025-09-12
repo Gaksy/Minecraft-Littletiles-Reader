@@ -78,6 +78,17 @@ BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(const tag_compo
         size_type tile_count = 0;
         size_type boxes_count = 0;
 
+        // Get block coord
+        block_coordinate_ = {
+            kBlockTilesNBT.at("x").as<tag_int>().get(),
+            kBlockTilesNBT.at("y").as<tag_int>().get(),
+            kBlockTilesNBT.at("z").as<tag_int>().get()
+        };
+
+#ifdef GALIB_DEBUG
+        printf("BlockTileEntities::readBlockTileNBT read block: %d %d %d\n", block_coordinate_.x, block_coordinate_.y, block_coordinate_.z);
+#endif
+
         for (auto it = tiles.begin(); it != tiles.cend(); ++it) {
             tag_compound* p_boxes = &it->as<tag_compound>();   // Get boxes
             string block_id = p_boxes->at("block").as<tag_string>().get(); // Get block id
@@ -93,13 +104,6 @@ BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(const tag_compo
                 ++boxes_count;
             }
         }
-
-        // Get block coord
-        block_coordinate_ = {
-            kBlockTilesNBT.at("x").as<tag_int>().get(),
-            kBlockTilesNBT.at("y").as<tag_int>().get(),
-            kBlockTilesNBT.at("z").as<tag_int>().get()
-        };
 
         // DONE!!
         grid_ = grid_type;
