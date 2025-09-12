@@ -22,7 +22,7 @@
 using GALIB minecraft::littletiles::AngleID;
 using GALIB_STD uint8_t;
 
-uint8_t (GALIB minecraft::littletiles::convertkAngleIdToInt)(const AngleID kAngleId) {
+uint8_t (GALIB minecraft::littletiles::convertAngleIdToInt)(const AngleID kAngleId) {
     return static_cast<uint8_t>(kAngleId);
 }
 

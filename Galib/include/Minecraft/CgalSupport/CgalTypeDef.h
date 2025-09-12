@@ -27,21 +27,26 @@
 
 namespace galib::minecraft::cgal_support{
 #ifdef _WIN32
-    using LtKernel = GALIB_CGAL Simple_cartesian<float>;
+    using FloatType = float;
+    using LtKernel = GALIB_CGAL Simple_cartesian<FloatType>;
     using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
     using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
-    // using LtMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Simple_cartesian<float>>>;
+    using SurfaceMeshType = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<LtKernel>>;
 #elif __APPLE__
-    using LtKernel = GALIB_CGAL Simple_cartesian<double>;
+    using FloatType = double;
+    using LtKernel = GALIB_CGAL Simple_cartesian<FloatType>;
     using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
     using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
-    // using LtSurfaceMesh = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<GALIB_CGAL Simple_cartesian<double>>>;
+    using SurfaceMeshType = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<LtKernel>>;
 #endif
 
-    class LtSurfaceMesh {
-    public:
-        using SurfaceMeshType = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<LtKernel>>;
+    struct UVData {
+        FloatType u;
+        FloatType v;
+    };
 
+
+    class LtSurfaceMesh {
     public:
         LtSurfaceMesh() = default;
         explicit LtSurfaceMesh(const SurfaceMeshType& mesh);
@@ -53,8 +58,11 @@ namespace galib::minecraft::cgal_support{
         GALIB_NODISCARD const GALIB_STD string& getBlockID()const;
         void setBlockCoordInWorld(const GALIB minecraft::BlockCoordinate& kBlockCoord);
         const GALIB minecraft::BlockCoordinate& getBlockCoord()const;
-        SurfaceMeshType getMesWithOffset(const GALIB minecraft::BlockCoordinate& offset)const;
+        SurfaceMeshType getMeshWithOffset(const GALIB minecraft::BlockCoordinate& offset)const;
         void applyOffset(const GALIB minecraft::BlockCoordinate& offset);
+        GALIB_STD string getFormatBlockID()const;
+        // UVData calculateFaceUV(const SurfaceMeshType::face_index& kFaceIndex);
+
 
     private:
         SurfaceMeshType surface_mesh_;

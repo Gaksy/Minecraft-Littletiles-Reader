@@ -47,7 +47,7 @@ bool TileEntity::hasAnyOffsetEnable() const {
 
 LittleTilesCoord TileEntity::applyAngleOffset(const AngleID kAngleId) const {
     LittleTilesCoord angle_coord = getVertices(kAngleId);
-    const AngleOffset& angle_offset = offset_data_[convertkAngleIdToInt(kAngleId)];
+    const AngleOffset& angle_offset = offset_data_[convertAngleIdToInt(kAngleId)];
     // If unoffset, then offset is 0
     angle_coord.x += angle_offset.x_offset;
     angle_coord.y += angle_offset.y_offset;
@@ -56,7 +56,7 @@ LittleTilesCoord TileEntity::applyAngleOffset(const AngleID kAngleId) const {
 }
 
 AngleOffset TileEntity::getAngleOffset(const AngleID kAngleID) const {
-    return offset_data_[convertkAngleIdToInt(kAngleID)];
+    return offset_data_[convertAngleIdToInt(kAngleID)];
 }
 
 LittleTilesCoord TileEntity::getVertices(const AngleID kAngleId) const {
@@ -161,7 +161,7 @@ void TileEntity::setFlippedData(const Flipped &kFlippedData) {
 }
 
 void TileEntity::setOffsetData(const AngleID kAngleId, const AngleOffset &kAngleOffsetData) {
-    offset_data_[convertkAngleIdToInt(kAngleId)] = kAngleOffsetData;
+    offset_data_[convertAngleIdToInt(kAngleId)] = kAngleOffsetData;
 }
 
 void TileEntity::setOffsetData(const AngleOffset kOffsetData[8]) {
