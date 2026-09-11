@@ -27,24 +27,24 @@
 namespace galib::minecraft::littletiles {
 // ChunkTileEntity -> BlockTileEntity -> BoxTileTntity -> TileEntity
 
-enum class AngleID : GALIB_STD uint8_t{
-    EUN = 0,  // East Up North
-    EUS = 1,  // East Up South
-    EDN = 2,  // East Down North
-    EDS = 3,  // East Down South
-    WUN = 4,  // West Up North
-    WUS = 5,  // West Up South
-    WDN = 6,  // West Down North
-    WDS = 7   // West Down South
+enum class AngleID : std::uint8_t {
+  EUN = 0,  // East Up North
+  EUS = 1,  // East Up South
+  EDN = 2,  // East Down North
+  EDS = 3,  // East Down South
+  WUN = 4,  // West Up North
+  WUS = 5,  // West Up South
+  WDN = 6,  // West Down North
+  WDS = 7   // West Down South
 };
 
-enum class TileFaceID : GALIB_STD uint8_t{
-    EAST = 0,   // East
-    WEST = 1,   // West
-    SOUTH = 2,  // South
-    NORTH = 3,  // North
-    UP = 4,     // Up
-    DOWN = 5    // Down
+enum class TileFaceID : std::uint8_t {
+  EAST = 0,   // East
+  WEST = 1,   // West
+  SOUTH = 2,  // South
+  NORTH = 3,  // North
+  UP = 4,     // Up
+  DOWN = 5    // Down
 };
 
 struct AngleOffset {
@@ -56,13 +56,13 @@ struct AngleOffset {
   OffsetType y_offset{0};
   OffsetType z_offset{0};
 
-  GALIB_NODISCARD bool has_any_enable() const {
+  [[nodiscard]] bool has_any_enable() const {
     return x_enable || y_enable || z_enable;
   }
 };
 
-GALIB_STD uint8_t ConvertAngleIdToInt(AngleID kAngleId);
-AngleID ConvertIntToAngleId(GALIB_STD uint8_t kNumId);
+std::uint8_t ConvertAngleIdToInt(AngleID kAngleId);
+AngleID ConvertIntToAngleId(std::uint8_t kNumId);
 
 struct Flipped {
   bool down{false};
@@ -72,7 +72,7 @@ struct Flipped {
   bool west{false};
   bool east{false};
 
-  GALIB_NODISCARD bool has_any_enable() const {
+  [[nodiscard]] bool has_any_enable() const {
     return down || up || north || south || west || east;
   }
 };
@@ -88,8 +88,8 @@ struct TileFace {
 // LittleTiles 会把同一种方块的不同颜色存成不同的 tile 条目，
 // 因此只用 block id 当键会把它们合并/丢弃。
 struct TileMaterial {
-  GALIB_STD string block_id;
-  GALIB_STD int32_t color{0};
+  std::string block_id;
+  std::int32_t color{0};
   bool has_color{false};
 
   bool operator<(const TileMaterial& kRhs) const {
@@ -109,24 +109,24 @@ class TileEntity {
   ~TileEntity() = default;
 
  public:
-  GALIB_NODISCARD bool has_any_offset_enable() const;
-  GALIB_NODISCARD LittleTilesCoord ApplyAngleOffset(AngleID kAngleId) const;
-  GALIB_NODISCARD AngleOffset GetAngleOffset(AngleID kAngleID) const;
-  GALIB_NODISCARD LittleTilesCoord GetVertices(AngleID kAngleId) const;
-  GALIB_NODISCARD LittleTilesCoord GetVertices(AngleID kAngleId,
-                                               bool kWithOffset) const;
-  GALIB_NODISCARD LittleTilesCoord GetVerticesApplyGrid(AngleID kAngleId,
-                                                        GridType kGridType,
-                                                        bool kWithOffset) const;
-  GALIB_NODISCARD TileFace GetTileFace(TileFaceID kTileFaceID,
-                                       bool kWithOffset = false) const;
-  GALIB_NODISCARD const Flipped& flipped_data() const;
-  GALIB_NODISCARD bool is_offset_off_boundary() const;
-  GALIB_NODISCARD bool has_color() const;
-  GALIB_NODISCARD GALIB_STD int32_t color() const;
+  [[nodiscard]] bool has_any_offset_enable() const;
+  [[nodiscard]] LittleTilesCoord ApplyAngleOffset(AngleID kAngleId) const;
+  [[nodiscard]] AngleOffset GetAngleOffset(AngleID kAngleID) const;
+  [[nodiscard]] LittleTilesCoord GetVertices(AngleID kAngleId) const;
+  [[nodiscard]] LittleTilesCoord GetVertices(AngleID kAngleId,
+                                             bool kWithOffset) const;
+  [[nodiscard]] LittleTilesCoord GetVerticesApplyGrid(AngleID kAngleId,
+                                                      GridType kGridType,
+                                                      bool kWithOffset) const;
+  [[nodiscard]] TileFace GetTileFace(TileFaceID kTileFaceID,
+                                     bool kWithOffset = false) const;
+  [[nodiscard]] const Flipped& flipped_data() const;
+  [[nodiscard]] bool is_offset_off_boundary() const;
+  [[nodiscard]] bool has_color() const;
+  [[nodiscard]] std::int32_t color() const;
   void set_pos(const LittleTilesCoord& kPos1, const LittleTilesCoord& kPos2);
   void set_flipped_data(const Flipped& kFlippedData);
-  void set_color(GALIB_STD int32_t kColor, bool kHasColor);
+  void set_color(std::int32_t kColor, bool kHasColor);
   void set_offset_data(AngleID kAngleId, const AngleOffset& kAngleOffsetData);
   void set_offset_data(const AngleOffset kOffsetData[8]);
 
@@ -135,95 +135,94 @@ class TileEntity {
   Flipped flipped_data_;
   LittleTilesCoord pos_1_;
   LittleTilesCoord pos_2_;
-  GALIB_STD int32_t color_{0};
+  std::int32_t color_{0};
   bool has_color_{false};
 };
 
-using BoxTileEnities = GALIB_STD vector<TileEntity>;
+using BoxTileEnities = std::vector<TileEntity>;
 
 class BlockTileEntities {
  public:
-  using const_iterator =
-      GALIB_STD map<TileMaterial, BoxTileEnities>::const_iterator;
+  using const_iterator = std::map<TileMaterial, BoxTileEnities>::const_iterator;
   // <material(block_id + color), array of box>
-  using container = GALIB_STD map<TileMaterial, BoxTileEnities>;
-  using container_pair = GALIB_STD pair<TileMaterial, BoxTileEnities>;
-  using size_type = GALIB_STD map<TileMaterial, BoxTileEnities>::size_type;
+  using container = std::map<TileMaterial, BoxTileEnities>;
+  using container_pair = std::pair<TileMaterial, BoxTileEnities>;
+  using size_type = std::map<TileMaterial, BoxTileEnities>::size_type;
 
  public:
   BlockTileEntities();
   ~BlockTileEntities() = default;
 
  public:
-  size_type ReadBlockTileNbt(const GALIB_NBT tag_compound& kBlockTilesNBT,
+  size_type ReadBlockTileNbt(const nbt::tag_compound& kBlockTilesNBT,
                              size_type* p_boxes_count = nullptr);
 
-  GALIB_NODISCARD const GALIB minecraft::BlockCoordinate& block_coordinate()
+  [[nodiscard]] const galib::minecraft::BlockCoordinate& block_coordinate()
       const;
-  GALIB_NODISCARD const GridType& grid() const;
-  GALIB_NODISCARD const GALIB_STD string& little_tiles_id() const;
+  [[nodiscard]] const GridType& grid() const;
+  [[nodiscard]] const std::string& little_tiles_id() const;
 
-  GALIB_NODISCARD const_iterator cbegin() const;
-  GALIB_NODISCARD const_iterator cend() const;
+  [[nodiscard]] const_iterator cbegin() const;
+  [[nodiscard]] const_iterator cend() const;
 
-  GALIB_NODISCARD size_type TileCount() const;
+  [[nodiscard]] size_type TileCount() const;
 
  private:
-  GALIB_NODISCARD static bool ReadBoxesTilesNbt(
-      const GALIB_NBT tag_compound& kBoxesTilesNbt,
+  [[nodiscard]] static bool ReadBoxesTilesNbt(
+      const nbt::tag_compound& kBoxesTilesNbt,
       BoxTileEnities& desc_box_tile_enities, size_type& tile_count);
 
-  GALIB_NODISCARD static bool SetAngleOffsetStateData(
-      const GALIB_NBT tag_int_array& offset_nbt, AngleOffset* p_offset_data,
+  [[nodiscard]] static bool SetAngleOffsetStateData(
+      const nbt::tag_int_array& offset_nbt, AngleOffset* p_offset_data,
       Flipped* p_flipped_data);
 
  private:
-  GALIB minecraft::BlockCoordinate block_coordinate_;
-  GALIB_STD string little_tiles_id_;
+  galib::minecraft::BlockCoordinate block_coordinate_;
+  std::string little_tiles_id_;
   GridType grid_;
   container box_tile_entities_map_;
 };
 
 class ChunkTileEntities {
  public:
-  using const_iterator = GALIB_STD vector<BlockTileEntities>::const_iterator;
-  using container = GALIB_STD vector<BlockTileEntities>;
-  using size_type = GALIB_STD vector<BlockTileEntities>::size_type;
+  using const_iterator = std::vector<BlockTileEntities>::const_iterator;
+  using container = std::vector<BlockTileEntities>;
+  using size_type = std::vector<BlockTileEntities>::size_type;
 
  public:
   ChunkTileEntities();
   ~ChunkTileEntities() = default;
 
  public:
-  size_type ReadChunk(const GALIB minecraft::AnvilReader::ChunkDataReference&
+  size_type ReadChunk(const galib::minecraft::AnvilReader::ChunkDataReference&
                           kChunkDataReference,
                       size_type* p_boxes_count = nullptr);
 
   // 直接读取 chunk 根 NBT，不经过 Anvil / mca 文件。
   // 这是"上传 NBT 数据"这类场景的最小入口：优先取根下的 "Level" 子标签，
   // 若不存在则把根自身当作 level（1.18+ 的扁平结构）。
-  size_type ReadChunkNbt(const GALIB_NBT tag_compound& kChunkRootNbt,
+  size_type ReadChunkNbt(const nbt::tag_compound& kChunkRootNbt,
                          size_type* p_boxes_count = nullptr);
 
-  GALIB_NODISCARD const GALIB minecraft::ChunkCoordinate& chunk_coordinate()
+  [[nodiscard]] const galib::minecraft::ChunkCoordinate& chunk_coordinate()
       const;
 
-  GALIB_NODISCARD const_iterator cbegin() const;
-  GALIB_NODISCARD const_iterator cend() const;
+  [[nodiscard]] const_iterator cbegin() const;
+  [[nodiscard]] const_iterator cend() const;
 
   void Clear();
-  GALIB_NODISCARD bool isEmpty() const;
+  [[nodiscard]] bool isEmpty() const;
 
-  GALIB_NODISCARD size_type TileCount() const;
+  [[nodiscard]] size_type TileCount() const;
 
  private:
   // 解析 level 下的 "TileEntities" 列表并填充 block_tile_entities_。
   // ReadChunk 与 ReadChunkNbt 共用此实现，保证两条入口行为一致。
-  size_type ReadTileEntities(const GALIB_NBT tag_compound& kChunkLevelNbt,
+  size_type ReadTileEntities(const nbt::tag_compound& kChunkLevelNbt,
                              size_type* p_boxes_count);
 
  private:
-  GALIB minecraft::ChunkCoordinate chunk_coordinate_;
+  galib::minecraft::ChunkCoordinate chunk_coordinate_;
   container block_tile_entities_;
 };
 }  // namespace galib::minecraft::littletiles

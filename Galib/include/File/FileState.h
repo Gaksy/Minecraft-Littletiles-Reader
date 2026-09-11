@@ -22,7 +22,7 @@
 #include "GalibNamespaceDef.h"
 
 namespace galib::file {
-using FileStat = struct GALIB_CSTD stat;
+using FileStat = struct ::stat;
 
 // On success, true is returned. On error, false is returned and errno is set to indicare the error
 inline bool GetFileStat(const char* const kPFilePath,
@@ -31,7 +31,7 @@ inline bool GetFileStat(const char* const kPFilePath,
   // and errno is set to indicate the error
 
   // On success, (0) + 1 = 1 is true. On error, (-1) + 1 = 0, is false
-  return GALIB_CSTD stat(kPFilePath, p_file_stat) + 1;
+  return ::stat(kPFilePath, p_file_stat) + 1;
 }
 
 inline bool IsFileAccessible(const char* const kPFilePath) {

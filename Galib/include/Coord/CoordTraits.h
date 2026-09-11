@@ -21,19 +21,19 @@
 
 #include "GalibNamespaceDef.h"
 
-#define GALIB_STATIC_ASSERT_COORDINATE(CoordinateType)             \
-  static_assert(GALIB coord::coord_type_if<CoordinateType>::value, \
-                "Template argument \"" #CoordinateType             \
+#define GALIB_STATIC_ASSERT_COORDINATE(CoordinateType)              \
+  static_assert(galib::coord::coord_type_if<CoordinateType>::value, \
+                "Template argument \"" #CoordinateType              \
                 "\" must be a valid coordinate type.")
 
-#define GALIB_STATIC_ASSERT_NUMERICTYPE(NumericType)         \
-  static_assert(GALIB_STD is_arithmetic<NumericType>::value, \
+#define GALIB_STATIC_ASSERT_NUMERICTYPE(NumericType)    \
+  static_assert(std::is_arithmetic<NumericType>::value, \
                 "Template argument \"" #NumericType "\" must be arithmetic.")
 
 namespace galib::coord {
 // Define a struct for checking whether a template parameter is a coordinate type.
 template <typename CoordinateType>
-struct coord_type_if : GALIB_STD false_type {};
+struct coord_type_if : std::false_type {};
 
 // Traits, used to extract the numeric type and the self type from a Coord type.
 // NumericType is the data type used for coordinate values (e.g., int, float, etc.)

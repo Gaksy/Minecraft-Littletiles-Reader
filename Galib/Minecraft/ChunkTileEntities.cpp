@@ -20,20 +20,20 @@
 #include "Minecraft/LittleTiles.h"
 #include "Minecraft/MinecraftCoord.h"
 
-using GALIB_STD size_t;
+using std::size_t;
 
-using GALIB minecraft::littletiles::ChunkTileEntities;
-using GALIB minecraft::ChunkCoordinate;
+using galib::minecraft::ChunkCoordinate;
+using galib::minecraft::littletiles::ChunkTileEntities;
 
-using GALIB exception::MinecraftException;
-using GALIB exception::MinecraftErrorCode;
-using GALIB exception::LittleTilesException;
-using GALIB exception::LittleTilesErrorCode;
+using galib::exception::LittleTilesErrorCode;
+using galib::exception::LittleTilesException;
+using galib::exception::MinecraftErrorCode;
+using galib::exception::MinecraftException;
 
-using GALIB_NBT tag_compound;
-using GALIB_NBT tag_list;
+using nbt::tag_compound;
+using nbt::tag_list;
 
-GALIB minecraft::littletiles::ChunkTileEntities::ChunkTileEntities()
+galib::minecraft::littletiles::ChunkTileEntities::ChunkTileEntities()
     : chunk_coordinate_({}) {}
 
 ChunkTileEntities::size_type ChunkTileEntities::ReadChunk(
@@ -73,8 +73,8 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadChunkNbt(
 
   // 若 level 内带有区块坐标，则同步到 chunk 坐标
   if (chunk_level.has_key("xPos") && chunk_level.has_key("zPos")) {
-    chunk_coordinate_ = {chunk_level.at("xPos").as<GALIB_NBT tag_int>().get(),
-                         chunk_level.at("zPos").as<GALIB_NBT tag_int>().get()};
+    chunk_coordinate_ = {chunk_level.at("xPos").as<nbt::tag_int>().get(),
+                         chunk_level.at("zPos").as<nbt::tag_int>().get()};
   }
 
   return ReadTileEntities(chunk_level, p_boxes_count);
@@ -117,7 +117,7 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
     catch (...) {
     }
 #else
-    catch (const GALIB_STD exception& e) {
+    catch (const std::exception& e) {
       printf("ChunkTileEntities::ReadChunk error: %s\n", e.what());
     }
 #endif

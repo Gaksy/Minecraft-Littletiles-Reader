@@ -18,15 +18,15 @@
 
 #include "GalibNamespaceDef.h"
 
-bool GALIB file::IsFolderAccessible(const char* const kPFolderPath,
-                                    FileStat* const p_file_stat) {
+bool galib::file::IsFolderAccessible(const char* const kPFolderPath,
+                                     FileStat* const p_file_stat) {
   if (!kPFolderPath) {
     return false;
   }
 
   if (!p_file_stat) {
     FileStat temp;
-    return GALIB file::IsFolderAccessible(kPFolderPath, &temp);
+    return galib::file::IsFolderAccessible(kPFolderPath, &temp);
   }
 
   if (!GetFileStat(kPFolderPath, p_file_stat)) {

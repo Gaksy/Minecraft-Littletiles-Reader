@@ -33,24 +33,24 @@ namespace galib::minecraft {
 template <typename CacheType, typename ArgNumericType>
 class CacheManagerBase {
  private:
-  using ColumnsCache = GALIB_STD vector<GALIB_STD unique_ptr<CacheType>>;
-  using RowsCache = GALIB_STD vector<GALIB_STD unique_ptr<ColumnsCache>>;
-  using Coord2dType = GALIB coord::Coordinate2D<ArgNumericType>;
+  using ColumnsCache = std::vector<std::unique_ptr<CacheType>>;
+  using RowsCache = std::vector<std::unique_ptr<ColumnsCache>>;
+  using Coord2dType = galib::coord::Coordinate2D<ArgNumericType>;
 
  public:
   // kBaseSize represents the number of data to be cached, which is the length and width of the 2D array.
   // Once set, it cannot be changed.
-  explicit CacheManagerBase(const GALIB_STD size_t kBaseSize)
+  explicit CacheManagerBase(const std::size_t kBaseSize)
       : kBaseSize_(kBaseSize) {
     if (kBaseSize < 2) {
-      throw GALIB exception::MinecraftException(
-          GALIB exception::MinecraftErrorCode::mc_invalid_args);
+      throw galib::exception::MinecraftException(
+          galib::exception::MinecraftErrorCode::mc_invalid_args);
     }
   }
 
   CacheManagerBase(CacheManagerBase&& RSH) noexcept
       : kBaseSize_(RSH.kBaseSize_) {
-    this->cache_ = GALIB_STD move(RSH.cache_);
+    this->cache_ = std::move(RSH.cache_);
   }
 
   CacheManagerBase& operator=(CacheManagerBase&& RSH) = delete;
@@ -85,8 +85,8 @@ class CacheManagerBase {
     }
 
     if (!IsValidCheckForCoord(kBaseSize_, kInteger2dCoord)) {
-      throw GALIB exception::MinecraftException(
-          GALIB exception::MinecraftErrorCode::mc_invalid_coord);
+      throw galib::exception::MinecraftException(
+          galib::exception::MinecraftErrorCode::mc_invalid_coord);
     }
 
     // If a bad allocation occurs, then the std::bad_alloc exception will be thrown by the new operator.
@@ -116,7 +116,7 @@ class CacheManagerBase {
   void ClearCache() { cache_.clear(); }
 
   // Check if the cache is empty
-  GALIB_NODISCARD bool is_empty() const { return cache_.empty(); }
+  [[nodiscard]] bool is_empty() const { return cache_.empty(); }
 
   // Check if the specified cache exists, requires a 2D coordinate
   bool HasCache(const Coord2dType& kInteger2dCoord) const {
@@ -125,8 +125,8 @@ class CacheManagerBase {
     }
 
     if (!IsValidCheckForCoord(kBaseSize_, kInteger2dCoord)) {
-      throw GALIB exception::MinecraftException(
-          GALIB exception::MinecraftErrorCode::mc_invalid_coord);
+      throw galib::exception::MinecraftException(
+          galib::exception::MinecraftErrorCode::mc_invalid_coord);
     }
 
     return cache_[kInteger2dCoord.x].get() &&
@@ -134,33 +134,33 @@ class CacheManagerBase {
   }
 
  private:
-  static bool IsValidCheckForCoord(const GALIB_STD size_t kBaseSize,
+  static bool IsValidCheckForCoord(const std::size_t kBaseSize,
                                    const Coord2dType& kInteger2dCoord) {
     return !(kInteger2dCoord.x >= kBaseSize || kInteger2dCoord.z >= kBaseSize);
   }
 
  private:
   RowsCache cache_;
-  const GALIB_STD size_t kBaseSize_;
+  const std::size_t kBaseSize_;
 };
 
 class AnvilReader {
  public:
   using ByteType = char;
-  using ByteArray = GALIB_STD vector<ByteType>;
+  using ByteArray = std::vector<ByteType>;
   using ByteIndex = ByteArray::size_type;
   using ByteIndexDifference = ByteArray::difference_type;
 
   // The std::unique_ptr has automatic resource managemen
-  using ChunkNbtRoot = GALIB_STD unique_ptr<GALIB_NBT tag_compound>;
+  using ChunkNbtRoot = std::unique_ptr<nbt::tag_compound>;
 
  public:
   struct ChunkInfo {
-    GALIB minecraft::RegionCoordinate region_coord{};
+    galib::minecraft::RegionCoordinate region_coord{};
     // Region Coordinates (corresponds to the r.x.z.mca file in Anvil format)
-    GALIB minecraft::RegionChunkCoordinate region_chunk_coord{};
+    galib::minecraft::RegionChunkCoordinate region_chunk_coord{};
     // Region Chunk Coordinates (relative coordinates of the chunk within the region)
-    GALIB minecraft::ChunkCoordinate chunk_coord{};  // World Chunk Coordinates
+    galib::minecraft::ChunkCoordinate chunk_coord{};  // World Chunk Coordinates
   };
 
  private:
@@ -187,32 +187,30 @@ class AnvilReader {
  public:
   struct ChunkDataReference {
     ChunkInfo chunk_info{};
-    GALIB_NBT tag_compound* p_chunk_root{
+    nbt::tag_compound* p_chunk_root{
         nullptr};  // Chunk root directory (compound tag)
-    GALIB_NBT tag_compound* p_chunk_level{
+    nbt::tag_compound* p_chunk_level{
         nullptr};  // Chunk level directory (compound tag)
   };
 
   struct ChunkData {
     ChunkInfo chunk_info{};
     ChunkConstIterator chunk_const_iterator;
-    ChunkNbtRoot chunk_root;  // Chunk root directory (compound tag)
-    GALIB_NBT tag_compound*
-        p_chunk_level;  // Chunk level directory (compound tag)
+    ChunkNbtRoot chunk_root;           // Chunk root directory (compound tag)
+    nbt::tag_compound* p_chunk_level;  // Chunk level directory (compound tag)
   };
 
  private:
   using SingleChunkManager =
       CacheManagerBase<ChunkData,
-                       GALIB minecraft::RegionChunkCoordinate::NumericType>;
-  using McaManager =
-      GALIB_STD map<GALIB minecraft::RegionCoordinate, ByteArray>;
+                       galib::minecraft::RegionChunkCoordinate::NumericType>;
+  using McaManager = std::map<galib::minecraft::RegionCoordinate, ByteArray>;
   using ChunkManager =
-      GALIB_STD map<GALIB minecraft::RegionCoordinate, SingleChunkManager>;
+      std::map<galib::minecraft::RegionCoordinate, SingleChunkManager>;
 
-  using McaPair = GALIB_STD pair<GALIB minecraft::RegionCoordinate, ByteArray>;
+  using McaPair = std::pair<galib::minecraft::RegionCoordinate, ByteArray>;
   using ChunkPair =
-      GALIB_STD pair<GALIB minecraft::RegionCoordinate, SingleChunkManager>;
+      std::pair<galib::minecraft::RegionCoordinate, SingleChunkManager>;
 
  public:
   AnvilReader() = default;
@@ -224,22 +222,22 @@ class AnvilReader {
   bool SetRegionFolder(const char* kPRegionFolderPath);
 
   // Get the current directory address of the Region folder.
-  GALIB_NODISCARD const GALIB_STD string& region_folder() const;
+  [[nodiscard]] const std::string& region_folder() const;
 
   // Get the chunk data, requires passing the chunk coordinates. This function will throw an exception.
   ChunkDataReference GetChunkDataReference(
-      const GALIB minecraft::ChunkCoordinate& kChunkCoord);
+      const galib::minecraft::ChunkCoordinate& kChunkCoord);
 
   void Clear();
 
  private:
   // Build the mca file directory.
-  static GALIB_STD string
-  BuildMcaFilePath(const GALIB_STD string& kRegionFolderPath,
-                   const GALIB minecraft::RegionCoordinate& kRegionCoord);
+  static std::string BuildMcaFilePath(
+      const std::string& kRegionFolderPath,
+      const galib::minecraft::RegionCoordinate& kRegionCoord);
 
   // Read the mca file.
-  static bool ReadMcaFile(const GALIB_STD string& kMcaFilePath,
+  static bool ReadMcaFile(const std::string& kMcaFilePath,
                           ByteArray& desc_bytearray);
 
   // Get the chunk index data.
@@ -261,7 +259,7 @@ class AnvilReader {
   ChunkManager chunk_cache_;
 
   // region folder path
-  GALIB_STD string region_folder_;
+  std::string region_folder_;
 };
 }  // namespace galib::minecraft
 

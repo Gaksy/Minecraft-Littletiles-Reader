@@ -26,14 +26,14 @@
 
 namespace galib::minecraft::cgal_support {
 inline LtPoint3 ConvertToCgalPoint(
-    const GALIB minecraft::littletiles::LittleTilesCoord& kLtCoord) {
-  return GALIB minecraft::cgal_support::LtPoint3(kLtCoord.x, kLtCoord.y,
-                                                 kLtCoord.z);
+    const galib::minecraft::littletiles::LittleTilesCoord& kLtCoord) {
+  return galib::minecraft::cgal_support::LtPoint3(kLtCoord.x, kLtCoord.y,
+                                                  kLtCoord.z);
 }
 
 void CreateMeshFromTileEntity(
     LtSurfaceMesh& mesh,
-    const GALIB minecraft::littletiles::TileEntity& kTileEntity,
+    const galib::minecraft::littletiles::TileEntity& kTileEntity,
     bool kApplyOffset = true);
 
 // 用"半空间裁剪"替代 CGAL 布尔求交。
@@ -45,17 +45,17 @@ void CreateMeshFromTileEntity(
 // 返回 false 表示裁剪结果为空，调用方应丢弃该 tile。
 bool ClipTileEntityToBox(
     LtSurfaceMesh& desc_mesh,
-    const GALIB minecraft::littletiles::TileEntity& kTileEntity,
+    const galib::minecraft::littletiles::TileEntity& kTileEntity,
     bool kApplyOffset = true);
 
 const LtSurfaceMesh& CreateIntersectionCube(
-    GALIB minecraft::littletiles::GridType kGrid);
+    galib::minecraft::littletiles::GridType kGrid);
 void ApplyWorldOffset(LtSurfaceMesh& mesh,
                       const BlockCoordinate& block_coordinate);
 void ApplyWorldOffset(SurfaceMeshType& mesh,
                       const BlockCoordinate& block_coordinate);
 void ApplyGrid(LtSurfaceMesh& mesh,
-               GALIB minecraft::littletiles::GridType grid);
+               galib::minecraft::littletiles::GridType grid);
 void CleanupMesh(LtSurfaceMesh& mesh);
 }  // namespace galib::minecraft::cgal_support
 

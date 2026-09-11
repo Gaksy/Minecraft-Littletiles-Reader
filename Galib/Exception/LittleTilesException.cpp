@@ -27,7 +27,7 @@ constexpr static const char* const STD_ERROR_CODE[] = {
 
 constexpr static const char* const EXCEPTION_NAME = "LittleTiles Exception";
 
-GALIB exception::LittleTilesException::LittleTilesException(
+galib::exception::LittleTilesException::LittleTilesException(
     const LittleTilesErrorCode& kErrorCode, const char* kPErrorMessage,
     const char* kPErrorSender)
     : GalibExceptionBasic<LittleTilesErrorCodeType>(

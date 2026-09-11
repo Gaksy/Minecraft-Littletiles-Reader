@@ -33,7 +33,7 @@ constexpr static const char* const STD_ERROR_CODE[] = {
 
 constexpr static const char* const EXCEPTION_NAME = "Minecraft Exception";
 
-GALIB exception::MinecraftException::MinecraftException(
+galib::exception::MinecraftException::MinecraftException(
     const MinecraftErrorCode& kErrorCode, const char* const kPErrorMessage,
     const char* const kPErrorSender)
     : GalibExceptionBasic<MinecraftErrorCodeType>(

@@ -23,27 +23,27 @@
 #include "Minecraft/MinecraftCoord.h"
 #include "nbt_tags.h"
 
-using GALIB minecraft::littletiles::GridType;
-using GALIB minecraft::littletiles::BlockTileEntities;
-using GALIB minecraft::littletiles::AngleOffset;
-using GALIB minecraft::littletiles::Flipped;
-using GALIB minecraft::littletiles::TileEntity;
-using GALIB minecraft::littletiles::TileMaterial;
+using galib::minecraft::littletiles::AngleOffset;
+using galib::minecraft::littletiles::BlockTileEntities;
+using galib::minecraft::littletiles::Flipped;
+using galib::minecraft::littletiles::GridType;
+using galib::minecraft::littletiles::TileEntity;
+using galib::minecraft::littletiles::TileMaterial;
 
-using GALIB minecraft::BlockCoordinate;
+using galib::minecraft::BlockCoordinate;
 
-using GALIB exception::LittleTilesException;
-using GALIB exception::LittleTilesErrorCode;
+using galib::exception::LittleTilesErrorCode;
+using galib::exception::LittleTilesException;
 
-using GALIB_STD string;
-using GALIB_STD uint32_t;
-using GALIB_STD vector;
+using std::string;
+using std::uint32_t;
+using std::vector;
 
-using GALIB_NBT tag_int;
-using GALIB_NBT tag_string;
-using GALIB_NBT tag_compound;
-using GALIB_NBT tag_list;
-using GALIB_NBT tag_int_array;
+using nbt::tag_compound;
+using nbt::tag_int;
+using nbt::tag_int_array;
+using nbt::tag_list;
+using nbt::tag_string;
 
 BlockTileEntities::BlockTileEntities()
     : block_coordinate_({0, 0, 0}), grid_(0) {}
@@ -251,7 +251,7 @@ bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,
     return false;
   }
 #else
-  catch (const GALIB_STD exception& e) {
+  catch (const std::exception& e) {
     printf("ChunkTileEntities::ReadBoxesTilesNbt error: %s\n", e.what());
     return false;
   }

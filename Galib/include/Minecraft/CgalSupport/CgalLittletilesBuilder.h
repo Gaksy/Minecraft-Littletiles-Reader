@@ -26,10 +26,10 @@
 namespace galib::minecraft::cgal_support {
 class ChunkMesh {
  public:
-  using container = GALIB_STD vector<LtSurfaceMesh>;
-  using const_iterator = GALIB_STD vector<LtSurfaceMesh>::const_iterator;
-  using iterator = GALIB_STD vector<LtSurfaceMesh>::iterator;
-  using size_type = GALIB_STD vector<LtSurfaceMesh>::size_type;
+  using container = std::vector<LtSurfaceMesh>;
+  using const_iterator = std::vector<LtSurfaceMesh>::const_iterator;
+  using iterator = std::vector<LtSurfaceMesh>::iterator;
+  using size_type = std::vector<LtSurfaceMesh>::size_type;
 
  public:
   ChunkMesh() = default;
@@ -37,9 +37,9 @@ class ChunkMesh {
 
  public:
   size_type AddTilesFromChunkTileEntities(
-      const GALIB minecraft::littletiles::ChunkTileEntities&
+      const galib::minecraft::littletiles::ChunkTileEntities&
           kChunkTileEntities);
-  GALIB_NODISCARD const container& mesh_array() const;
+  [[nodiscard]] const container& mesh_array() const;
   void Clear();
 
  private:
@@ -53,15 +53,15 @@ class ChunkMesh {
 //
 // private:
 //     struct FaceData {
-//         GALIB_STD vector<GALIB minecraft::littletiles::LittleTilesCoord>::size_type point_index;
+//         std:: vector<galib:: minecraft::littletiles::LittleTilesCoord>::size_type point_index;
 //         const LtSurfaceMesh& desc_face;
 //     };
 //
 // public:
-//     bool exportToFile(const char* p_file_path, const GALIB_STD vector<LtSurfaceMesh>& meshes);
+//     bool exportToFile(const char* p_file_path, const std:: vector<LtSurfaceMesh>& meshes);
 //
 // public:
-//     GALIB_STD vector<GALIB minecraft::littletiles::LittleTilesCoord> coord_array_;
+//     std:: vector<galib:: minecraft::littletiles::LittleTilesCoord> coord_array_;
 //
 // };
 
@@ -69,11 +69,11 @@ class ChunkMesh {
 // kGeomCenter     : 把包围盒中心平移到原点（默认开启）。
 // kNormalizeScale : 在居中的基础上再等比缩放到"最长边 = 1"，便于第三方软件查看；
 //                   注意这会丢失"1 单位 = 1 方块"的原始比例，因此默认关闭。
-void MergeAndWriteToObj(const GALIB_STD vector<LtSurfaceMesh>& meshes,
+void MergeAndWriteToObj(const std::vector<LtSurfaceMesh>& meshes,
                         const char* p_filename, bool geom_center = true,
                         bool normalize_scale = false);
 
-void WriteToOff(const GALIB_STD vector<LtSurfaceMesh>& meshes,
+void WriteToOff(const std::vector<LtSurfaceMesh>& meshes,
                 const char* p_filename);
 
 }  // namespace galib::minecraft::cgal_support

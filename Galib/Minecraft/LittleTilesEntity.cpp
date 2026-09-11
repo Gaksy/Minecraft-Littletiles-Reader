@@ -22,15 +22,15 @@
 #include "Minecraft/LittleTiles.h"
 #include "Minecraft/LittleTilesCoord.h"
 
-using GALIB_STD any_of;
-using GALIB_STD begin;
-using GALIB_STD end;
+using std::any_of;
+using std::begin;
+using std::end;
 
-using GALIB minecraft::littletiles::LittleTilesCoord;
-using GALIB minecraft::littletiles::AngleOffset;
-using GALIB minecraft::littletiles::AngleID;
-using GALIB minecraft::littletiles::TileFace;
-using GALIB minecraft::littletiles::TileEntity;
+using galib::minecraft::littletiles::AngleID;
+using galib::minecraft::littletiles::AngleOffset;
+using galib::minecraft::littletiles::LittleTilesCoord;
+using galib::minecraft::littletiles::TileEntity;
+using galib::minecraft::littletiles::TileFace;
 
 TileEntity::TileEntity() : pos_1_({0, 0, 0}), pos_2_({0, 0, 0}) { ; }
 
@@ -140,7 +140,7 @@ const galib::minecraft::littletiles::Flipped& TileEntity::flipped_data() const {
 
 bool TileEntity::has_color() const { return has_color_; }
 
-GALIB_STD int32_t TileEntity::color() const { return color_; }
+std::int32_t TileEntity::color() const { return color_; }
 
 void TileEntity::set_pos(const LittleTilesCoord& kPos1,
                          const LittleTilesCoord& kPos2) {
@@ -152,8 +152,7 @@ void TileEntity::set_flipped_data(const Flipped& kFlippedData) {
   flipped_data_ = kFlippedData;
 }
 
-void TileEntity::set_color(const GALIB_STD int32_t kColor,
-                           const bool kHasColor) {
+void TileEntity::set_color(const std::int32_t kColor, const bool kHasColor) {
   color_ = kColor;
   has_color_ = kHasColor;
 }

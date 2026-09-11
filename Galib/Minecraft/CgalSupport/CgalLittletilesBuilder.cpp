@@ -21,33 +21,32 @@
 #include <filesystem>
 #include <iomanip>
 
-using GALIB_STD vector;
-using GALIB_STD ofstream;
-using GALIB_STD distance;
-using GALIB_STD find;
-using GALIB_STD endl;
-using GALIB_STD cerr;
-using GALIB_STD cout;
-using GALIB_STD map;
-using GALIB_STD size_t;
-using GALIB_STD unordered_map;
-using GALIB_STD map;
+using std::cerr;
+using std::cout;
+using std::distance;
+using std::endl;
+using std::find;
+using std::map;
+using std::ofstream;
+using std::size_t;
+using std::unordered_map;
+using std::vector;
 
-using GALIB minecraft::cgal_support::LtSurfaceMesh;
-using GALIB minecraft::cgal_support::CreateMeshFromTileEntity;
-using GALIB minecraft::cgal_support::ChunkMesh;
-using GALIB minecraft::cgal_support::ApplyGrid;
-using GALIB minecraft::cgal_support::ApplyWorldOffset;
-using GALIB minecraft::cgal_support::CleanupMesh;
-using GALIB minecraft::cgal_support::LtPoint3;
+using galib::minecraft::cgal_support::ApplyGrid;
+using galib::minecraft::cgal_support::ApplyWorldOffset;
+using galib::minecraft::cgal_support::ChunkMesh;
+using galib::minecraft::cgal_support::CleanupMesh;
+using galib::minecraft::cgal_support::CreateMeshFromTileEntity;
+using galib::minecraft::cgal_support::LtPoint3;
+using galib::minecraft::cgal_support::LtSurfaceMesh;
 
-using GALIB minecraft::littletiles::GridType;
-using GALIB minecraft::littletiles::TileEntity;
-using GALIB minecraft::littletiles::BoxTileEnities;
-using GALIB minecraft::littletiles::BlockTileEntities;
-using GALIB minecraft::littletiles::ChunkTileEntities;
+using galib::minecraft::littletiles::BlockTileEntities;
+using galib::minecraft::littletiles::BoxTileEnities;
+using galib::minecraft::littletiles::ChunkTileEntities;
+using galib::minecraft::littletiles::GridType;
+using galib::minecraft::littletiles::TileEntity;
 
-using GALIB_CGAL SM_Vertex_index;
+using CGAL::SM_Vertex_index;
 
 size_t addTilesFromBlockTilesEntities(
     const BlockTileEntities& kBlockTileEntities,
@@ -129,7 +128,7 @@ const ChunkMesh::container& ChunkMesh::mesh_array() const {
 
 void ChunkMesh::Clear() { this->tiles_in_world_.clear(); }
 
-void GALIB minecraft::cgal_support::MergeAndWriteToObj(
+void galib::minecraft::cgal_support::MergeAndWriteToObj(
     const vector<LtSurfaceMesh>& meshes, const char* const p_filename,
     const bool geom_center, const bool normalize_scale) {
   using SurfaceMeshType = SurfaceMeshType;
@@ -212,9 +211,9 @@ void GALIB minecraft::cgal_support::MergeAndWriteToObj(
     const double center_y = (bbox.ymin() + bbox.ymax()) / 2.0;
     const double center_z = (bbox.zmin() + bbox.zmax()) / 2.0;
 
-    const double extent = GALIB_STD max(
+    const double extent = std::max(
         bbox.xmax() - bbox.xmin(),
-        GALIB_STD max(bbox.ymax() - bbox.ymin(), bbox.zmax() - bbox.zmin()));
+        std::max(bbox.ymax() - bbox.ymin(), bbox.zmax() - bbox.zmin()));
     double scale = 1.0;
     if (normalize_scale && extent > 1e-12) {
       scale = 1.0 / extent;
@@ -291,9 +290,8 @@ void writeMeshToOff(const LtSurfaceMesh& mesh, const char* const p_filename) {
   vector<LtPoint3> v_array;
 }
 
-void GALIB minecraft::cgal_support::WriteToOff(
-    const GALIB_STD vector<LtSurfaceMesh>& meshes,
-    const char* const p_filename) {
+void galib::minecraft::cgal_support::WriteToOff(
+    const std::vector<LtSurfaceMesh>& meshes, const char* const p_filename) {
   for (size_t i = 0; i < meshes.size(); ++i) {
     // Generate a unique filename for each mesh
     std::string mesh_filename =

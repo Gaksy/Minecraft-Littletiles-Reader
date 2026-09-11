@@ -20,10 +20,10 @@
 
 #include "GalibNamespaceDef.h"
 
-using GALIB minecraft::littletiles::AngleID;
-using GALIB_STD uint8_t;
+using galib::minecraft::littletiles::AngleID;
+using std::uint8_t;
 
-uint8_t(GALIB minecraft::littletiles::ConvertAngleIdToInt)(
+uint8_t(galib::minecraft::littletiles::ConvertAngleIdToInt)(
     const AngleID kAngleId) {
   return static_cast<uint8_t>(kAngleId);
 }

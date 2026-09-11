@@ -20,10 +20,11 @@
 
 #include "GalibNamespaceDef.h"
 
-using GALIB_STD size_t;
+using std::size_t;
 
-bool GALIB file::FormatFolderPath(char* const p_desc_path, const size_t kLength,
-                                  const bool kLinuxStyle) {
+bool galib::file::FormatFolderPath(char* const p_desc_path,
+                                   const size_t kLength,
+                                   const bool kLinuxStyle) {
   if (!p_desc_path) {
     return false;
   }

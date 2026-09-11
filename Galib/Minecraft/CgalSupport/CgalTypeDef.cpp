@@ -18,14 +18,14 @@
 
 #include "Minecraft/CgalSupport/CgalLtSupport.h"
 
-using GALIB_STD string;
-using GALIB_STD replace;
+using std::replace;
+using std::string;
 
-using GALIB minecraft::cgal_support::LtSurfaceMesh;
-using GALIB minecraft::BlockCoordinate;
-using GALIB minecraft::cgal_support::ApplyWorldOffset;
-using GALIB minecraft::cgal_support::SurfaceMeshType;
-using GALIB minecraft::cgal_support::UVData;
+using galib::minecraft::BlockCoordinate;
+using galib::minecraft::cgal_support::ApplyWorldOffset;
+using galib::minecraft::cgal_support::LtSurfaceMesh;
+using galib::minecraft::cgal_support::SurfaceMeshType;
+using galib::minecraft::cgal_support::UVData;
 
 LtSurfaceMesh::LtSurfaceMesh(const SurfaceMeshType& mesh)
     : surface_mesh_(mesh) {}
@@ -40,7 +40,7 @@ void LtSurfaceMesh::set_block_id(const string& str) { this->block_id_ = str; }
 
 const string& LtSurfaceMesh::block_id() const { return this->block_id_; }
 
-void LtSurfaceMesh::set_tile_color(const GALIB_STD int32_t kColor,
+void LtSurfaceMesh::set_tile_color(const std::int32_t kColor,
                                    const bool kHasColor) {
   this->tile_color_ = kColor;
   this->has_tile_color_ = kHasColor;
@@ -48,9 +48,7 @@ void LtSurfaceMesh::set_tile_color(const GALIB_STD int32_t kColor,
 
 bool LtSurfaceMesh::has_tile_color() const { return this->has_tile_color_; }
 
-GALIB_STD int32_t LtSurfaceMesh::tile_color() const {
-  return this->tile_color_;
-}
+std::int32_t LtSurfaceMesh::tile_color() const { return this->tile_color_; }
 
 void LtSurfaceMesh::set_block_coord_in_world(
     const BlockCoordinate& kBlockCoord) {

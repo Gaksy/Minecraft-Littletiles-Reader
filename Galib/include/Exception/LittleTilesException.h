@@ -22,7 +22,7 @@
 #include "GalibNamespaceDef.h"
 
 namespace galib::exception {
-using LittleTilesErrorCodeType = GALIB_STD uint8_t;
+using LittleTilesErrorCodeType = std::uint8_t;
 
 enum class LittleTilesErrorCode : LittleTilesErrorCodeType {
   lt_unknow_angle = 0,
@@ -31,7 +31,7 @@ enum class LittleTilesErrorCode : LittleTilesErrorCodeType {
 };
 
 class LittleTilesException
-    : public GALIB exception::GalibExceptionBasic<LittleTilesErrorCodeType> {
+    : public galib::exception::GalibExceptionBasic<LittleTilesErrorCodeType> {
  public:
   explicit LittleTilesException(const LittleTilesErrorCode& kErrorCode,
                                 const char* kPErrorMessage = nullptr,

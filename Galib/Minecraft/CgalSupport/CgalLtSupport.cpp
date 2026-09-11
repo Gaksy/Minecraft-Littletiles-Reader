@@ -28,18 +28,18 @@
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTiles.h"
 
-using GALIB minecraft::littletiles::LittleTilesCoord;
-using GALIB minecraft::littletiles::GridType;
+using galib::minecraft::littletiles::GridType;
+using galib::minecraft::littletiles::LittleTilesCoord;
 
-using GALIB minecraft::littletiles::AngleID;
-using GALIB minecraft::littletiles::TileFaceID;
-using GALIB minecraft::littletiles::Flipped;
-using GALIB minecraft::littletiles::TileEntity;
-using GALIB minecraft::littletiles::TileFace;
+using galib::minecraft::littletiles::AngleID;
+using galib::minecraft::littletiles::Flipped;
+using galib::minecraft::littletiles::TileEntity;
+using galib::minecraft::littletiles::TileFace;
+using galib::minecraft::littletiles::TileFaceID;
 
-using GALIB minecraft::cgal_support::LtSurfaceMesh;
+using galib::minecraft::cgal_support::LtSurfaceMesh;
 
-using GALIB_CGAL SM_Vertex_index;
+using CGAL::SM_Vertex_index;
 
 // ---------------------------------------------------------------------------
 // 面构建辅助：平面四边形输出为 n 边形，非平面才回退到两个三角形
@@ -83,8 +83,8 @@ void addQuadFace(galib::minecraft::cgal_support::SurfaceMeshType& mesh,
   // 此时必须先把重合点去掉，否则 CGAL 会以"非法多边形"为由拒绝整个面。
   std::array<LtVertexIndex, 4> indices{};
   std::array<LtPoint, 4> points{};
-  GALIB_STD size_t count = 0;
-  for (GALIB_STD size_t i = 0; i < 4; ++i) {
+  std::size_t count = 0;
+  for (std::size_t i = 0; i < 4; ++i) {
     if (count > 0 && isSamePoint(points[count - 1], kPoints[i])) {
       continue;
     }
@@ -121,7 +121,7 @@ void addQuadFace(galib::minecraft::cgal_support::SurfaceMeshType& mesh,
 }
 }  // namespace
 
-void GALIB minecraft::cgal_support::CreateMeshFromTileEntity(
+void galib::minecraft::cgal_support::CreateMeshFromTileEntity(
     LtSurfaceMesh& mesh_data, const TileEntity& kTileEntity,
     const bool kApplyOffset) {
   SurfaceMeshType& mesh = mesh_data.surface_mesh();
@@ -186,8 +186,8 @@ struct ClipVec3 {
   double z{0.0};
 };
 
-using ClipPolygon = GALIB_STD vector<ClipVec3>;
-using ClipPolyhedron = GALIB_STD vector<ClipPolygon>;
+using ClipPolygon = std::vector<ClipVec3>;
+using ClipPolyhedron = std::vector<ClipPolygon>;
 
 const double kClipEpsilon = 1e-9;
 
@@ -205,9 +205,9 @@ ClipVec3 clipLerp(const ClipVec3& kA, const ClipVec3& kB, const double kT) {
 }
 
 bool clipNearlyEqual(const ClipVec3& kA, const ClipVec3& kB) {
-  return GALIB_STD fabs(kA.x - kB.x) < kClipEpsilon &&
-         GALIB_STD fabs(kA.y - kB.y) < kClipEpsilon &&
-         GALIB_STD fabs(kA.z - kB.z) < kClipEpsilon;
+  return std::fabs(kA.x - kB.x) < kClipEpsilon &&
+         std::fabs(kA.y - kB.y) < kClipEpsilon &&
+         std::fabs(kA.z - kB.z) < kClipEpsilon;
 }
 
 // 用半空间 n·p >= d 裁剪一个凸多面体；保留面按原环绕顺序，切面补一个新的 n 边形（cap）。
@@ -217,13 +217,13 @@ ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
   ClipPolygon cut_points;
 
   for (const ClipPolygon& face : kPolyhedron) {
-    const GALIB_STD size_t count = face.size();
+    const std::size_t count = face.size();
     if (count < 3) {
       continue;
     }
 
     ClipPolygon clipped;
-    for (GALIB_STD size_t i = 0; i < count; ++i) {
+    for (std::size_t i = 0; i < count; ++i) {
       const ClipVec3& current = face[i];
       const ClipVec3& next = face[(i + 1) % count];
       const double current_distance = clipDot(kN, current) - kD;
@@ -236,7 +236,7 @@ ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
       }
       if (current_inside != next_inside) {
         const double denominator = current_distance - next_distance;
-        if (GALIB_STD fabs(denominator) < kClipEpsilon) {
+        if (std::fabs(denominator) < kClipEpsilon) {
           continue;
         }
         const ClipVec3 cross_point =
@@ -292,15 +292,15 @@ ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
 
     // 构造平面内基底 (u, v)，使 u × v = -n：
     // 保留的是 n·p >= d 一侧，实体在 +n 方向，因此切面的外法线指向 -n。
-    ClipVec3 u = (GALIB_STD fabs(kN.x) <= GALIB_STD fabs(kN.y) &&
-                  GALIB_STD fabs(kN.x) <= GALIB_STD fabs(kN.z))
-                     ? ClipVec3{1.0, 0.0, 0.0}
-                     : ((GALIB_STD fabs(kN.y) <= GALIB_STD fabs(kN.z))
-                            ? ClipVec3{0.0, 1.0, 0.0}
-                            : ClipVec3{0.0, 0.0, 1.0});
+    ClipVec3 u =
+        (std::fabs(kN.x) <= std::fabs(kN.y) &&
+         std::fabs(kN.x) <= std::fabs(kN.z))
+            ? ClipVec3{1.0, 0.0, 0.0}
+            : ((std::fabs(kN.y) <= std::fabs(kN.z)) ? ClipVec3{0.0, 1.0, 0.0}
+                                                    : ClipVec3{0.0, 0.0, 1.0});
     const double u_along_n = clipDot(u, kN);
     u = clipSub(u, {kN.x * u_along_n, kN.y * u_along_n, kN.z * u_along_n});
-    const double u_length = GALIB_STD sqrt(clipDot(u, u));
+    const double u_length = std::sqrt(clipDot(u, u));
     if (u_length < kClipEpsilon) {
       return result;
     }
@@ -308,14 +308,13 @@ ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
     const ClipVec3 v{u.y * kN.z - u.z * kN.y, u.z * kN.x - u.x * kN.z,
                      u.x * kN.y - u.y * kN.x};
 
-    GALIB_STD sort(
-        unique_points.begin(), unique_points.end(),
-        [&center, &u, &v](const ClipVec3& kLhs, const ClipVec3& kRhs) {
-          const ClipVec3 lhs = clipSub(kLhs, center);
-          const ClipVec3 rhs = clipSub(kRhs, center);
-          return GALIB_STD atan2(clipDot(lhs, v), clipDot(lhs, u)) <
-                 GALIB_STD atan2(clipDot(rhs, v), clipDot(rhs, u));
-        });
+    std::sort(unique_points.begin(), unique_points.end(),
+              [&center, &u, &v](const ClipVec3& kLhs, const ClipVec3& kRhs) {
+                const ClipVec3 lhs = clipSub(kLhs, center);
+                const ClipVec3 rhs = clipSub(kRhs, center);
+                return std::atan2(clipDot(lhs, v), clipDot(lhs, u)) <
+                       std::atan2(clipDot(rhs, v), clipDot(rhs, u));
+              });
     result.push_back(unique_points);
   }
 
@@ -323,7 +322,7 @@ ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
 }
 
 ClipVec3 clipToVec3(
-    const GALIB minecraft::littletiles::LittleTilesCoord& kCoord) {
+    const galib::minecraft::littletiles::LittleTilesCoord& kCoord) {
   return {kCoord.x, kCoord.y, kCoord.z};
 }
 
@@ -333,12 +332,12 @@ bool clipIsPlanarQuad(const ClipPolygon& kQuad) {
   const ClipVec3 ac{c.x - a.x, c.y - a.y, c.z - a.z};
   const ClipVec3 normal{ab.y * ac.z - ab.z * ac.y, ab.z * ac.x - ab.x * ac.z,
                         ab.x * ac.y - ab.y * ac.x};
-  const double length = GALIB_STD sqrt(clipDot(normal, normal));
+  const double length = std::sqrt(clipDot(normal, normal));
   if (length < 1e-12) {
     return true;
   }
   const ClipVec3 ad{d.x - a.x, d.y - a.y, d.z - a.z};
-  return GALIB_STD fabs(clipDot(normal, ad)) / length < 1e-9;
+  return std::fabs(clipDot(normal, ad)) / length < 1e-9;
 }
 
 // 把一个四边形面加入待裁剪多面体：
@@ -376,7 +375,7 @@ void appendQuadFace(ClipPolyhedron& desc_polyhedron, ClipPolygon kPoints,
 }
 }  // namespace
 
-bool GALIB minecraft::cgal_support::ClipTileEntityToBox(
+bool galib::minecraft::cgal_support::ClipTileEntityToBox(
     LtSurfaceMesh& desc_mesh, const TileEntity& kTileEntity,
     const bool kApplyOffset) {
   // 8 个角点（grid 单位）
@@ -413,12 +412,10 @@ bool GALIB minecraft::cgal_support::ClipTileEntityToBox(
       clipToVec3(kTileEntity.GetVertices(AngleID::WDN, false));
   const ClipVec3 box_b =
       clipToVec3(kTileEntity.GetVertices(AngleID::EUS, false));
-  const ClipVec3 box_min{GALIB_STD min(box_a.x, box_b.x),
-                         GALIB_STD min(box_a.y, box_b.y),
-                         GALIB_STD min(box_a.z, box_b.z)};
-  const ClipVec3 box_max{GALIB_STD max(box_a.x, box_b.x),
-                         GALIB_STD max(box_a.y, box_b.y),
-                         GALIB_STD max(box_a.z, box_b.z)};
+  const ClipVec3 box_min{std::min(box_a.x, box_b.x), std::min(box_a.y, box_b.y),
+                         std::min(box_a.z, box_b.z)};
+  const ClipVec3 box_max{std::max(box_a.x, box_b.x), std::max(box_a.y, box_b.y),
+                         std::max(box_a.z, box_b.z)};
 
   polyhedron = clipPolyhedronByPlane(polyhedron, {1.0, 0.0, 0.0}, box_min.x);
   polyhedron = clipPolyhedronByPlane(polyhedron, {-1.0, 0.0, 0.0}, -box_max.x);
@@ -432,7 +429,7 @@ bool GALIB minecraft::cgal_support::ClipTileEntityToBox(
   }
 
   SurfaceMeshType& mesh = desc_mesh.surface_mesh();
-  GALIB_STD map<GALIB_STD array<long long, 3>, SurfaceMeshType::Vertex_index>
+  std::map<std::array<long long, 3>, SurfaceMeshType::Vertex_index>
       welded_vertices;
   const double weld_scale = 1e6;  // grid 单位下 1e-6 的量化精度足够区分真实顶点
 
@@ -441,13 +438,13 @@ bool GALIB minecraft::cgal_support::ClipTileEntityToBox(
       continue;
     }
 
-    GALIB_STD vector<SurfaceMeshType::Vertex_index> face_indices;
+    std::vector<SurfaceMeshType::Vertex_index> face_indices;
     face_indices.reserve(face.size());
     for (const ClipVec3& point : face) {
-      const GALIB_STD array<long long, 3> key{
-          static_cast<long long>(GALIB_STD llround(point.x * weld_scale)),
-          static_cast<long long>(GALIB_STD llround(point.y * weld_scale)),
-          static_cast<long long>(GALIB_STD llround(point.z * weld_scale))};
+      const std::array<long long, 3> key{
+          static_cast<long long>(std::llround(point.x * weld_scale)),
+          static_cast<long long>(std::llround(point.y * weld_scale)),
+          static_cast<long long>(std::llround(point.z * weld_scale))};
       auto found = welded_vertices.find(key);
       if (found == welded_vertices.end()) {
         found =
@@ -466,8 +463,8 @@ bool GALIB minecraft::cgal_support::ClipTileEntityToBox(
   return mesh.number_of_faces() > 0;
 }
 
-const LtSurfaceMesh& GALIB
-minecraft::cgal_support::CreateIntersectionCube(const GridType kGrid) {
+const LtSurfaceMesh& galib::minecraft::cgal_support::CreateIntersectionCube(
+    const GridType kGrid) {
   // 静态指针，确保只在第一次调用时创建
   static LtSurfaceMesh* p_lt_surface_mesh = nullptr;
 
@@ -507,12 +504,12 @@ minecraft::cgal_support::CreateIntersectionCube(const GridType kGrid) {
   return *p_lt_surface_mesh;  // 返回静态指针
 }
 
-void(GALIB minecraft::cgal_support::ApplyWorldOffset)(
+void(galib::minecraft::cgal_support::ApplyWorldOffset)(
     LtSurfaceMesh& mesh, const BlockCoordinate& block_coordinate) {
   ApplyWorldOffset(mesh.surface_mesh(), block_coordinate);
 }
 
-void(GALIB minecraft::cgal_support::ApplyWorldOffset)(
+void(galib::minecraft::cgal_support::ApplyWorldOffset)(
     SurfaceMeshType& mesh, const BlockCoordinate& block_coordinate) {
   using Point = SurfaceMeshType::Point;
   const double offset_x = block_coordinate.x;
@@ -525,8 +522,8 @@ void(GALIB minecraft::cgal_support::ApplyWorldOffset)(
   }
 }
 
-void(GALIB minecraft::cgal_support::ApplyGrid)(LtSurfaceMesh& mesh,
-                                               const GridType grid) {
+void(galib::minecraft::cgal_support::ApplyGrid)(LtSurfaceMesh& mesh,
+                                                const GridType grid) {
   SurfaceMeshType& transformed = mesh.surface_mesh();
   using Point = SurfaceMeshType::Point;
 
@@ -539,7 +536,7 @@ void(GALIB minecraft::cgal_support::ApplyGrid)(LtSurfaceMesh& mesh,
 }
 
 // 网格清理函数
-void(GALIB minecraft::cgal_support::CleanupMesh)(LtSurfaceMesh& mesh) {
+void(galib::minecraft::cgal_support::CleanupMesh)(LtSurfaceMesh& mesh) {
   SurfaceMeshType& surface_mesh = mesh.surface_mesh();
 
   // 移除孤立顶点
@@ -551,18 +548,18 @@ void(GALIB minecraft::cgal_support::CleanupMesh)(LtSurfaceMesh& mesh) {
   if (CGAL::is_triangle_mesh(surface_mesh)) {
     CGAL::Polygon_mesh_processing::remove_degenerate_faces(surface_mesh);
   } else {
-    GALIB_STD vector<SurfaceMeshType::Face_index> degenerated_faces;
+    std::vector<SurfaceMeshType::Face_index> degenerated_faces;
     for (SurfaceMeshType::Face_index face : surface_mesh.faces()) {
-      GALIB_STD vector<SurfaceMeshType::Vertex_index> face_vertices;
+      std::vector<SurfaceMeshType::Vertex_index> face_vertices;
       for (SurfaceMeshType::Vertex_index vertex :
            vertices_around_face(surface_mesh.halfedge(face), surface_mesh)) {
         face_vertices.push_back(vertex);
       }
 
       bool is_degenerated = face_vertices.size() < 3;
-      for (GALIB_STD size_t i = 0; !is_degenerated && i < face_vertices.size();
+      for (std::size_t i = 0; !is_degenerated && i < face_vertices.size();
            ++i) {
-        for (GALIB_STD size_t j = i + 1; j < face_vertices.size(); ++j) {
+        for (std::size_t j = i + 1; j < face_vertices.size(); ++j) {
           if (face_vertices[i] == face_vertices[j]) {
             is_degenerated = true;
             break;

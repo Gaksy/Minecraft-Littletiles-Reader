@@ -28,16 +28,16 @@
 namespace galib::minecraft::cgal_support {
 #ifdef _WIN32
 using FloatType = float;
-using LtKernel = GALIB_CGAL Simple_cartesian<FloatType>;
-using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
-using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
-using SurfaceMeshType = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<LtKernel>>;
+using LtKernel = CGAL::Simple_cartesian<FloatType>;
+using LtPoint3 = CGAL::Point_3<LtKernel>;
+using LtVector3 = CGAL::Vector_3<LtKernel>;
+using SurfaceMeshType = CGAL::Surface_mesh<CGAL::Point_3<LtKernel>>;
 #elif __APPLE__
 using FloatType = double;
-using LtKernel = GALIB_CGAL Simple_cartesian<FloatType>;
-using LtPoint3 = GALIB_CGAL Point_3<LtKernel>;
-using LtVector3 = GALIB_CGAL Vector_3<LtKernel>;
-using SurfaceMeshType = GALIB_CGAL Surface_mesh<GALIB_CGAL Point_3<LtKernel>>;
+using LtKernel = CGAL::Simple_cartesian<FloatType>;
+using LtPoint3 = CGAL::Point_3<LtKernel>;
+using LtVector3 = CGAL::Vector_3<LtKernel>;
+using SurfaceMeshType = CGAL::Surface_mesh<CGAL::Point_3<LtKernel>>;
 #endif
 
 struct UVData {
@@ -51,29 +51,29 @@ class LtSurfaceMesh {
   explicit LtSurfaceMesh(const SurfaceMeshType& mesh);
   ~LtSurfaceMesh() = default;
 
-  GALIB_NODISCARD SurfaceMeshType& surface_mesh();
-  GALIB_NODISCARD const SurfaceMeshType& surface_mesh() const;
-  void set_block_id(const GALIB_STD string& str);
-  GALIB_NODISCARD const GALIB_STD string& block_id() const;
+  [[nodiscard]] SurfaceMeshType& surface_mesh();
+  [[nodiscard]] const SurfaceMeshType& surface_mesh() const;
+  void set_block_id(const std::string& str);
+  [[nodiscard]] const std::string& block_id() const;
   // tile 的染色；未染色的 tile 保持 has_tile_color_ = false
-  void set_tile_color(GALIB_STD int32_t kColor, bool kHasColor);
-  GALIB_NODISCARD bool has_tile_color() const;
-  GALIB_NODISCARD GALIB_STD int32_t tile_color() const;
+  void set_tile_color(std::int32_t kColor, bool kHasColor);
+  [[nodiscard]] bool has_tile_color() const;
+  [[nodiscard]] std::int32_t tile_color() const;
   void set_block_coord_in_world(
-      const GALIB minecraft::BlockCoordinate& kBlockCoord);
-  const GALIB minecraft::BlockCoordinate& block_coord_in_world() const;
+      const galib::minecraft::BlockCoordinate& kBlockCoord);
+  const galib::minecraft::BlockCoordinate& block_coord_in_world() const;
   SurfaceMeshType GetMeshWithOffset(
-      const GALIB minecraft::BlockCoordinate& offset) const;
-  void ApplyOffset(const GALIB minecraft::BlockCoordinate& offset);
-  GALIB_STD string GetFormatBlockId() const;
+      const galib::minecraft::BlockCoordinate& offset) const;
+  void ApplyOffset(const galib::minecraft::BlockCoordinate& offset);
+  std::string GetFormatBlockId() const;
   UVData CalculateFaceUv(const SurfaceMeshType::face_index& kFaceIndex);
 
  private:
   SurfaceMeshType surface_mesh_;
-  GALIB_STD string block_id_;
-  GALIB_STD int32_t tile_color_{0};
+  std::string block_id_;
+  std::int32_t tile_color_{0};
   bool has_tile_color_{false};
-  GALIB minecraft::BlockCoordinate block_coord_in_world_;
+  galib::minecraft::BlockCoordinate block_coord_in_world_;
 };
 }  // namespace galib::minecraft::cgal_support
 

@@ -44,13 +44,21 @@ git ls-files '*.cpp' '*.h' | while IFS= read -r f; do "$CF" -i "$f"; done
 
 符号名可以直接 grep，比行号耐久。
 
-## 4. 尚未迁移的部分
+## 4. 与 Google 风格的刻意差异
 
-以下与 Google 风格仍有差距，属于已知的待办（改起来是纯机械改动，但 diff 很大）：
+以下三项**决定不改**，属于本项目接受的差异：
 
-| 项目 | 现状 | Google |
-|---|---|---|
-| 文件扩展名 | `.cpp` | `.cc` |
-| 文件名 | `Anvil.cpp`、`LittleTilesEntity.cpp` | 小写下划线，如 `anvil_reader.cc` |
-| 头文件保护宏 | `GALIB_MINECRAFT_ANVIL_H` | 结尾多一个下划线 |
-| 命名空间宏 | `GALIB_STD` / `GALIB_NBT` / `GALIB_CGAL` | 直接用 `std::` / `nbt::` / `CGAL::` |
+| 项目 | 现状 | Google | 原因 |
+|---|---|---|---|
+| 文件扩展名 | `.cpp` / `.h` | `.cc` / `.h` | 保持现状，不做纯改名 |
+| 文件名 | `Anvil.cpp`、`LittleTilesEntity.cpp` | 小写下划线且与类名对应 | 同上，改动面大而收益小 |
+| 头文件保护宏 | `GALIB_MINECRAFT_ANVIL_H` | 建议结尾多一个下划线 | 无实际影响 |
+
+**已迁移**：命名空间宏（`GALIB_STD` / `GALIB_NBT` / `GALIB_CGAL` / `GALIB_BOOST` / `GALIB_CSTD` / 裸 `GALIB`）
+已全部去掉，直接写 `std::` / `nbt::` / `CGAL::` / `boost::` / `::` / `galib::`；
+C++17 之后不再需要的 `GALIB_NODISCARD` / `GALIB_NOEXCEPT` 也已改为 `[[nodiscard]]` / `noexcept`。
+
+仍然保留的宏只有两类：
+
+1. `GALIB_DEBUG`（调试输出开关；目前恒为打开，应改为 CMake 选项，见 `known-issues.md`）；
+2. `GALIB_STATIC_ASSERT_*`（把类型名拼进报错信息的辅助宏）。

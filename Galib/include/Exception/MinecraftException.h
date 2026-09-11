@@ -23,7 +23,7 @@
 #include "GalibNamespaceDef.h"
 
 namespace galib::exception {
-using MinecraftErrorCodeType = GALIB_STD uint8_t;
+using MinecraftErrorCodeType = std::uint8_t;
 
 enum class MinecraftErrorCode : MinecraftErrorCodeType {
   mc_invalid_coord = 1,
@@ -36,7 +36,7 @@ enum class MinecraftErrorCode : MinecraftErrorCodeType {
 };
 
 class MinecraftException
-    : public GALIB exception::GalibExceptionBasic<MinecraftErrorCodeType> {
+    : public galib::exception::GalibExceptionBasic<MinecraftErrorCodeType> {
  public:
   explicit MinecraftException(const MinecraftErrorCode& kErrorCode,
                               const char* kPErrorMessage = nullptr,

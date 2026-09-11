@@ -17,37 +17,7 @@
 #ifndef GALIB_GALIBNAMESPACEDEF_H
 #define GALIB_GALIBNAMESPACEDEF_H
 
-#define GALIB_STD ::std::
-#define GALIB_CSTD ::
-#define GALIB_BOOST ::boost::
-#define GALIB_NBT ::nbt::
-#define GALIB_CGAL ::CGAL::
-#define GALIB ::galib::
-
+// 调试输出开关。后续应改成 CMake 选项（目前恒为打开，见 docs/known-issues.md）。
 #define GALIB_DEBUG
 
-#if defined(__GNUC__) || defined(__clang__)
-#if __cplusplus >= 201703L
-#define GALIB_NODISCARD [[nodiscard]]
-#elif __GNUC__ >= 7  // GCC 7.0+ 支持 [[nodiscard]]
-#define GALIB_NODISCARD [[nodiscard]]
-#else
-#define GALIB_NODISCARD
-#endif
-#endif
-
-#if defined(_MSC_VER)
-#if _MSC_VER >= 1928  // Visual Studio 2019, version 16.3+ 支持 [[nodiscard]]
-#define GALIB_NODISCARD [[nodiscard]]
-#else
-#define GALIB_NODISCARD
-#endif
-#endif
-
-#if __cplusplus >= 201103L
-#define GALIB_NOEXCEPT noexcept
-#else
-#define GALIB_NOEXCEPT
-#endif
-
-#endif  //GALIB_GALIBNAMESPACEDEF_H
+#endif  // GALIB_GALIBNAMESPACEDEF_H

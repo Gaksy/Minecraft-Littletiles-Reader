@@ -19,9 +19,9 @@
 
 #include "Coord/CoordTraits.h"
 
-#define GALIB_STATIC_ASSERT_COORDINATE_2D(CoordinateType)            \
-  static_assert(GALIB coord::coord2d_type_if<CoordinateType>::value, \
-                "Template argument \"" #CoordinateType               \
+#define GALIB_STATIC_ASSERT_COORDINATE_2D(CoordinateType)             \
+  static_assert(galib::coord::coord2d_type_if<CoordinateType>::value, \
+                "Template argument \"" #CoordinateType                \
                 "\" must be a valid 2D coordinate type. ")
 
 namespace galib::coord {
@@ -38,7 +38,7 @@ struct Coordinate2D {
   NumericType x;
   NumericType z;
 
-  bool operator==(const SelfType& kRhs) const GALIB_NOEXCEPT {
+  bool operator==(const SelfType& kRhs) const noexcept {
     return x == kRhs.x && z == kRhs.z;
   }
 
@@ -59,14 +59,14 @@ struct Coordinate2D {
 
 // Define a struct for checking whether a template parameter is of the Coordinate2D type, along with its specialization.
 template <typename CoordinateType>
-struct coord2d_type_if : GALIB_STD false_type {};
+struct coord2d_type_if : std::false_type {};
 
 template <typename ArgNumericType>
-struct coord2d_type_if<Coordinate2D<ArgNumericType>> : GALIB_STD true_type {};
+struct coord2d_type_if<Coordinate2D<ArgNumericType>> : std::true_type {};
 
 // Specialize a struct for checking whether a template parameter is a coordinate type.
 template <typename ArgNumericType>
-struct coord_type_if<Coordinate2D<ArgNumericType>> : GALIB_STD true_type {};
+struct coord_type_if<Coordinate2D<ArgNumericType>> : std::true_type {};
 }  // namespace galib::coord
 
 #endif  //GALIB_COORD_COORD2D_H

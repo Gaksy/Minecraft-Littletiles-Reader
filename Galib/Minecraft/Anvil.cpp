@@ -28,37 +28,36 @@
 #include "File/PathFormat.h"
 #include "GalibNamespaceDef.h"
 
-using GALIB coord::Coord2DToString;
+using galib::coord::Coord2DToString;
 
-using GALIB file::FileStat;
-using GALIB file::IsFolderAccessible;
-using GALIB file::FormatFolderPath;
-using GALIB file::IsFileAccessible;
-using GALIB file::GetFileStat;
-using GALIB file::ReadFileBasic;
+using galib::file::FileStat;
+using galib::file::FormatFolderPath;
+using galib::file::GetFileStat;
+using galib::file::IsFileAccessible;
+using galib::file::IsFolderAccessible;
+using galib::file::ReadFileBasic;
 
-using GALIB exception::MinecraftException;
-using GALIB exception::MinecraftErrorCode;
+using galib::exception::MinecraftErrorCode;
+using galib::exception::MinecraftException;
 
-using GALIB minecraft::AnvilReader;
-using GALIB minecraft::CacheManagerBase;
-using GALIB minecraft::RegionChunkCoordinate;
-using GALIB minecraft::RegionCoordinate;
-using GALIB minecraft::ChunkCoordToRegionCoord;
-using GALIB minecraft::ChunkCoordToRegionChunkCoord;
-using GALIB minecraft::ChunkCoordToRegionCoord;
-using GALIB minecraft::IsValidCheckForRegionChunkCoord;
+using galib::minecraft::AnvilReader;
+using galib::minecraft::CacheManagerBase;
+using galib::minecraft::ChunkCoordToRegionChunkCoord;
+using galib::minecraft::ChunkCoordToRegionCoord;
+using galib::minecraft::IsValidCheckForRegionChunkCoord;
+using galib::minecraft::RegionChunkCoordinate;
+using galib::minecraft::RegionCoordinate;
 
-using GALIB_STD string;
-using GALIB_STD to_string;
-using GALIB_STD stringstream;
-using GALIB_STD istringstream;
+using std::istringstream;
+using std::string;
+using std::stringstream;
+using std::to_string;
 
-using GALIB_BOOST iostreams::filtering_istream;
-using GALIB_BOOST iostreams::zlib_decompressor;
-using GALIB_BOOST iostreams::copy;
+using boost::iostreams::copy;
+using boost::iostreams::filtering_istream;
+using boost::iostreams::zlib_decompressor;
 
-using GALIB_NBT io::stream_reader;
+using nbt::io::stream_reader;
 
 //
 // ANVIL EDITOR
@@ -331,7 +330,7 @@ bool AnvilReader::DecompressChunkBinaryData(
 
     // Get compressed data
     copy(stream_uncompressed,
-         GALIB_BOOST iostreams::back_inserter(desc_compressed_chunk_data));
+         boost::iostreams::back_inserter(desc_compressed_chunk_data));
   } catch (...) {
     return false;
   }

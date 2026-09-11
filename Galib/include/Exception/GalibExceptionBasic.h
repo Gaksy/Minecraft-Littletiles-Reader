@@ -24,7 +24,7 @@
 
 namespace galib::exception {
 template <typename ArgErrorCodeType>
-class GalibExceptionBasic : public GALIB_STD exception {
+class GalibExceptionBasic : public std::exception {
  public:  // STATIC
   using ErrorCodeType = ArgErrorCodeType;
   using SelfType = GalibExceptionBasic;
@@ -96,7 +96,7 @@ class GalibExceptionBasic : public GALIB_STD exception {
     if (!error_code_name_.empty()) {
       desc_error_message_.append("Error info: \t");
       desc_error_message_.append(error_code_name_ + "(");
-      desc_error_message_.append(GALIB_STD to_string(error_code_));
+      desc_error_message_.append(std::to_string(error_code_));
       desc_error_message_.append(") ");
       if (!error_code_info_.empty()) {
         desc_error_message_.append(" - ");
@@ -107,25 +107,25 @@ class GalibExceptionBasic : public GALIB_STD exception {
     last_exception_ = *this;
   }
 
-  GALIB_NODISCARD ErrorCodeType error_code() const { return error_code_; }
+  [[nodiscard]] ErrorCodeType error_code() const { return error_code_; }
 
-  GALIB_NODISCARD const char* error_message() const GALIB_NOEXCEPT {
+  [[nodiscard]] const char* error_message() const noexcept {
     return desc_error_message_.c_str();
   }
 
-  GALIB_NODISCARD const char* what() const GALIB_NOEXCEPT override {
+  [[nodiscard]] const char* what() const noexcept override {
     return desc_error_message_.c_str();
   }
 
  private:
   ErrorCodeType error_code_;
-  GALIB_STD string desc_error_message_;
+  std::string desc_error_message_;
 
-  GALIB_STD string error_message_;
-  GALIB_STD string error_sender_;
-  GALIB_STD string error_code_name_;
-  GALIB_STD string error_code_info_;
-  GALIB_STD string exception_name_;
+  std::string error_message_;
+  std::string error_sender_;
+  std::string error_code_name_;
+  std::string error_code_info_;
+  std::string exception_name_;
 };
 
 template <typename ArgErrorCodeType>

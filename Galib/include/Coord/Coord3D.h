@@ -19,9 +19,9 @@
 
 #include "Coord/CoordTraits.h"
 
-#define GALIB_STATIC_ASSERT_COORDINATE_3D(CoordinateType)            \
-  static_assert(GALIB coord::coord3d_type_if<CoordinateType>::value, \
-                "Template argument \"" #CoordinateType               \
+#define GALIB_STATIC_ASSERT_COORDINATE_3D(CoordinateType)             \
+  static_assert(galib::coord::coord3d_type_if<CoordinateType>::value, \
+                "Template argument \"" #CoordinateType                \
                 "\" must be a valid 3D coordinate type. ")
 
 namespace galib::coord {
@@ -66,14 +66,14 @@ struct Coordinate3D {
 
 // Define a struct for checking whether a template parameter is of the Coordinate3D type, along with its specialization.
 template <typename CoordinateType>
-struct coord3d_type_if : GALIB_STD false_type {};
+struct coord3d_type_if : std::false_type {};
 
 template <typename ArgNumericType>
-struct coord3d_type_if<Coordinate3D<ArgNumericType>> : GALIB_STD true_type {};
+struct coord3d_type_if<Coordinate3D<ArgNumericType>> : std::true_type {};
 
 // Specialize a struct for checking whether a template parameter is a coordinate type.
 template <typename ArgNumericType>
-struct coord_type_if<Coordinate3D<ArgNumericType>> : GALIB_STD true_type {};
+struct coord_type_if<Coordinate3D<ArgNumericType>> : std::true_type {};
 }  // namespace galib::coord
 
 #endif  //GALIB_COORD_COORD3D_H

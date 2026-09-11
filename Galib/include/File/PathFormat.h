@@ -22,7 +22,7 @@
 #include "GalibNamespaceDef.h"
 
 namespace galib::file {
-bool FormatFolderPath(char* p_desc_path, GALIB_STD size_t kLength,
+bool FormatFolderPath(char* p_desc_path, std::size_t kLength,
                       bool kLinuxStyle = true);
 }
 
