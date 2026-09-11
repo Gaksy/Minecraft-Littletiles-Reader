@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cstdio>
 #include <string>
 
 #include "Minecraft/Anvil.h"
@@ -24,13 +25,31 @@ using std::to_string;
 #define OUT_OBJ_FILE_NAME "../out_file/marge_obj_from_chunk_"
 #endif
 
+namespace {
+    // 读取一行 y/n 回答；直接回车（空行）使用推荐默认值。
+    // 注意：调用前必须先清掉上一个 scanf 残留的换行符，否则会立刻读到空行。
+    bool askYesNo(const char *const kPQuestion, const bool kDefaultValue) {
+        printf("%s (y/n) [%c]: ", kPQuestion, kDefaultValue ? 'y' : 'n');
+        fflush(stdout);
+
+        char answer[64];
+        if (!fgets(answer, sizeof(answer), stdin)) { return kDefaultValue; }
+
+        for (const char *p = answer; *p != '\0'; ++p) {
+            if (*p == 'y' || *p == 'Y') { return true; }
+            if (*p == 'n' || *p == 'N') { return false; }
+        }
+        return kDefaultValue;
+    }
+}
+
 
 int main() {
     printf("Hello, There is LittleTile Reader\n");
 
     printf("please key in region folder:");
     char region_folder[256];
-    scanf("%s", region_folder);
+    scanf("%255s", region_folder);      // 明确上限，避免超长路径写越界
     printf("region folder path is %s\n", region_folder);
 
     AnvilReader anvil_reader;
@@ -64,22 +83,22 @@ int main() {
     obj_file_path.append(to_string(chunk_z));
     obj_file_path.append(".obj");
 
-    char choice = 'n';
-    printf("if need gemo center, press y (y/n):");
-    // 注意 %c 前的空格：跳过上一个 %d 读取后残留的换行符，
-    // 否则这里永远读到 '\n'，用户输入 y 也不会生效。
-    scanf(" %c", &choice);
-    const bool is_need_gemo_center = (choice == 'y' || choice == 'Y');
+    // 丢掉上一个 scanf(" %d") 之后残留的换行符，后面的选项按整行读取
+    {
+        int remaining = 0;
+        while ((remaining = getchar()) != '\n' && remaining != EOF) { }
+    }
 
-    printf("if need normalize to unit size, press y (y/n):");
-    scanf(" %c", &choice);
-    const bool is_need_normalize_scale = (choice == 'y' || choice == 'Y');
+    // 居中：把包围盒中心移到原点（推荐，导入第三方软件后一按 Frame Selected 就能看到）
+    const bool is_need_geometry_center = askYesNo("Move the model center to the origin?", true);
+    // 单位缩放：会把最长边压成 1，丢失"1 单位 = 1 方块"的真实尺寸，默认不做
+    const bool is_need_normalize_scale = askYesNo("Also scale the longest edge to 1 unit (changes the real size)?", false);
 
     // writeToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
     margeAndWriteToObj(
         chunk_mesh_management.getMeshArray(),
         obj_file_path.c_str(),
-        is_need_gemo_center,
+        is_need_geometry_center,
         is_need_normalize_scale
     );
     return EXIT_SUCCESS;

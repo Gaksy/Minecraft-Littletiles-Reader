@@ -73,8 +73,12 @@
     | 居中 | `geom_center=true`（默认） | 包围盒中心平移到原点，体积不变 |
     | 居中 + 单位缩放 | 再加 `normalize_scale=true` | 再等比缩放到最长边 = 1（会丢失"1 单位 = 1 方块"比例） |
 
-    CLI 现在会依次询问这两项（第二问是新增的）。未居中的模型导入 Blender 后离原点很远
-    （例如 x ≈ -2164、z ≈ 797），而视口默认 Clip End = 100，会看起来"什么都没导入"。
+    CLI 会依次询问这两项，提示语形如
+    `Move the model center to the origin? (y/n) [y]:` 与
+    `Also scale the longest edge to 1 unit (changes the real size)? (y/n) [n]:`，
+    **直接回车使用方括号里的推荐值**（居中 = y，缩放 = n）。
+    未居中的模型导入 Blender 后离原点很远（例如 x ≈ -2164、z ≈ 797），
+    而视口默认 Clip End = 100，会看起来"什么都没导入"。
 
 ### 2.3 导出质量（与 UV / 材质相关）
 
