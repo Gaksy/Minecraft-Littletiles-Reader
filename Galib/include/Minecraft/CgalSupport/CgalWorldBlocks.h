@@ -21,8 +21,8 @@
 
 #include "GalibNamespaceDef.h"
 #include "Minecraft/BlockIdTable.h"
-#include "Minecraft/ChunkBlocks.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
+#include "Minecraft/ChunkBlocks.h"
 
 namespace galib::minecraft::cgal_support {
 
@@ -35,9 +35,14 @@ namespace galib::minecraft::cgal_support {
 //   3. 可选邻居剔除——只输出朝向空气或区域之外的面。
 //
 // kChunks 按行主序给出：chunk_x 从慢到快（外层是 z、内层是 x）。
-void BuildWorldBlockMeshes(const std::vector<minecraft::ChunkBlocks>& kChunks, int kChunkSizeX,
-                           int kChunkSizeZ, const minecraft::BlockIdTable& kBlockIdTable,
-                           bool kCullHiddenFaces, std::vector<LtSurfaceMesh>* p_desc_meshes);
+// kWorldOriginX/kWorldOriginZ 是这片区域左下角的世界方块坐标——
+// 输出必须用世界坐标，否则无法与 LittleTiles 的 tile 对齐。
+void BuildWorldBlockMeshes(int kWorldOriginX, int kWorldOriginZ,
+                           const std::vector<minecraft::ChunkBlocks>& kChunks,
+                           int kChunkSizeX, int kChunkSizeZ,
+                           const minecraft::BlockIdTable& kBlockIdTable,
+                           bool kCullHiddenFaces,
+                           std::vector<LtSurfaceMesh>* p_desc_meshes);
 
 }  // namespace galib::minecraft::cgal_support
 

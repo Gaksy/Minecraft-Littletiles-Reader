@@ -18,11 +18,11 @@
 
 #include <cstdint>
 #include <map>
-#include <utility>
 #include <unordered_map>
+#include <utility>
 
-using galib::minecraft::ChunkBlocks;
 using galib::minecraft::BlockIdTable;
+using galib::minecraft::ChunkBlocks;
 
 namespace galib::minecraft::cgal_support {
 
@@ -38,18 +38,20 @@ struct FaceSpec {
 };
 
 constexpr FaceSpec kFaces[] = {
-    {{1, 0, 0}, {{1, 0, 1}, {1, 0, 0}, {1, 1, 0}, {1, 1, 1}}},    // east
-    {{-1, 0, 0}, {{0, 0, 0}, {0, 0, 1}, {0, 1, 1}, {0, 1, 0}}},   // west
-    {{0, 0, 1}, {{0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}}},    // south
-    {{0, 0, -1}, {{1, 0, 0}, {0, 0, 0}, {0, 1, 0}, {1, 1, 0}}},   // north
-    {{0, 1, 0}, {{0, 1, 1}, {1, 1, 1}, {1, 1, 0}, {0, 1, 0}}},    // up
-    {{0, -1, 0}, {{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {0, 0, 1}}},   // down
+    {{1, 0, 0}, {{1, 0, 1}, {1, 0, 0}, {1, 1, 0}, {1, 1, 1}}},   // east
+    {{-1, 0, 0}, {{0, 0, 0}, {0, 0, 1}, {0, 1, 1}, {0, 1, 0}}},  // west
+    {{0, 0, 1}, {{0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}}},   // south
+    {{0, 0, -1}, {{1, 0, 0}, {0, 0, 0}, {0, 1, 0}, {1, 1, 0}}},  // north
+    {{0, 1, 0}, {{0, 1, 1}, {1, 1, 1}, {1, 1, 0}, {0, 1, 0}}},   // up
+    {{0, -1, 0}, {{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {0, 0, 1}}},  // down
 };
 
 }  // namespace
 
-void BuildWorldBlockMeshes(const std::vector<ChunkBlocks>& kChunks, const int kChunkSizeX,
-                           const int kChunkSizeZ, const BlockIdTable& kBlockIdTable,
+void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
+                           const std::vector<ChunkBlocks>& kChunks,
+                           const int kChunkSizeX, const int kChunkSizeZ,
+                           const BlockIdTable& kBlockIdTable,
                            const bool kCullHiddenFaces,
                            std::vector<LtSurfaceMesh>* const p_desc_meshes) {
   if (!p_desc_meshes || kChunks.empty()) {
@@ -61,8 +63,10 @@ void BuildWorldBlockMeshes(const std::vector<ChunkBlocks>& kChunks, const int kC
   const int size_z = kChunkSizeZ * kChunkSizeBlocks;
   const std::size_t plane = static_cast<std::size_t>(size_x) * size_z;
   std::vector<ChunkBlocks::State> grid(plane * kWorldHeight);
-  const auto index_of = [size_x, plane](const int kX, const int kY, const int kZ) {
-    return static_cast<std::size_t>(kX) + static_cast<std::size_t>(kZ) * size_x +
+  const auto index_of = [size_x, plane](const int kX, const int kY,
+                                        const int kZ) {
+    return static_cast<std::size_t>(kX) +
+           static_cast<std::size_t>(kZ) * size_x +
            static_cast<std::size_t>(kY) * plane;
   };
 
@@ -89,11 +93,12 @@ void BuildWorldBlockMeshes(const std::vector<ChunkBlocks>& kChunks, const int kC
     }
   }
 
-  const auto state_at = [&grid, &index_of, size_x, size_z](const int kX, const int kY,
-                                                           const int kZ)
-      -> const ChunkBlocks::State& {
+  const auto state_at = [&grid, &index_of, size_x, size_z](
+                            const int kX, const int kY,
+                            const int kZ) -> const ChunkBlocks::State& {
     static const ChunkBlocks::State kAir{};
-    if (kX < 0 || kY < 0 || kZ < 0 || kX >= size_x || kY >= kWorldHeight || kZ >= size_z) {
+    if (kX < 0 || kY < 0 || kZ < 0 || kX >= size_x || kY >= kWorldHeight ||
+        kZ >= size_z) {
       return kAir;
     }
     return grid[index_of(kX, kY, kZ)];
@@ -103,10 +108,12 @@ void BuildWorldBlockMeshes(const std::vector<ChunkBlocks>& kChunks, const int kC
   std::map<std::pair<std::uint16_t, std::uint8_t>, std::size_t> group_index;
   // 每组一张"世界坐标 -> 顶点"表，用来在同一个方块内共享顶点。
   // 坐标都是整数，打包成 64 位做键（x/z 各 21 位、y 22 位足够覆盖任意区域）。
-  std::vector<std::unordered_map<std::uint64_t, SurfaceMeshType::Vertex_index>> group_vertices;
+  std::vector<std::unordered_map<std::uint64_t, SurfaceMeshType::Vertex_index>>
+      group_vertices;
   const auto pack_position = [](const int kX, const int kY, const int kZ) {
     return (static_cast<std::uint64_t>(kX) << 42) |
-           (static_cast<std::uint64_t>(kY) << 21) | static_cast<std::uint64_t>(kZ);
+           (static_cast<std::uint64_t>(kY) << 21) |
+           static_cast<std::uint64_t>(kZ);
   };
 
   for (int y = 0; y < kWorldHeight; ++y) {
@@ -116,7 +123,8 @@ void BuildWorldBlockMeshes(const std::vector<ChunkBlocks>& kChunks, const int kC
         if (state.is_air() || state.little_tiles_host) {
           continue;
         }
-        const std::string block_name = kBlockIdTable.BlockName(state.block_id, state.meta);
+        const std::string block_name =
+            kBlockIdTable.BlockName(state.block_id, state.meta);
         if (block_name.empty()) {
           continue;  // 表里没有这个 id
         }
@@ -132,16 +140,16 @@ void BuildWorldBlockMeshes(const std::vector<ChunkBlocks>& kChunks, const int kC
         }
         LtSurfaceMesh& mesh = (*p_desc_meshes)[found->second];
         SurfaceMeshType& surface = mesh.surface_mesh();
-        std::unordered_map<std::uint64_t, SurfaceMeshType::Vertex_index>& vertices =
-            group_vertices[found->second];
+        std::unordered_map<std::uint64_t, SurfaceMeshType::Vertex_index>&
+            vertices = group_vertices[found->second];
 
-        // 角点：世界坐标 = 方块坐标 + 0/1 偏移；本地坐标就是那个 0/1 偏移
-        const auto vertex_of = [&surface, &mesh, &vertices, &pack_position](const int kX,
-                                                                           const int kY,
-                                                                           const int kZ,
-                                                                           const int kLocalX,
-                                                                           const int kLocalY,
-                                                                           const int kLocalZ) {
+        // 角点：世界坐标 = 世界原点 + 网格内坐标 + 0/1 偏移；本地坐标就是那个 0/1 偏移
+        const int world_x = kWorldOriginX + x;
+        const int world_z = kWorldOriginZ + z;
+        const auto vertex_of = [&surface, &mesh, &vertices, &pack_position](
+                                   const int kX, const int kY, const int kZ,
+                                   const int kLocalX, const int kLocalY,
+                                   const int kLocalZ) {
           const std::uint64_t key = pack_position(kX, kY, kZ);
           const auto found_vertex = vertices.find(key);
           if (found_vertex != vertices.end()) {
@@ -157,7 +165,8 @@ void BuildWorldBlockMeshes(const std::vector<ChunkBlocks>& kChunks, const int kC
         for (const FaceSpec& face : kFaces) {
           if (kCullHiddenFaces) {
             const ChunkBlocks::State& neighbor =
-                state_at(x + face.neighbor[0], y + face.neighbor[1], z + face.neighbor[2]);
+                state_at(x + face.neighbor[0], y + face.neighbor[1],
+                         z + face.neighbor[2]);
             if (!neighbor.is_air()) {
               continue;
             }
@@ -165,8 +174,9 @@ void BuildWorldBlockMeshes(const std::vector<ChunkBlocks>& kChunks, const int kC
           std::vector<SurfaceMeshType::Vertex_index> corners;
           corners.reserve(4);
           for (const auto& corner : face.corners) {
-            corners.push_back(vertex_of(x + corner[0], y + corner[1], z + corner[2],
-                                        corner[0], corner[1], corner[2]));
+            corners.push_back(vertex_of(world_x + corner[0], y + corner[1],
+                                        world_z + corner[2], corner[0],
+                                        corner[1], corner[2]));
           }
           surface.add_face(corners);
         }

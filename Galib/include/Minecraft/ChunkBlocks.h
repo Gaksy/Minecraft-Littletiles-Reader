@@ -17,10 +17,10 @@
 #ifndef GALIB_MINECRAFT_CHUNKBLOCKS_H
 #define GALIB_MINECRAFT_CHUNKBLOCKS_H
 
+#include <nbt_tags.h>
+
 #include <cstdint>
 #include <vector>
-
-#include <nbt_tags.h>
 
 namespace galib::minecraft {
 

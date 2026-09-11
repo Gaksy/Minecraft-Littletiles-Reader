@@ -26,16 +26,20 @@ const ChunkBlocks::State kAirState{};
 
 // 索引顺序：x + z*16 + y*256（YZX，与 Minecraft 的区块存储一致）
 std::size_t Index(const int kX, const int kY, const int kZ) {
-  return static_cast<std::size_t>(kX) + static_cast<std::size_t>(kZ) * ChunkBlocks::kSizeX +
-         static_cast<std::size_t>(kY) * ChunkBlocks::kSizeX * ChunkBlocks::kSizeZ;
+  return static_cast<std::size_t>(kX) +
+         static_cast<std::size_t>(kZ) * ChunkBlocks::kSizeX +
+         static_cast<std::size_t>(kY) * ChunkBlocks::kSizeX *
+             ChunkBlocks::kSizeZ;
 }
 
-std::uint8_t NibbleAt(const std::vector<std::uint8_t>& kData, const std::size_t kIndex) {
+std::uint8_t NibbleAt(const std::vector<std::uint8_t>& kData,
+                      const std::size_t kIndex) {
   const std::size_t byte_index = kIndex / 2;
   if (byte_index >= kData.size()) {
     return 0;
   }
-  return (kIndex % 2 == 0) ? (kData[byte_index] & 0x0F) : ((kData[byte_index] >> 4) & 0x0F);
+  return (kIndex % 2 == 0) ? (kData[byte_index] & 0x0F)
+                           : ((kData[byte_index] >> 4) & 0x0F);
 }
 
 std::vector<std::uint8_t> TagBytes(const nbt::tag_byte_array& kTag) {
@@ -90,7 +94,8 @@ bool ChunkBlocks::ReadFromChunkLevel(const nbt::tag_compound& kChunkLevel) {
           }
           const std::uint16_t high = NibbleAt(add, local_index);
           const std::uint16_t block_id =
-              static_cast<std::uint16_t>(blocks[local_index]) | static_cast<std::uint16_t>(high << 8);
+              static_cast<std::uint16_t>(blocks[local_index]) |
+              static_cast<std::uint16_t>(high << 8);
           State& state = states_[Index(x, world_y, z)];
           state.block_id = block_id;
           state.meta = NibbleAt(data, local_index);
@@ -118,8 +123,10 @@ void ChunkBlocks::MarkLittleTilesHosts(const nbt::tag_list& kTileEntities) {
   }
 }
 
-const ChunkBlocks::State& ChunkBlocks::At(const int kX, const int kY, const int kZ) const {
-  if (kX < 0 || kX >= kSizeX || kY < 0 || kY >= kSizeY || kZ < 0 || kZ >= kSizeZ) {
+const ChunkBlocks::State& ChunkBlocks::At(const int kX, const int kY,
+                                          const int kZ) const {
+  if (kX < 0 || kX >= kSizeX || kY < 0 || kY >= kSizeY || kZ < 0 ||
+      kZ >= kSizeZ) {
     return kAirState;
   }
   return states_[Index(kX, kY, kZ)];

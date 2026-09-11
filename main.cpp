@@ -190,8 +190,11 @@ int main() {
     BlockIdTable block_id_table;
     if (block_id_table.LoadFromTsv(assets_root + "/block_ids.tsv")) {
       std::vector<LtSurfaceMesh> world_meshes;
-      BuildWorldBlockMeshes(world_blocks, span, span, block_id_table,
-                            cull_hidden_faces, &world_meshes);
+      // 世界原点：区域左下角方块坐标（chunk * 16）
+      BuildWorldBlockMeshes((chunk_x - chunk_radius) * 16,
+                            (chunk_z - chunk_radius) * 16, world_blocks, span,
+                            span, block_id_table, cull_hidden_faces,
+                            &world_meshes);
       for (const LtSurfaceMesh& mesh : world_meshes) {
         obj_builder.AddMesh(mesh);
       }
