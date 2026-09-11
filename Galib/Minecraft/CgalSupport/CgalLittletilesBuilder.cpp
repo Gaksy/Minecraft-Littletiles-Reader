@@ -17,8 +17,6 @@
 #include "Minecraft/CgalSupport/CgalLittletilesBuilder.h"
 
 #include <Minecraft/CgalSupport/CgalLtSupport.h>
-#include <CGAL/Polygon_mesh_processing/corefinement.h>
-#include <CGAL/Polygon_mesh_processing/repair.h>
 
 using GALIB_STD vector;
 using GALIB_STD ofstream;
@@ -47,7 +45,6 @@ using GALIB minecraft::littletiles::BlockTileEntities;
 using GALIB minecraft::littletiles::ChunkTileEntities;
 
 using GALIB_CGAL SM_Vertex_index;
-using GALIB_CGAL Polygon_mesh_processing::corefine_and_compute_intersection;
 
 
 size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntities, vector<LtSurfaceMesh>& mesh_array) {
@@ -68,38 +65,18 @@ size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntitie
 
             // 将 tile entities 转换为 cgal 网格
             LtSurfaceMesh tile_cgal_mesh;
-            createMeshFromTileEntity(tile_cgal_mesh, tile_lt_entity);
 
-            // 如有偏移且超出边界
+            // 如有偏移且超出边界：用半空间裁剪（凸六面体 ∩ AABB），不再用 CGAL 布尔求交，
+            // 避免布尔运算在共面面上产生的大量碎三角形与多余边。
             if (tile_lt_entity.isOffsetOffBoundary()) {
-                // 创建裁剪网格体
-                LtSurfaceMesh tile_cgal_mesh_aabb;
-                createMeshFromTileEntity(tile_cgal_mesh_aabb, tile_lt_entity, false);
-
-                // 预处理网格：清理退化元素
-                cleanupMesh(tile_cgal_mesh);
-                cleanupMesh(tile_cgal_mesh_aabb);
-
-                // 计算裁剪
-                LtSurfaceMesh tile_cgal_cut_final_mesh;
-                try {
-                    if (corefine_and_compute_intersection(tile_cgal_mesh.getMesh(), tile_cgal_mesh_aabb.getMesh(), tile_cgal_cut_final_mesh.getMesh())) {
-                        GALIB_CGAL Polygon_mesh_processing::remove_isolated_vertices(tile_cgal_cut_final_mesh.getMesh());
-                        GALIB_CGAL Polygon_mesh_processing::remove_degenerate_faces(tile_cgal_cut_final_mesh.getMesh());
-                        GALIB_CGAL Polygon_mesh_processing::keep_largest_connected_components(tile_cgal_cut_final_mesh.getMesh(), 1);
-                        GALIB_STD swap(tile_cgal_mesh, tile_cgal_cut_final_mesh);
-                    }
+                if (!clipTileEntityToBox(tile_cgal_mesh, tile_lt_entity)) {
 #ifdef GALIB_DEBUG
-                    else {
-                        printf("CgalLittletilesBuilder::addTilesFromBlockTilesEntities error: intersection error\n");
-                    }
-#endif
-                } catch (const GALIB_STD exception& e) {
-#ifdef GALIB_DEBUG
-                    printf("CgalLittletilesBuilder::addTilesFromBlockTilesEntities error: %s\n", e.what());
+                    printf("CgalLittletilesBuilder::addTilesFromBlockTilesEntities: clip result is empty, tile skipped\n");
 #endif
                     continue;
                 }
+            } else {
+                createMeshFromTileEntity(tile_cgal_mesh, tile_lt_entity);
             }
 
             applyGrid(tile_cgal_mesh, grid_type);
@@ -182,20 +159,17 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(
                 }
             }
 
-            // 确保是三角面（每个面有3个顶点）
-            if (face_vertices.size() == 3) {
+            // 保留 n 边形：平面面片现在是四边形/多边形，不再强制拆成三角形
+            // （CGAL 的 Surface_mesh 支持多边形面，OBJ 也直接支持）
+            if (face_vertices.size() >= 3) {
                 // 使用try-catch防止添加无效的面
                 try {
-                    marged_mesh.add_face(face_vertices[0], face_vertices[1], face_vertices[2]);
+                    marged_mesh.add_face(face_vertices);
                 } catch (...) {
 #ifdef GALIB_DEBUG
                     printf("警告: 无法添加面，可能是重复面或无效几何\n");
 #endif
                 }
-            } else {
-#ifdef GALIB_DEBUG
-                printf("警告: 发现非三角面，顶点数: %zu\n", face_vertices.size());
-#endif
             }
         }
 
