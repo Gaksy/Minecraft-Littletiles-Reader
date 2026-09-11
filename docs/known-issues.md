@@ -247,6 +247,7 @@ B 方块内焊接（修复后）：期望面 96，add_face 接受 96，被拒绝
 |---|---|---|
 | `test_region/` | 4 | 小样本（chunk (0,1) 含 22 个 tile） |
 | `test_region_medim/` | 11 | 中等样本（chunk (-136,49) 含 4456 个 tile） |
+| `test_region_large/` | 16 | 大样本（11×11 区域含 324427 个 tile、194 万普通方块；未进版本库） |
 
 基线数字（**Debug** 构建）：
 
@@ -254,6 +255,7 @@ B 方块内焊接（修复后）：期望面 96，add_face 接受 96，被拒绝
 |---|---|
 | `test_region` chunk (0,1) | 22 tiles → 243 顶点 / 398 面 → 8 KB OBJ |
 | `test_region_medim` chunk (-136,49) | 4456 tiles → 37658 顶点 / 57492 面 → 2.0 MB OBJ，约 2.5 s |
+| `test_region_large` 11×11（-7,-26 → -2,-21，含普通方块） | 324427 tiles + 103257 个普通方块面 → 2,982,366 顶点 / 2,034,653 面 → 177 MB OBJ，**44.3 s**（读取与建网格 34.8 + 普通方块网格 2.4 + 写出文件 7.1） |
 
 > 37658 > 8×4456 = 35648：多出的部分是偏移越界的 tile 经
 > `corefine_and_compute_intersection` 裁剪后产生的额外顶点。

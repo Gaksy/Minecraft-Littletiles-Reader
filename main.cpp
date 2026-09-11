@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
@@ -30,6 +31,14 @@ using std::to_string;
 #define OUT_OBJ_FILE_NAME "../out_file/marge_obj_from_chunk_"
 
 namespace {
+
+using Clock = std::chrono::steady_clock;
+
+// 两个时间点之间的秒数，保留 1 位小数（用于耗时输出）
+double ElapsedSeconds(const Clock::time_point kStart,
+                      const Clock::time_point kEnd) {
+  return std::chrono::duration<double>(kEnd - kStart).count();
+}
 
 // 读取一行 y/n 回答；直接回车（空行）使用推荐默认值。
 // 注意：调用前必须先清掉上一个 scanf 残留的换行符，否则会立刻读到空行。
@@ -114,6 +123,9 @@ int main() {
 
   const std::string assets_root = DetectAssetsRoot();
 
+  // 计时从这里开始：前面是人工输入，不计入处理耗时。
+  const Clock::time_point process_start = Clock::now();
+
   ObjExportOptions export_options;
   export_options.geom_center = is_need_geometry_center;
   export_options.normalize_scale = is_need_normalize_scale;
@@ -183,6 +195,7 @@ int main() {
   }
   printf("chunk 数: 找到 %d 个，缺失 %d 个；LittleTiles tile 共 %zu 个\n",
          found_chunks, missing_chunks, total_tiles);
+  const Clock::time_point read_end = Clock::now();
 
   // 普通方块 -> 完整立方体网格（按方块类型分组合并）
   if (include_world_blocks && assets_root.empty()) {
@@ -217,6 +230,17 @@ int main() {
   }
   obj_file_path.append(".obj");
 
+  const Clock::time_point build_end = Clock::now();
   obj_builder.WriteToFile(obj_file_path.c_str());
+  const Clock::time_point write_end = Clock::now();
+
+  // 总耗时包含写出文件的时间（大范围导出里写 OBJ 往往占相当一部分）
+  printf(
+      "总耗时: %.1f 秒（读取与建网格 %.1f 秒，普通方块网格 %.1f 秒，写出文件 "
+      "%.1f 秒）\n",
+      ElapsedSeconds(process_start, write_end),
+      ElapsedSeconds(process_start, read_end),
+      ElapsedSeconds(read_end, build_end),
+      ElapsedSeconds(build_end, write_end));
   return EXIT_SUCCESS;
 }
