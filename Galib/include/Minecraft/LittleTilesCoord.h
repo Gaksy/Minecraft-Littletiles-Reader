@@ -19,14 +19,13 @@
 
 #include <cinttypes>
 
-#include "GalibNamespaceDef.h"
 #include "Coord/Coord3D.h"
+#include "GalibNamespaceDef.h"
 
-namespace galib::minecraft::littletiles{
-    using GridType = GALIB_STD int32_t;
-    using OffsetType = GALIB_STD int16_t;
-    using LittleTilesCoord = GALIB coord::Coordinate3D<double>;
-}
+namespace galib::minecraft::littletiles {
+using GridType = GALIB_STD int32_t;
+using OffsetType = GALIB_STD int16_t;
+using LittleTilesCoord = GALIB coord::Coordinate3D<double>;
+}  // namespace galib::minecraft::littletiles
 
-
-#endif //GALIB_MINECRAFT_LITTLETILESCOORD_H
+#endif  //GALIB_MINECRAFT_LITTLETILESCOORD_H

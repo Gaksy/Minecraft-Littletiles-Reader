@@ -14,32 +14,26 @@
  * Date Created: 4/17/2025
  */
 
-#include "Exception/GalibExceptionBasic.h"
 #include "Exception/LittleTilesException.h"
 
-constexpr static const char *const STD_ERROR_MESSAGE[] = {
-    "LittleTiles Box angle enum arg is invalid.",
-    "The NBT tag does not exist.",
-    "LittleTiles Box face enum arg is invalid."
-};
+#include "Exception/GalibExceptionBasic.h"
 
-constexpr static const char *const STD_ERROR_CODE[] = {
-    "lt_unknow_angle",
-    "lt_tage_not_exist",
-    "lt_unknow_face"
-};
+constexpr static const char* const STD_ERROR_MESSAGE[] = {
+    "LittleTiles Box angle enum arg is invalid.", "The NBT tag does not exist.",
+    "LittleTiles Box face enum arg is invalid."};
 
-constexpr static const char *const EXCEPTION_NAME = "LittleTiles Exception";
+constexpr static const char* const STD_ERROR_CODE[] = {
+    "lt_unknow_angle", "lt_tage_not_exist", "lt_unknow_face"};
+
+constexpr static const char* const EXCEPTION_NAME = "LittleTiles Exception";
 
 GALIB exception::LittleTilesException::LittleTilesException(
-    const LittleTilesErrorCode &kErrorCode,
-    const char *kPErrorMessage,
-    const char *kPErrorSender
-): GalibExceptionBasic<LittleTilesErrorCodeType>(
-    static_cast<LittleTilesErrorCodeType>(kErrorCode),
-    kPErrorMessage,
-    kPErrorSender,
-    STD_ERROR_CODE[static_cast<LittleTilesErrorCodeType>(kErrorCode) - 1],
-    STD_ERROR_MESSAGE[static_cast<LittleTilesErrorCodeType>(kErrorCode) - 1],
-    EXCEPTION_NAME
-) { }
+    const LittleTilesErrorCode& kErrorCode, const char* kPErrorMessage,
+    const char* kPErrorSender)
+    : GalibExceptionBasic<LittleTilesErrorCodeType>(
+          static_cast<LittleTilesErrorCodeType>(kErrorCode), kPErrorMessage,
+          kPErrorSender,
+          STD_ERROR_CODE[static_cast<LittleTilesErrorCodeType>(kErrorCode) - 1],
+          STD_ERROR_MESSAGE[static_cast<LittleTilesErrorCodeType>(kErrorCode) -
+                            1],
+          EXCEPTION_NAME) {}

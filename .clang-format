@@ -1,0 +1,7 @@
+---
+# Google C++ Style（含少量项目上的显式化设置）
+Language: Cpp
+BasedOnStyle: Google
+Standard: c++17
+# 注释里有大量中文，交给 clang-format 重排会破坏可读性
+ReflowComments: false

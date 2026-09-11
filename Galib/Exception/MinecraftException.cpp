@@ -14,40 +14,32 @@
  * Date Created: 12/22/2024
  */
 
-#include "Exception/GalibExceptionBasic.h"
 #include "Exception/MinecraftException.h"
 
-constexpr static const char *const STD_ERROR_MESSAGE[] = {
+#include "Exception/GalibExceptionBasic.h"
+
+constexpr static const char* const STD_ERROR_MESSAGE[] = {
     "Minecraft coordinates is invalid.",
     "The args is invalid.",
     "The chunk exists.",
     "Decoding process is failed.",
     "Unable to access file.",
     "Attempting to access an empty NBT tag.",
-    "The chunk does not exist."
-};
+    "The chunk does not exist."};
 
-constexpr static const char *const STD_ERROR_CODE[] = {
-    "mc_invalid_coord",
-    "mc_invalid_args",
-    "mc_chunk_exites",
-    "mc_decode",
-    "mc_file_read",
-    "mc_nbt_empty",
-    "mc_chunk_not_exist"
-};
+constexpr static const char* const STD_ERROR_CODE[] = {
+    "mc_invalid_coord", "mc_invalid_args", "mc_chunk_exites",   "mc_decode",
+    "mc_file_read",     "mc_nbt_empty",    "mc_chunk_not_exist"};
 
-constexpr static const char *const EXCEPTION_NAME = "Minecraft Exception";
+constexpr static const char* const EXCEPTION_NAME = "Minecraft Exception";
 
 GALIB exception::MinecraftException::MinecraftException(
-    const MinecraftErrorCode &kErrorCode,
-    const char *const kPErrorMessage,
-    const char *const kPErrorSender
-): GalibExceptionBasic<MinecraftErrorCodeType>(
-    static_cast<MinecraftErrorCodeType>(kErrorCode),
-    kPErrorMessage,
-    kPErrorSender,
-    STD_ERROR_CODE[static_cast<MinecraftErrorCodeType>(kErrorCode) - 1],
-    STD_ERROR_MESSAGE[static_cast<MinecraftErrorCodeType>(kErrorCode) - 1],
-    EXCEPTION_NAME
-) { }
+    const MinecraftErrorCode& kErrorCode, const char* const kPErrorMessage,
+    const char* const kPErrorSender)
+    : GalibExceptionBasic<MinecraftErrorCodeType>(
+          static_cast<MinecraftErrorCodeType>(kErrorCode), kPErrorMessage,
+          kPErrorSender,
+          STD_ERROR_CODE[static_cast<MinecraftErrorCodeType>(kErrorCode) - 1],
+          STD_ERROR_MESSAGE[static_cast<MinecraftErrorCodeType>(kErrorCode) -
+                            1],
+          EXCEPTION_NAME) {}

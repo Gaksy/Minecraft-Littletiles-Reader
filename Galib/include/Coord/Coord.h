@@ -17,24 +17,25 @@
 #ifndef GALIB_COORD_COORD_H
 #define GALIB_COORD_COORD_H
 
-#include "CoordTraits.h"
 #include "Coord2D.h"
 #include "Coord3D.h"
+#include "CoordTraits.h"
 
 namespace galib::coord {
-    template<typename Coord2DType, typename Coord3DType>
-    Coord2DType Coord3DToCoord2D(const Coord3DType &kCoord3D) {
-        GALIB_STATIC_ASSERT_COORDINATE_2D(Coord2DType);
-        GALIB_STATIC_ASSERT_COORDINATE_3D(Coord3DType);
-        return {kCoord3D.x, kCoord3D.z};
-    }
-
-    template<typename Coord3DType>
-    Coordinate2D<typename coord_type_traits<Coord3DType>::NumericType>
-    Coord3DToCoord2D(const Coord3DType &kCoord3D) {
-        using Coord2DType = Coordinate2D<typename coord_type_traits<Coord3DType>::NumericType>;
-        return Coord3DToCoord2D<Coord2DType, Coord3DType>(kCoord3D);
-    }
+template <typename Coord2DType, typename Coord3DType>
+Coord2DType Coord3DToCoord2D(const Coord3DType& kCoord3D) {
+  GALIB_STATIC_ASSERT_COORDINATE_2D(Coord2DType);
+  GALIB_STATIC_ASSERT_COORDINATE_3D(Coord3DType);
+  return {kCoord3D.x, kCoord3D.z};
 }
 
-#endif //GALIB_COORD_COORD_H
+template <typename Coord3DType>
+Coordinate2D<typename coord_type_traits<Coord3DType>::NumericType>
+Coord3DToCoord2D(const Coord3DType& kCoord3D) {
+  using Coord2DType =
+      Coordinate2D<typename coord_type_traits<Coord3DType>::NumericType>;
+  return Coord3DToCoord2D<Coord2DType, Coord3DType>(kCoord3D);
+}
+}  // namespace galib::coord
+
+#endif  //GALIB_COORD_COORD_H

@@ -14,18 +14,24 @@
  * Date Created: 12/22/2024
  */
 
-#include "GalibNamespaceDef.h"
 #include "File/FileState.h"
 
-bool GALIB file::IsFolderAccessible(const char *const kPFolderPath, FileStat *const p_file_stat) {
-    if (!kPFolderPath) { return false; }
+#include "GalibNamespaceDef.h"
 
-    if (!p_file_stat) {
-        FileStat temp;
-        return GALIB file::IsFolderAccessible(kPFolderPath, &temp);
-    }
+bool GALIB file::IsFolderAccessible(const char* const kPFolderPath,
+                                    FileStat* const p_file_stat) {
+  if (!kPFolderPath) {
+    return false;
+  }
 
-    if (!GetFileStat(kPFolderPath, p_file_stat)) { return false; }
+  if (!p_file_stat) {
+    FileStat temp;
+    return GALIB file::IsFolderAccessible(kPFolderPath, &temp);
+  }
 
-    return p_file_stat->st_mode & S_IFDIR;
+  if (!GetFileStat(kPFolderPath, p_file_stat)) {
+    return false;
+  }
+
+  return p_file_stat->st_mode & S_IFDIR;
 }

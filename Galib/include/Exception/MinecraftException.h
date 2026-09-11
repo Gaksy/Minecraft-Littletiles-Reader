@@ -14,37 +14,34 @@
  * Date Created: 12/22/2024
  */
 
-
 #ifndef GALIB_EXCEPTION_MINECRAFTEXCEPTION_H
 #define GALIB_EXCEPTION_MINECRAFTEXCEPTION_H
 
 #include <cstdint>
 
-#include "GalibNamespaceDef.h"
 #include "Exception/GalibExceptionBasic.h"
+#include "GalibNamespaceDef.h"
 
 namespace galib::exception {
-    using MinecraftErrorCodeType = GALIB_STD uint8_t;
+using MinecraftErrorCodeType = GALIB_STD uint8_t;
 
-    enum class MinecraftErrorCode: MinecraftErrorCodeType {
-        mc_invalid_coord = 1,
-        mc_invalid_args = 2,
-        mc_chunk_exists = 3,
-        mc_decode = 4,
-        mc_file_read = 5,
-        mc_nbt_empty = 6,
-        mc_chunk_not_exist = 7
-    };
+enum class MinecraftErrorCode : MinecraftErrorCodeType {
+  mc_invalid_coord = 1,
+  mc_invalid_args = 2,
+  mc_chunk_exists = 3,
+  mc_decode = 4,
+  mc_file_read = 5,
+  mc_nbt_empty = 6,
+  mc_chunk_not_exist = 7
+};
 
-    class MinecraftException : public GALIB exception::GalibExceptionBasic<MinecraftErrorCodeType> {
-    public:
-        explicit MinecraftException(
-            const MinecraftErrorCode &kErrorCode,
-            const char *kPErrorMessage = nullptr,
-            const char *kPErrorSender = nullptr
-        );
-    };
-}
+class MinecraftException
+    : public GALIB exception::GalibExceptionBasic<MinecraftErrorCodeType> {
+ public:
+  explicit MinecraftException(const MinecraftErrorCode& kErrorCode,
+                              const char* kPErrorMessage = nullptr,
+                              const char* kPErrorSender = nullptr);
+};
+}  // namespace galib::exception
 
-
-#endif //GALIB_EXCEPTION_MINECRAFTEXCEPTION_H
+#endif  //GALIB_EXCEPTION_MINECRAFTEXCEPTION_H

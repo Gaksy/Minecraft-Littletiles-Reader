@@ -24,26 +24,29 @@
 #include "GalibNamespaceDef.h"
 
 namespace galib::file {
-    using ByteType = GALIB_STD uint8_t;
+using ByteType = GALIB_STD uint8_t;
 
-    template<typename CharType>
-    bool ReadFileBasic(const char *const kPFilePath, CharType *buffer, const GALIB_STD size_t kBufferSize) {
-        // Create input file stream
-        GALIB_STD basic_ifstream<CharType> read_filestream;
+template <typename CharType>
+bool ReadFileBasic(const char* const kPFilePath, CharType* buffer,
+                   const GALIB_STD size_t kBufferSize) {
+  // Create input file stream
+  GALIB_STD basic_ifstream<CharType> read_filestream;
 
-        // Open file
-        read_filestream.open(kPFilePath, GALIB_STD ios::binary);
-        if (!read_filestream.is_open()) { return false; }
+  // Open file
+  read_filestream.open(kPFilePath, GALIB_STD ios::binary);
+  if (!read_filestream.is_open()) {
+    return false;
+  }
 
-        // Read file
-        read_filestream.read(buffer, kBufferSize);
+  // Read file
+  read_filestream.read(buffer, kBufferSize);
 
-        // Close file stream
-        read_filestream.close();
+  // Close file stream
+  read_filestream.close();
 
-        // Return !read_filestream.fail()
-        return read_filestream.operator bool();
-    }
+  // Return !read_filestream.fail()
+  return read_filestream.operator bool();
 }
+}  // namespace galib::file
 
-#endif //GALIB_FILE_FILEOPERATOR_H
+#endif  //GALIB_FILE_FILEOPERATOR_H

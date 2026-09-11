@@ -22,31 +22,33 @@
 #include "GalibNamespaceDef.h"
 
 namespace galib::file {
-    using FileStat = struct GALIB_CSTD stat;
+using FileStat = struct GALIB_CSTD stat;
 
-    // On success, true is returned. On error, false is returned and errno is set to indicare the error
-    inline bool GetFileStat(const char *const kPFilePath, FileStat *const p_file_stat) {
-        // On success, zero is returned. On error, -1 is returned
-        // and errno is set to indicate the error
+// On success, true is returned. On error, false is returned and errno is set to indicare the error
+inline bool GetFileStat(const char* const kPFilePath,
+                        FileStat* const p_file_stat) {
+  // On success, zero is returned. On error, -1 is returned
+  // and errno is set to indicate the error
 
-        // On success, (0) + 1 = 1 is true. On error, (-1) + 1 = 0, is false
-        return GALIB_CSTD stat(kPFilePath, p_file_stat) + 1;
-    }
-
-    inline bool IsFileAccessible(const char *const kPFilePath) {
-        FileStat temp;
-        return stat(kPFilePath, &temp) == 0;
-    }
-
-    inline bool IsFileAccessible(const char *const kPFilePath, FileStat *const p_file_stat) {
-        return stat(kPFilePath, p_file_stat) == 0;
-    }
-
-    bool IsFolderAccessible(const char *kPFolderPath, FileStat *p_file_stat);
-
-    inline bool IsFolderAccessible(const char *kPFolderPath) {
-        return IsFolderAccessible(kPFolderPath, nullptr);
-    }
+  // On success, (0) + 1 = 1 is true. On error, (-1) + 1 = 0, is false
+  return GALIB_CSTD stat(kPFilePath, p_file_stat) + 1;
 }
 
-#endif //GALIB_FILE_FILESTATE_H
+inline bool IsFileAccessible(const char* const kPFilePath) {
+  FileStat temp;
+  return stat(kPFilePath, &temp) == 0;
+}
+
+inline bool IsFileAccessible(const char* const kPFilePath,
+                             FileStat* const p_file_stat) {
+  return stat(kPFilePath, p_file_stat) == 0;
+}
+
+bool IsFolderAccessible(const char* kPFolderPath, FileStat* p_file_stat);
+
+inline bool IsFolderAccessible(const char* kPFolderPath) {
+  return IsFolderAccessible(kPFolderPath, nullptr);
+}
+}  // namespace galib::file
+
+#endif  //GALIB_FILE_FILESTATE_H

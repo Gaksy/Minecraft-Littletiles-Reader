@@ -14,10 +14,10 @@
  * Date Created: 12/24/2024
  */
 
+#include "Minecraft/MinecraftCoord.h"
 
 #include <cmath>
 
-#include "Minecraft/MinecraftCoord.h"
 #include "Coord/Coord.h"
 
 using GALIB minecraft::RegionCoordinate;
@@ -30,17 +30,18 @@ using GALIB coord::Coord3DToCoord2D;
 using GALIB_STD floor;
 using GALIB_STD int32_t;
 
-RegionCoordinate (GALIB minecraft::ChunkCoordToRegionCoord)(const ChunkCoordinate &kOreChunkCoord) {
-    return {
-        static_cast<int32_t>(floor(kOreChunkCoord.x / 32.0)),
-        static_cast<int32_t>(floor(kOreChunkCoord.z / 32.0))
-    };
+RegionCoordinate(GALIB minecraft::ChunkCoordToRegionCoord)(
+    const ChunkCoordinate& kOreChunkCoord) {
+  return {static_cast<int32_t>(floor(kOreChunkCoord.x / 32.0)),
+          static_cast<int32_t>(floor(kOreChunkCoord.z / 32.0))};
 }
 
-RegionChunkCoordinate (GALIB minecraft::ChunkCoordToRegionChunkCoord)(const ChunkCoordinate &kOreChunkCoord) {
-    return CoordSwap2D(kOreChunkCoord, 32);
+RegionChunkCoordinate(GALIB minecraft::ChunkCoordToRegionChunkCoord)(
+    const ChunkCoordinate& kOreChunkCoord) {
+  return CoordSwap2D(kOreChunkCoord, 32);
 }
 
-ChunkCoordinate (GALIB minecraft::BlockCoordToChunkCoord)(const BlockCoordinate &kOreBlockCoord) {
-    return CoordSwap2D(Coord3DToCoord2D(kOreBlockCoord), 16);
+ChunkCoordinate(GALIB minecraft::BlockCoordToChunkCoord)(
+    const BlockCoordinate& kOreBlockCoord) {
+  return CoordSwap2D(Coord3DToCoord2D(kOreBlockCoord), 16);
 }

@@ -8,24 +8,27 @@
  * If a copy of the LGPL was not distributed with this file, you can obtain one
  * at the above license URL.
  */
- 
+
 /*
  * Author: Gaksy
  * Date Created: 04/29/2025
  */
 
+#include "Minecraft/LittleTiles.h"
+
 #include <cinttypes>
 
 #include "GalibNamespaceDef.h"
-#include "Minecraft/LittleTiles.h"
 
 using GALIB minecraft::littletiles::AngleID;
 using GALIB_STD uint8_t;
 
-uint8_t (GALIB minecraft::littletiles::convertAngleIdToInt)(const AngleID kAngleId) {
-    return static_cast<uint8_t>(kAngleId);
+uint8_t(GALIB minecraft::littletiles::convertAngleIdToInt)(
+    const AngleID kAngleId) {
+  return static_cast<uint8_t>(kAngleId);
 }
 
-AngleID (galib::minecraft::littletiles::convertIntToAngleId)(const uint8_t kNumId) {
-    return static_cast<AngleID>(kNumId);
+AngleID(galib::minecraft::littletiles::convertIntToAngleId)(
+    const uint8_t kNumId) {
+  return static_cast<AngleID>(kNumId);
 }

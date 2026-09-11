@@ -14,7 +14,6 @@
  * Date Created: 9/2/2025
  */
 
-
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 
 #include "Minecraft/CgalSupport/CgalLtSupport.h"
@@ -28,65 +27,57 @@ using GALIB minecraft::cgal_support::applyWorldOffset;
 using GALIB minecraft::cgal_support::SurfaceMeshType;
 using GALIB minecraft::cgal_support::UVData;
 
-LtSurfaceMesh::LtSurfaceMesh(const SurfaceMeshType& mesh):
-    surface_mesh_(mesh)
-{ }
+LtSurfaceMesh::LtSurfaceMesh(const SurfaceMeshType& mesh)
+    : surface_mesh_(mesh) {}
 
-SurfaceMeshType& LtSurfaceMesh::getMesh() {
-    return this->surface_mesh_;
+SurfaceMeshType& LtSurfaceMesh::getMesh() { return this->surface_mesh_; }
+
+const SurfaceMeshType& LtSurfaceMesh::getMesh() const {
+  return this->surface_mesh_;
 }
 
-const SurfaceMeshType& LtSurfaceMesh::getMesh()const {
-    return this->surface_mesh_;
+void LtSurfaceMesh::setBlockID(const string& str) { this->block_id_ = str; }
+
+const string& LtSurfaceMesh::getBlockID() const { return this->block_id_; }
+
+void LtSurfaceMesh::setTileColor(const GALIB_STD int32_t kColor,
+                                 const bool kHasColor) {
+  this->tile_color_ = kColor;
+  this->has_tile_color_ = kHasColor;
 }
 
-void LtSurfaceMesh::setBlockID(const string& str) {
-    this->block_id_ = str;
-}
-
-const string& LtSurfaceMesh::getBlockID() const {
-    return this->block_id_;
-}
-
-void LtSurfaceMesh::setTileColor(const GALIB_STD int32_t kColor, const bool kHasColor) {
-    this->tile_color_ = kColor;
-    this->has_tile_color_ = kHasColor;
-}
-
-bool LtSurfaceMesh::hasTileColor() const {
-    return this->has_tile_color_;
-}
+bool LtSurfaceMesh::hasTileColor() const { return this->has_tile_color_; }
 
 GALIB_STD int32_t LtSurfaceMesh::getTileColor() const {
-    return this->tile_color_;
+  return this->tile_color_;
 }
 
 void LtSurfaceMesh::setBlockCoordInWorld(const BlockCoordinate& kBlockCoord) {
-    this->block_coord_in_world_ = kBlockCoord;
+  this->block_coord_in_world_ = kBlockCoord;
 }
-
 
 const BlockCoordinate& LtSurfaceMesh::getBlockCoord() const {
-    return this->block_coord_in_world_;
+  return this->block_coord_in_world_;
 }
 
-SurfaceMeshType LtSurfaceMesh::getMeshWithOffset(const BlockCoordinate& offset)const {
-    SurfaceMeshType mesh = getMesh();
-    applyWorldOffset(mesh, offset);
-    return mesh;
+SurfaceMeshType LtSurfaceMesh::getMeshWithOffset(
+    const BlockCoordinate& offset) const {
+  SurfaceMeshType mesh = getMesh();
+  applyWorldOffset(mesh, offset);
+  return mesh;
 }
 
 void LtSurfaceMesh::applyOffset(const BlockCoordinate& offset) {
-    applyWorldOffset(surface_mesh_, offset);
+  applyWorldOffset(surface_mesh_, offset);
 }
 
-string LtSurfaceMesh::getFormatBlockID()const {
-    string formated_block_id = block_id_;
-    replace(formated_block_id.begin(), formated_block_id.end(), ':', '_');
-    return formated_block_id;
+string LtSurfaceMesh::getFormatBlockID() const {
+  string formated_block_id = block_id_;
+  replace(formated_block_id.begin(), formated_block_id.end(), ':', '_');
+  return formated_block_id;
 }
 
-UVData LtSurfaceMesh::calculateFaceUV(const SurfaceMeshType::face_index& kFaceIndex){
-    return {};
+UVData LtSurfaceMesh::calculateFaceUV(
+    const SurfaceMeshType::face_index& kFaceIndex) {
+  return {};
 }
-

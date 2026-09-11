@@ -14,37 +14,41 @@
  * Date Created: 12/22/2024
  */
 
+#include "File/PathFormat.h"
+
 #include <cstddef>
 
 #include "GalibNamespaceDef.h"
-#include "File/PathFormat.h"
 
 using GALIB_STD size_t;
 
-bool GALIB file::FormatFolderPath(char *const p_desc_path, const size_t kLength, const bool kLinuxStyle) {
-    if (!p_desc_path) { return false; }
-    size_t index;
-    if (kLinuxStyle) {
-        for (index = 0; index < kLength; ++index) {
-            if (p_desc_path[index] == '\\') {
-                p_desc_path[index] = '/';
-            }
-        }
-    } else {
-        for (index = 0; index < kLength; ++index) {
-            if (p_desc_path[index] == '/') {
-                p_desc_path[index] = '\\';
-            }
-        }
+bool GALIB file::FormatFolderPath(char* const p_desc_path, const size_t kLength,
+                                  const bool kLinuxStyle) {
+  if (!p_desc_path) {
+    return false;
+  }
+  size_t index;
+  if (kLinuxStyle) {
+    for (index = 0; index < kLength; ++index) {
+      if (p_desc_path[index] == '\\') {
+        p_desc_path[index] = '/';
+      }
     }
-
-    if (index >= 1) {
-        --index;
-        if (p_desc_path[index] == '/' || p_desc_path[index] == '\\') {
-            p_desc_path[index] = '\0';
-        }
-        return p_desc_path[0] != '\0';
+  } else {
+    for (index = 0; index < kLength; ++index) {
+      if (p_desc_path[index] == '/') {
+        p_desc_path[index] = '\\';
+      }
     }
+  }
 
-    return true;
+  if (index >= 1) {
+    --index;
+    if (p_desc_path[index] == '/' || p_desc_path[index] == '\\') {
+      p_desc_path[index] = '\0';
+    }
+    return p_desc_path[0] != '\0';
+  }
+
+  return true;
 }

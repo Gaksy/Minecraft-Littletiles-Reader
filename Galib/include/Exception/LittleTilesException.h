@@ -18,27 +18,26 @@
 
 #include <cstdint>
 
-#include "GalibNamespaceDef.h"
 #include "Exception/GalibExceptionBasic.h"
+#include "GalibNamespaceDef.h"
 
 namespace galib::exception {
-    using LittleTilesErrorCodeType = GALIB_STD uint8_t;
+using LittleTilesErrorCodeType = GALIB_STD uint8_t;
 
-    enum class LittleTilesErrorCode: LittleTilesErrorCodeType{
-        lt_unknow_angle = 0,
-        lt_tage_not_exist = 1,
-        lt_unknow_face = 2
-    };
+enum class LittleTilesErrorCode : LittleTilesErrorCodeType {
+  lt_unknow_angle = 0,
+  lt_tage_not_exist = 1,
+  lt_unknow_face = 2
+};
 
-    class LittleTilesException : public GALIB exception::GalibExceptionBasic<LittleTilesErrorCodeType>{
-    public:
-        explicit LittleTilesException(
-            const LittleTilesErrorCode &kErrorCode,
-            const char *kPErrorMessage = nullptr,
-            const char *kPErrorSender = nullptr
-        );
-    };
+class LittleTilesException
+    : public GALIB exception::GalibExceptionBasic<LittleTilesErrorCodeType> {
+ public:
+  explicit LittleTilesException(const LittleTilesErrorCode& kErrorCode,
+                                const char* kPErrorMessage = nullptr,
+                                const char* kPErrorSender = nullptr);
+};
 
-}
+}  // namespace galib::exception
 
-#endif //GALIB_INCLUDE_EXCEPTION_LITTLETILESEXCEPTION_H
+#endif  //GALIB_INCLUDE_EXCEPTION_LITTLETILESEXCEPTION_H
