@@ -57,19 +57,12 @@ endif()
 # 禁用 CGAL 对 CMake 构建类型的警告
 set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
 
-# 定义可执行目标
-add_executable(${CMAKE_PROJECT_NAME} main.cpp
-        Galib/Minecraft/CgalSupport/CgalTypeDef.cpp
-)
+# 定义核心库目标
 add_subdirectory(Galib)
 
-# 将所需的库链接到可执行文件
-target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC Boost::iostreams ZLIB::ZLIB)
-target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${ZLIB_LIBRARIES})
-target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${CGAL_LIBRARIES})
-
-# 将 libnbtplusplus 库链接到目标
-target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC nbt++)
+# 定义可执行目标：CLI 只是 core library 的一个消费者
+add_executable(${CMAKE_PROJECT_NAME} main.cpp)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE galib)
 
 # 添加依赖项，仅在 Windows 平台
 #if(WIN32)

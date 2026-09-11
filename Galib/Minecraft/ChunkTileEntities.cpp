@@ -51,20 +51,67 @@ ChunkTileEntities::size_type ChunkTileEntities::readChunk(
         );
     }
 
+    // Check chunk level is not empty
+    if (!kChunkDataReference.p_chunk_level) {
+        throw MinecraftException(
+            MinecraftErrorCode::mc_nbt_empty,
+            "The chunk NBT level node is empty.",
+            "ChunkTiles"
+        );
+    }
+
+    chunk_coordinate_ = kChunkDataReference.chunk_info.chunk_coord;
+    return readTileEntities_(*kChunkDataReference.p_chunk_level, p_boxes_count);
+}
+
+ChunkTileEntities::size_type ChunkTileEntities::readChunkNbt(
+    const tag_compound &kChunkRootNbt,
+    size_type* p_boxes_count
+) {
+    // Check chunk root is not empty
+    if (!kChunkRootNbt.size()) {
+        throw MinecraftException(
+            MinecraftErrorCode::mc_nbt_empty,
+            "The chunk NBT root node is empty.",
+            "ChunkTiles"
+        );
+    }
+
+    // 1.12 之前的结构为 root -> "Level" -> "TileEntities"；
+    // 1.18+ 把 level 的内容摊平到了根上，此时直接把根当作 level。
+    const tag_compound& chunk_level = kChunkRootNbt.has_key("Level")
+                                          ? kChunkRootNbt.at("Level").as<tag_compound>()
+                                          : kChunkRootNbt;
+
+    // 若 level 内带有区块坐标，则同步到 chunk 坐标
+    if (chunk_level.has_key("xPos") && chunk_level.has_key("zPos")) {
+        chunk_coordinate_ = {
+            chunk_level.at("xPos").as<GALIB_NBT tag_int>().get(),
+            chunk_level.at("zPos").as<GALIB_NBT tag_int>().get()
+        };
+    }
+
+    return readTileEntities_(chunk_level, p_boxes_count);
+}
+
+ChunkTileEntities::size_type ChunkTileEntities::readTileEntities_(
+    const tag_compound &kChunkLevelNbt,
+    size_type* p_boxes_count
+) {
     // Chenk TileEnities is exist
-    if (!kChunkDataReference.p_chunk_level->has_key("TileEntities")) {
+    if (!kChunkLevelNbt.has_key("TileEntities")) {
         throw LittleTilesException(LittleTilesErrorCode::lt_tage_not_exist, "The NBT \"TileEntities\" tag does not exist", "ChunkTiles");
     }
 
     // Get TileEnities
-    const tag_list& tiles_entities = kChunkDataReference.p_chunk_level->at("TileEntities").as<tag_list>();
+    const tag_list& tiles_entities = kChunkLevelNbt.at("TileEntities").as<tag_list>();
     container block_tile_entities;
 
     size_type tile_count = 0;
     size_type boxes_count = 0;
 
 #ifdef GALIB_DEBUG
-    printf("ChunkTileEntities::readChunk read chunk: %d %d\n",kChunkDataReference.chunk_info.chunk_coord.x, kChunkDataReference.chunk_info.chunk_coord.z);
+    printf("ChunkTileEntities::readChunk read chunk: %d %d\n", chunk_coordinate_.x, chunk_coordinate_.z);
 #endif
 
     // Decode...
@@ -86,12 +133,15 @@ ChunkTileEntities::size_type ChunkTileEntities::readChunk(
     }
 
     // DONE!!
-    chunk_coordinate_ = kChunkDataReference.chunk_info.chunk_coord;
     block_tile_entities_.swap(block_tile_entities);
 
 #ifdef GALIB_DEBUG
     printf("ChunkTileEntities::readChunk Tile count: %zu, Boxes count: %zu\n", tile_count, boxes_count);
 #endif
+
+    if (p_boxes_count) {
+        *p_boxes_count = boxes_count;
+    }
 
     return tile_count;
 }
@@ -124,4 +174,3 @@ ChunkTileEntities::size_type ChunkTileEntities::tileCount() const {
     }
     return num;
 }
-

@@ -169,6 +169,12 @@ namespace galib::minecraft::littletiles{
 
     public:
         size_type readChunk(const GALIB minecraft::AnvilReader::ChunkDataReference& kChunkDataReference, size_type* p_boxes_count = nullptr);
+
+        // 直接读取 chunk 根 NBT，不经过 Anvil / mca 文件。
+        // 这是"上传 NBT 数据"这类场景的最小入口：优先取根下的 "Level" 子标签，
+        // 若不存在则把根自身当作 level（1.18+ 的扁平结构）。
+        size_type readChunkNbt(const GALIB_NBT tag_compound& kChunkRootNbt, size_type* p_boxes_count = nullptr);
+
         GALIB_NODISCARD const GALIB minecraft::ChunkCoordinate& getChunkCoordinate()const;
 
         GALIB_NODISCARD const_iterator cbegin()const;
@@ -178,6 +184,11 @@ namespace galib::minecraft::littletiles{
         GALIB_NODISCARD bool isEmpty()const;
 
         GALIB_NODISCARD size_type tileCount()const;
+
+    private:
+        // 解析 level 下的 "TileEntities" 列表并填充 block_tile_entities_。
+        // readChunk 与 readChunkNbt 共用此实现，保证两条入口行为一致。
+        size_type readTileEntities_(const GALIB_NBT tag_compound& kChunkLevelNbt, size_type* p_boxes_count);
 
     private:
         GALIB minecraft::ChunkCoordinate chunk_coordinate_;
