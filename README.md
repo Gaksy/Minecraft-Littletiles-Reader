@@ -32,8 +32,8 @@ Enter the folder, then a chunk coordinate and a scan radius:
 | Folder | Chunk (x, z) | Recommended radius | Scan size | Baseline (Debug, plain blocks on, hidden faces culled) |
 |---|---|---|---|---|
 | `test_region/` | **0, 0** | **1** | 3×3 chunks | 236 tiles → 4,881 faces → 0.3 MB OBJ, ~0.2 s |
-| `test_region_medim/` | **-136, 49** | **0** | 1 chunk | 8,037 tiles → 47,848 faces → 3.7 MB OBJ, ~1.1 s |
-| `test_region_large/` | **-7, -26** | **5** | 11×11 chunks | 324,427 tiles + 1,945,017 plain blocks → 2,050,179 faces → 179 MB OBJ, ~44 s |
+| `test_region_medim/` | **-136, 49** | **0** | 1 chunk | 8,037 tiles → 47,848 faces → 3.6 MB OBJ, ~1.1 s |
+| `test_region_large/` | **-7, -26** | **5** | 11×11 chunks | 324,427 tiles + 1,945,017 plain blocks → 2,036,139 faces → 178 MB OBJ, ~45 s |
 
 ```sh
 # region folder, chunk x, chunk z, radius, plain blocks, cull hidden faces,
@@ -170,8 +170,8 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 | 目录 | 区块坐标 (x, z) | 推荐范围 | 扫描规模 | 基线（Debug 构建，开启完整方块、剔除相邻面） |
 |---|---|---|---|---|
 | `test_region/` | **0, 0** | **1** | 3×3 区块 | 236 个 tile → 4881 面 → 0.3 MB OBJ，约 0.2 s |
-| `test_region_medim/` | **-136, 49** | **0** | 1 个区块 | 8037 个 tile → 47848 面 → 3.7 MB OBJ，约 1.1 s |
-| `test_region_large/` | **-7, -26** | **5** | 11×11 区块 | 324427 个 tile + 194 万普通方块 → 2050179 面 → 179 MB OBJ，约 44 s |
+| `test_region_medim/` | **-136, 49** | **0** | 1 个区块 | 8037 个 tile → 47848 面 → 3.6 MB OBJ，约 1.1 s |
+| `test_region_large/` | **-7, -26** | **5** | 11×11 区块 | 324427 个 tile + 194 万普通方块 → 2036139 面 → 178 MB OBJ，约 45 s |
 
 ```sh
 # 依次为：存档目录、区块 x、区块 z、半径、完整方块、剔除相邻面、居中、单位化

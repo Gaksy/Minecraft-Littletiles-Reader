@@ -165,8 +165,9 @@ int main() {
       ++found_chunks;
 
       // LittleTiles 的 tile
+      ChunkTileEntities chunk_tiles;
+      bool has_tiles = true;
       try {
-        ChunkTileEntities chunk_tiles;
         chunk_tiles.ReadChunk(reference);
         total_tiles += chunk_tiles.TileCount();
         ChunkMesh chunk_mesh;
@@ -176,6 +177,7 @@ int main() {
         }
       } catch (const std::exception&) {
         // 该区块没有 LittleTiles 数据
+        has_tiles = false;
       }
 
       // 普通方块
@@ -189,6 +191,11 @@ int main() {
           blocks.MarkLittleTilesHosts(
               reference.p_chunk_level->at("TileEntities").as<nbt::tag_list>(),
               coord);
+        }
+        // 哪些面被 tile 整面铺满——完整方块的邻居剔除要靠它，
+        // 否则花盆这种只占一小块的 LT 结构会把下面方块的面剔掉。
+        if (has_tiles) {
+          blocks.MarkLittleTilesCoverage(chunk_tiles);
         }
       }
     }

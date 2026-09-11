@@ -14,8 +14,11 @@
  * Date Created: 12/22/2024
  */
 
+#include <algorithm>
+#include <cstdint>
 #include <iostream>
 #include <typeinfo>
+#include <vector>
 
 #include "Exception/LittleTilesException.h"
 #include "GalibNamespaceDef.h"
@@ -164,6 +167,120 @@ BlockTileEntities::size_type BlockTileEntities::TileCount() const {
     tile_count += it->second.size();
   }
   return tile_count;
+}
+
+namespace {
+
+// 6 个面的几何约定（下标与 TileFaceID 一致）：
+//   0 EAST(+x) 1 WEST(-x) 2 SOUTH(+z) 3 NORTH(-z) 4 UP(+y) 5 DOWN(-y)
+// normal_axis 是面法线所在的轴；u/v 是面内两个轴，用来把面栅格化成 grid×grid。
+struct FaceAxes {
+  int normal_axis;
+  int u_axis;
+  int v_axis;
+  bool positive;
+};
+
+constexpr FaceAxes kFaceAxes[6] = {
+    {0, 1, 2, true},  {0, 1, 2, false}, {2, 0, 1, true},
+    {2, 0, 1, false}, {1, 0, 2, true},  {1, 0, 2, false},
+};
+
+int ClampToGrid(const int kValue, const int kGrid) {
+  if (kValue < 0) {
+    return 0;
+  }
+  if (kValue > kGrid) {
+    return kGrid;
+  }
+  return kValue;
+}
+
+}  // namespace
+
+std::uint8_t BlockTileEntities::covered_face_mask() const {
+  const int grid = grid_;
+  if (grid <= 0) {
+    return 0;
+  }
+
+  // 先把"没有角度偏移"的 tile 盒子整理成整数区间：
+  // 有偏移的 tile 是斜面/异形，盒子不代表实际形状，保守当作没覆盖。
+  struct Box {
+    int low[3];
+    int high[3];
+  };
+  std::vector<Box> boxes;
+  boxes.reserve(TileCount());
+  for (const auto& entry : box_tile_entities_map_) {
+    for (const TileEntity& tile : entry.second) {
+      if (tile.has_any_offset_enable()) {
+        continue;
+      }
+      const double first[3] = {tile.pos_1().x, tile.pos_1().y, tile.pos_1().z};
+      const double second[3] = {tile.pos_2().x, tile.pos_2().y, tile.pos_2().z};
+      Box box{};
+      for (int axis = 0; axis < 3; ++axis) {
+        box.low[axis] = static_cast<int>(std::min(first[axis], second[axis]));
+        box.high[axis] = static_cast<int>(std::max(first[axis], second[axis]));
+      }
+      boxes.push_back(box);
+    }
+  }
+  if (boxes.empty()) {
+    return 0;
+  }
+
+  // 面被栅格化为 grid×grid 个小格；每个贴在该面上的 tile 把自己的矩形格子标满。
+  const auto grid_size = static_cast<std::size_t>(grid);
+  std::vector<std::uint8_t> covered(grid_size * grid_size, 0);
+  std::uint8_t mask = 0;
+
+  for (int face = 0; face < 6; ++face) {
+    const FaceAxes axes = kFaceAxes[face];
+    std::fill(covered.begin(), covered.end(), 0);
+    std::size_t marked_area = 0;
+
+    for (const Box& box : boxes) {
+      // 必须真的贴在面所在的平面上（例如方块底面就是 y = 0 那个平面）
+      const bool touches = axes.positive ? box.high[axes.normal_axis] >= grid
+                                         : box.low[axes.normal_axis] <= 0;
+      if (!touches) {
+        continue;
+      }
+
+      const int u_begin = ClampToGrid(box.low[axes.u_axis], grid);
+      const int u_end = ClampToGrid(box.high[axes.u_axis], grid);
+      const int v_begin = ClampToGrid(box.low[axes.v_axis], grid);
+      const int v_end = ClampToGrid(box.high[axes.v_axis], grid);
+      if (u_begin >= u_end || v_begin >= v_end) {
+        continue;
+      }
+      marked_area += static_cast<std::size_t>(u_end - u_begin) *
+                     static_cast<std::size_t>(v_end - v_begin);
+      for (int v = v_begin; v < v_end; ++v) {
+        std::uint8_t* const row =
+            covered.data() + static_cast<std::size_t>(v) * grid_size;
+        std::fill(row + u_begin, row + u_end, static_cast<std::uint8_t>(1));
+      }
+    }
+
+    // 面积不够一定铺不满；够的话再确认没有空洞（tile 之间可能重叠）
+    if (marked_area < grid_size * grid_size) {
+      continue;
+    }
+    bool is_full = true;
+    for (const std::uint8_t cell : covered) {
+      if (cell == 0) {
+        is_full = false;
+        break;
+      }
+    }
+    if (is_full) {
+      mask |= static_cast<std::uint8_t>(1u << face);
+    }
+  }
+  return mask;
 }
 
 bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,

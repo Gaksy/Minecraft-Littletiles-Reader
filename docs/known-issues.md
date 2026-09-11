@@ -15,7 +15,7 @@
 | `ReadChunk` 的 `p_boxes_count` 输出参数从未被赋值 | `ChunkTileEntities.cpp` | `ecd30e4`：在共用的 `ReadTileEntities` 中填充 |
 | **同种方块的不同染色被整条丢弃**：`ReadBlockTileNbt` 用 block id 作 map 键，遇到重复 block id 直接 `continue` | 实测 chunk(-136,49)：NBT 里共 8037 个 box，读取器只报告 4456（**丢 45%**）；全量数据有 526 个 tile 条目因此被丢 | 材质键改为 `(block id, color)`（新增 `TileMaterial`），并把染色保存到 `TileEntity` / `LtSurfaceMesh` |
 | **完整方块只导出一两个面**：分组网格里跨方块焊接顶点，`Euler::add_face` 静默拒收后续方块的面 | 最小复现 `.ai/tools/lt_cube_face_probe.cpp`：16 个方块 96 个面只接受 24 个 | 顶点只在单个方块内焊接（`CgalWorldBlocks.cpp`），并统计 `add_face` 返回值。见 2.7 |
-| **LT 结构下面的完整方块丢了面**：邻居剔除把 LittleTiles 宿主方块当成实心方块 | 探针 `.ai/tools/lt_host_probe.cpp`：LT 宿主位置的 block id 是 257（非空气），而那里可能只摆了一个花盆 | 剔除条件加上 `!little_tiles_host`（`CgalWorldBlocks.cpp`）。见 2.8 |
+| **LT 结构下面的完整方块丢了面**：邻居剔除把 LittleTiles 宿主方块当成实心方块 | 探针 `.ai/tools/lt_host_probe.cpp`：LT 宿主位置的 block id 是 257（非空气），而那里可能只摆了一个花盆 | 改为按面判断：只有 tile 把该面按 grid 铺满时才剔除（`covered_face_mask()`）。见 2.8 |
 
 ## 2. 未修复
 
@@ -243,17 +243,42 @@ LittleTiles 用自己的方块占了这个世界位置，所以 `is_air()` 为�
 if (!neighbor.is_air() && !neighbor.little_tiles_host) { /* 剔除 */ }
 ```
 
-**实测影响**：
+**中间版本与最终版本**：先改成"LT 宿主一律不挡面"（宁可有面也不要丢面），
+但那样会让真正被 tile 完全填满的方块也留下多余的面（还与 tile 表面共面，可能 z-fighting）。
+最终实现是按面判断覆盖：
 
-| 输入 | 修复前 | 修复后 |
+`BlockTileEntities::covered_face_mask()` 把该位置**没有角度偏移**的 tile 盒子投影到方块 6 个面上，
+按 grid 栅格化（grid×grid 个格子），全部格子被铺满时该面才算"被挡住"；
+带角度偏移的 tile 是斜面/异形，盒子不代表实际形状，保守当作没覆盖。
+掩码按 `TileFaceID` 位序（EAST/WEST/SOUTH/NORTH/UP/DOWN）存进 `ChunkBlocks::State`，
+剔除时取邻居的**反向面**（`face_index ^ 1`）。
+
+**实测影响**（`test_region_large` 11×11 的普通方块面）：
+
+| 版本 | 普通方块面 | 说明 |
 |---|---|---|
-| `test_region` (0,0) 半径 1 | 4733 面 | **4881 面**（+148，恰好等于该区域的 148 个 LT 宿主） |
-| `test_region_large` 11×11 普通方块面 | 103257 | **118783**（+15526，该区域共 17941 个 LT 宿主） |
-| `test_region_large` 11×11 总计 | 2,034,653 面 / 177 MB | **2,050,179 面 / 179 MB**，耗时不变（44.4 s） |
+| 最原始（LT 宿主一律挡面） | 103257 | 1486 个面被错误剔除（= 大模型里的"洞"） |
+| 中间版（LT 宿主一律不挡面） | 118783 | 多出 14040 个多余面（tile 确实铺满的） |
+| **当前（按面覆盖判定）** | **104743** | 只保留真正没被铺满的面 |
 
-> 已知取舍：如果某个 LT 宿主位置**刚好**被 tile 填满整个方块，那么保留下来的那个完整方块面
-> 会与 tile 表面共面，理论上可能出现 z-fighting。要彻底解决需要判断"邻居位置的 tile
-> 是否完整覆盖了这个面"（按 grid 做覆盖统计），列为后续项；当前策略是宁可有面也不要丢面。
+小样本 `test_region` (0,0) 半径 1 共 148 个 LT 宿主，但**没有一个面被铺满**（花盆只占一小块），
+所以面数仍是 4881 —— 那个完整方块的顶面回来了。
+
+覆盖判定的真实样本（探针 `.ai/tools/lt_coverage_probe.cpp`，chunk (-7,-26)）：
+
+```
+宿主 (-97, 63, -401) grid=128 覆盖掩码=0x3f：六个面全铺满
+   tile[1] box=(127,0,0)-(128,128,128) 偏移=0
+   tile[2] box=(95,0,0)-(127,128,128) 偏移=0
+   tile[3] box=(0,0,0)-(95,128,128) 偏移=0
+宿主 (-107, 64, -413) grid=2 覆盖掩码=0x22：WEST(-x) DOWN(-y)
+   tile[1] box=(1,0,0)-(2,1,2) 偏移=0
+   tile[3] box=(0,0,0)-(1,2,2) 偏移=0
+掩码分布：0x00 105 个，0x22 16 个，0x3f 2 个（共 123 个宿主）
+```
+
+前者的三个盒子正好铺满 128³ 整个方块（是拿 tile 砌的实心方块），六面都该挡；
+后者只有西面和底面被铺满（一个贴墙的角落），另外四个面保留。
 
 ## 3. 输出非确定性（重要）
 
@@ -284,8 +309,8 @@ if (!neighbor.is_air() && !neighbor.little_tiles_host) { /* 剔除 */ }
 | 输入 | 结果 |
 |---|---|
 | `test_region` chunk (0,0) 半径 1 | 236 tiles → 4881 面 → 0.3 MB OBJ，约 0.2 s |
-| `test_region_medim` chunk (-136,49) | 8037 tiles → 47848 面 → 3.7 MB OBJ，约 1.1 s |
-| `test_region_large` 11×11（-7,-26 → -2,-21，含普通方块） | 324427 tiles + 118783 个普通方块面 → 3,034,096 顶点 / 2,050,179 面 → 179 MB OBJ，**44.4 s**（读取与建网格 34.6 + 普通方块网格 2.7 + 写出文件 7.1） |
+| `test_region_medim` chunk (-136,49) | 8037 tiles → 47848 面 → 3.6 MB OBJ，约 1.1 s |
+| `test_region_large` 11×11（-7,-26 → -2,-21，含普通方块） | 324427 tiles + 104743 个普通方块面 → 2,036,139 面 → 178 MB OBJ，约 45 s（机器空闲时；含覆盖判定开销） |
 
 > 旧记录里的 "chunk (-136,49) 4456 tiles / 37658 顶点 / 57492 面" 是**染色去重修复与
 > 半空间裁剪之前**的数字：前者丢了 45% 的染色 tile，后者把面全拆成三角形。

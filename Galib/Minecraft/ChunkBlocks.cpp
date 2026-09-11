@@ -18,6 +18,8 @@
 
 #include <string>
 
+#include "Minecraft/LittleTiles.h"
+
 namespace galib::minecraft {
 
 namespace {
@@ -123,7 +125,23 @@ void ChunkBlocks::MarkLittleTilesHosts(const nbt::tag_list& kTileEntities,
     if (x < 0 || x >= kSizeX || y < 0 || y >= kSizeY || z < 0 || z >= kSizeZ) {
       continue;
     }
-    states_[Index(x, y, z)].little_tiles_host = true;
+    states_[Index(x, y, z)].set_little_tiles_host(true);
+  }
+}
+
+void ChunkBlocks::MarkLittleTilesCoverage(
+    const littletiles::ChunkTileEntities& kChunkTileEntities) {
+  const ChunkCoordinate& chunk_coord = kChunkTileEntities.chunk_coordinate();
+  for (auto it = kChunkTileEntities.cbegin(); it != kChunkTileEntities.cend();
+       ++it) {
+    // tile entity 记录的是世界坐标，换算成区块内坐标
+    const int x = it->block_coordinate().x - chunk_coord.x * kSizeX;
+    const int y = it->block_coordinate().y;
+    const int z = it->block_coordinate().z - chunk_coord.z * kSizeZ;
+    if (x < 0 || x >= kSizeX || y < 0 || y >= kSizeY || z < 0 || z >= kSizeZ) {
+      continue;
+    }
+    states_[Index(x, y, z)].set_covered_faces(it->covered_face_mask());
   }
 }
 

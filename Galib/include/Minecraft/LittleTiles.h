@@ -124,6 +124,9 @@ class TileEntity {
   [[nodiscard]] bool is_offset_off_boundary() const;
   [[nodiscard]] bool has_color() const;
   [[nodiscard]] std::int32_t color() const;
+  // 未偏移的盒子（grid 单位，原点在方块角上）
+  [[nodiscard]] const LittleTilesCoord& pos_1() const;
+  [[nodiscard]] const LittleTilesCoord& pos_2() const;
   void set_pos(const LittleTilesCoord& kPos1, const LittleTilesCoord& kPos2);
   void set_flipped_data(const Flipped& kFlippedData);
   void set_color(std::int32_t kColor, bool kHasColor);
@@ -166,6 +169,12 @@ class BlockTileEntities {
   [[nodiscard]] const_iterator cend() const;
 
   [[nodiscard]] size_type TileCount() const;
+
+  // 这个位置的 tile 是否把方块 6 个面"整面铺满"（位序同 TileFaceID：
+  // EAST / WEST / SOUTH / NORTH / UP / DOWN）。用于完整方块的邻居剔除：
+  // 只有铺满的面才挡得住相邻完整方块的面，花盆这种只占一小块的要保留。
+  // 带角度偏移的 tile 是斜面/异形，无法用盒子判断，按"没铺满"处理（保守）。
+  [[nodiscard]] std::uint8_t covered_face_mask() const;
 
  private:
   [[nodiscard]] static bool ReadBoxesTilesNbt(

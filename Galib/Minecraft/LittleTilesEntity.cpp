@@ -142,6 +142,10 @@ bool TileEntity::has_color() const { return has_color_; }
 
 std::int32_t TileEntity::color() const { return color_; }
 
+const LittleTilesCoord& TileEntity::pos_1() const { return pos_1_; }
+
+const LittleTilesCoord& TileEntity::pos_2() const { return pos_2_; }
+
 void TileEntity::set_pos(const LittleTilesCoord& kPos1,
                          const LittleTilesCoord& kPos2) {
   pos_1_ = kPos1;

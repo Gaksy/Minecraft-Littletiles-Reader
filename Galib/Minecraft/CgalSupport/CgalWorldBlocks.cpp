@@ -81,7 +81,7 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
         for (int z = 0; z < kChunkSizeBlocks; ++z) {
           for (int x = 0; x < kChunkSizeBlocks; ++x) {
             const ChunkBlocks::State& state = chunk.At(x, y, z);
-            if (state.is_air() && !state.little_tiles_host) {
+            if (state.is_air() && !state.little_tiles_host()) {
               continue;
             }
             grid[index_of(chunk_x * kChunkSizeBlocks + x, y,
@@ -111,7 +111,7 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
       if (!state.is_air()) {
         ++filled;
       }
-      if (state.little_tiles_host) {
+      if (state.little_tiles_host()) {
         ++hosts;
       }
     }
@@ -133,7 +133,7 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
     for (int z = 0; z < size_z; ++z) {
       for (int x = 0; x < size_x; ++x) {
         const ChunkBlocks::State& state = grid[index_of(x, y, z)];
-        if (state.is_air() || state.little_tiles_host) {
+        if (state.is_air() || state.little_tiles_host()) {
           continue;
         }
         const std::string block_name =
@@ -183,16 +183,26 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
               return cached;
             };
 
-        for (const FaceSpec& face : kFaces) {
+        // kFaces 的下标与 TileFaceID 一致（EAST/WEST/SOUTH/NORTH/UP/DOWN），
+        // 因此"邻居朝向本方块的那个面"就是 face_index ^ 1。
+        for (std::size_t face_index = 0; face_index < 6; ++face_index) {
+          const FaceSpec& face = kFaces[face_index];
           if (kCullHiddenFaces) {
             const ChunkBlocks::State& neighbor =
                 state_at(x + face.neighbor[0], y + face.neighbor[1],
                          z + face.neighbor[2]);
-            // 只有"另一个普通实心方块"才挡得住这个面。
+            // 挡得住这个面的只有两种情况：
+            //   1. 邻居是普通实心方块；
+            //   2. 邻居是 LT 宿主，且它那一侧的整个面被 tile 铺满
+            //      （例如一整块 tile 砌的实心方块）。
             // LT 宿主位置的方块 id 是 LittleTiles 自己的方块（实测 id 257，非空气），
-            // 但它占的往往只是一小块几何（例如花盆），
-            // 因此不能拿它当实心方块——否则花盆下面那个完整方块的顶面会被剔掉。
-            if (!neighbor.is_air() && !neighbor.little_tiles_host) {
+            // 但它占的往往只是一小块几何（例如花盆），此时必须保留这个面。
+            const std::uint8_t facing =
+                static_cast<std::uint8_t>(1u << (face_index ^ 1));
+            const bool blocked = !neighbor.is_air() &&
+                                 (!neighbor.little_tiles_host() ||
+                                  (neighbor.covered_faces() & facing) != 0);
+            if (blocked) {
 #ifdef GALIB_DEBUG
               ++culled_faces;
 #endif
