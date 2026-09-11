@@ -133,35 +133,40 @@ AnvilReader::ChunkDataReference AnvilReader::getChunkDataReference(const ChunkCo
     if (!p_chunk_cache) {
         // Read chunk data
         p_chunk_cache = desc_chunk_manager.GetNewCachePointer(desc_region_chunk_coord);
-        ChunkConstIterator &chunk_iterator_data = p_chunk_cache->chunk_const_iterator;
+        try {
+            ChunkConstIterator &chunk_iterator_data = p_chunk_cache->chunk_const_iterator;
 
-        // Set chunk coord data
-        p_chunk_cache->chunk_info.region_coord = desc_region_coord;
-        p_chunk_cache->chunk_info.region_chunk_coord = desc_region_chunk_coord;
-        p_chunk_cache->chunk_info.chunk_coord = kChunkCoord;
+            // Set chunk coord data
+            p_chunk_cache->chunk_info.region_coord = desc_region_coord;
+            p_chunk_cache->chunk_info.region_chunk_coord = desc_region_chunk_coord;
+            p_chunk_cache->chunk_info.chunk_coord = kChunkCoord;
 
-        // Get chunk iterator of mca file
-        chunk_iterator_data.chunk_info = p_chunk_cache->chunk_info;
+            // Get chunk iterator of mca file
+            chunk_iterator_data.chunk_info = p_chunk_cache->chunk_info;
 
-        if (!getChunkConstIterator_(desc_mca_manager, chunk_iterator_data)) {
+            if (!getChunkConstIterator_(desc_mca_manager, chunk_iterator_data)) {
+                throw MinecraftException(MinecraftErrorCode::mc_decode, "Locate chunk index error in mca file");
+            }
+
+            // Decode the desc chunk data of mca file
+
+            // Decompress
+            ByteArray compressed_chunk_data;
+            if (!decompressChunkBinaryData_(chunk_iterator_data, compressed_chunk_data)) {
+                throw MinecraftException(
+                    MinecraftErrorCode::mc_decode, "Failed to decompress binary nbt");
+            }
+
+            ChunkNbtRoot &chunk_nbt_root = p_chunk_cache->chunk_root;
+            if (!decompressChunkBinaryNbtData_(compressed_chunk_data, chunk_nbt_root)) {
+                throw MinecraftException(MinecraftErrorCode::mc_decode, "Failed to decoding binary nbt");
+            }
+        } catch (...) {
+            // The half-constructed cache entry must not survive a failed read:
+            // otherwise the next request for the same chunk would reuse it and
+            // dereference its null chunk_root.
             desc_chunk_manager.ClearCache(desc_region_chunk_coord);
-            throw MinecraftException(MinecraftErrorCode::mc_decode, "Locate chunk index error in mca file");
-        }
-
-        // Decode the desc chunk data of mca file
-
-        // Decompress
-        ByteArray compressed_chunk_data;
-        if (!decompressChunkBinaryData_(chunk_iterator_data, compressed_chunk_data)) {
-            desc_chunk_manager.ClearCache(desc_region_chunk_coord);
-            throw MinecraftException(
-                MinecraftErrorCode::mc_decode, "Failed to decompress binary nbt");
-        }
-
-        ChunkNbtRoot &chunk_nbt_root = p_chunk_cache->chunk_root;
-        if (!decompressChunkBinaryNbtData_(compressed_chunk_data, chunk_nbt_root)) {
-            desc_chunk_manager.ClearCache(desc_region_chunk_coord);
-            throw MinecraftException(MinecraftErrorCode::mc_decode, "Failed to decoding binary nbt");
+            throw;
         }
     }
 
@@ -218,8 +223,8 @@ bool AnvilReader::getChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIt
     // Chunk if the chunk exists
     if (!chunk_offset) {
         throw MinecraftException(
-            MinecraftErrorCode::mc_chunk_exists,
-            (string("The chunk is exists ") + Coord2DToString(desc_chunk_iterator.chunk_info.chunk_coord)).c_str()
+            MinecraftErrorCode::mc_chunk_not_exist,
+            (string("The chunk does not exist ") + Coord2DToString(desc_chunk_iterator.chunk_info.chunk_coord)).c_str()
         );
     }
 
@@ -233,7 +238,7 @@ bool AnvilReader::getChunkConstIterator_(const ByteArray &kMcaData, ChunkConstIt
     const ByteIndex chunk_valid_begin_index = chunk_begin_index + 5;
     ByteIndex chunk_valid_end_index = 0;
 
-    chunk_valid_end_index = chunk_valid_end_index | (static_cast<uint8_t>(kMcaData[chunk_begin_index]) << 32);
+    chunk_valid_end_index = chunk_valid_end_index | (static_cast<uint8_t>(kMcaData[chunk_begin_index]) << 24);
     chunk_valid_end_index = chunk_valid_end_index | (static_cast<uint8_t>(kMcaData[chunk_begin_index + 1]) << 16);
     chunk_valid_end_index = chunk_valid_end_index | (static_cast<uint8_t>(kMcaData[chunk_begin_index + 2]) << 8);
     chunk_valid_end_index = chunk_valid_end_index | static_cast<uint8_t>(kMcaData[chunk_begin_index + 3]);

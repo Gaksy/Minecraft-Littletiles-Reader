@@ -72,7 +72,7 @@ namespace galib::minecraft {
                 return nullptr;
             }
 
-            return cache_[kInteger2dCoord.x].get()->at(kInteger2dCoord.y).get();
+            return cache_[kInteger2dCoord.x].get()->at(kInteger2dCoord.z).get();
         }
 
         // Get a cached data; if the cache does not exist, create it. Requires a 2D coordinate.

@@ -23,7 +23,8 @@ constexpr static const char *const STD_ERROR_MESSAGE[] = {
     "The chunk exists.",
     "Decoding process is failed.",
     "Unable to access file.",
-    "Attempting to access an empty NBT tag."
+    "Attempting to access an empty NBT tag.",
+    "The chunk does not exist."
 };
 
 constexpr static const char *const STD_ERROR_CODE[] = {
@@ -32,7 +33,8 @@ constexpr static const char *const STD_ERROR_CODE[] = {
     "mc_chunk_exites",
     "mc_decode",
     "mc_file_read",
-    "mc_nbt_empty"
+    "mc_nbt_empty",
+    "mc_chunk_not_exist"
 };
 
 constexpr static const char *const EXCEPTION_NAME = "Minecraft Exception";

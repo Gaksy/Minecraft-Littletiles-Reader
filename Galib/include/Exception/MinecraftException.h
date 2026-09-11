@@ -32,7 +32,8 @@ namespace galib::exception {
         mc_chunk_exists = 3,
         mc_decode = 4,
         mc_file_read = 5,
-        mc_nbt_empty = 6
+        mc_nbt_empty = 6,
+        mc_chunk_not_exist = 7
     };
 
     class MinecraftException : public GALIB exception::GalibExceptionBasic<MinecraftErrorCodeType> {

@@ -1,7 +1,19 @@
 cmake_minimum_required(VERSION 3.28)
 
-# macOS: 仅使用 Homebrew，不使用 vcpkg
-if(APPLE)
+# 依赖来源选择，优先级从高到低：
+#   1. 由命令行 / IDE 显式传入的 CMAKE_TOOLCHAIN_FILE
+#   2. 设置了 VCPKG_ROOT 环境变量时，所有平台统一使用 vcpkg
+#   3. macOS 回退到 Homebrew
+if(CMAKE_TOOLCHAIN_FILE)
+    message(STATUS "Using user-specified toolchain: ${CMAKE_TOOLCHAIN_FILE}")
+elseif(DEFINED ENV{VCPKG_ROOT})
+    message(STATUS "VCPKG_ROOT is found: $ENV{VCPKG_ROOT}")
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE PATH "Toolchain file for vcpkg")
+    if(NOT EXISTS "${CMAKE_TOOLCHAIN_FILE}")
+        message(FATAL_ERROR "vcpkg toolchain is not found at ${CMAKE_TOOLCHAIN_FILE}")
+    endif()
+    message(STATUS "CMAKE_TOOLCHAIN_FILE is ${CMAKE_TOOLCHAIN_FILE}")
+elseif(APPLE)
     # 获取 Homebrew 安装前缀
     execute_process(
         COMMAND brew --prefix
@@ -16,13 +28,7 @@ if(APPLE)
     set(CMAKE_FIND_FRAMEWORK NEVER)
     set(CMAKE_FIND_APPBUNDLE NEVER)
 elseif(WIN32)
-    if(DEFINED ENV{VCPKG_ROOT})
-        message(STATUS "VCPKG_ROOT is found: $ENV{VCPKG_ROOT}")
-    else()
-        message(FATAL_ERROR "VCPKG_ROOT is not found")
-    endif()
-    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE PATH "Toolchain file for vcpkg")
-    message(STATUS "CMAKE_TOOLCHAIN_FILE is ${CMAKE_TOOLCHAIN_FILE}")
+    message(FATAL_ERROR "VCPKG_ROOT is not found, and there is no Homebrew fallback on Windows")
 endif()
 
 project(LittleTilesReader)
