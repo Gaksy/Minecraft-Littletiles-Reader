@@ -14,6 +14,7 @@ cmake-build-debug-visual-studio/
 
 # Minecraft 原生素材（体积大，按 docs/texture-mapping.md 的步骤重建）
 /assets/
+/texture
 
 # AI 助手上下文（本地知识库，不随仓库分发）
 /.ai/

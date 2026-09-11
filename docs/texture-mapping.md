@@ -177,10 +177,18 @@ LITTLETILES_ASSETS=assets/pack_v14 ./LittleTilesReader     # 环境变量
 
 注意事项：
 
-- `.zip` 直接支持；**`.rar` 请先手动解压**（Python 读不了 rar），再 `--pack <解压目录>`。
+- `.zip` 直接支持；`.rar` 会自动调用系统自带的 `bsdtar`（或 `brew install unar`）
+  解到临时目录再处理，实测 280 MB 的包约 5 s。两者都没有时才需要手动解压。
 - 材质包里的 `mcpatcher/` CTM（连接纹理）暂不支持：用的是它连接纹理的基础贴图。
 - 贴图变大后 OBJ 本身不变，但 `..._textures/` 会显著变大（medim 从 0.3 MB 变 18 MB），
   导出 11×11 那种规模前先确认磁盘空间。
+
+工作室那两个包的实测对比：
+
+| 包 | 格式 | 包内贴图文件 | 实际用到 | 原版兜底 |
+|---|---|---|---|---|
+| INCEPTION texture V1.4 | zip | 577 | **159 张** | 142 |
+| INCEPTION texture V1.5 | rar | 288 | **132 张** | 169 |
 
 ## 5.2 UV 验证模型（人工核对用）
 

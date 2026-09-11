@@ -25,7 +25,9 @@
 import argparse
 import os
 import shutil
+import subprocess
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -43,27 +45,50 @@ class PackSource:
     def __init__(self, path):
         self.path = Path(path)
         self._zip = None
-        if self.path.is_file():
-            if self.path.suffix.lower() == ".rar":
-                raise SystemExit(
-                    "rar 需要先手动解压（Python 读不了 rar）：\n"
-                    "  1. 解压到一个目录\n"
-                    "  2. --pack <那个目录>"
-                )
-            if not zipfile.is_zipfile(self.path):
-                raise SystemExit("%s 既不是目录也不是 zip" % self.path)
+        self._temp_dir = None
+        if not self.path.exists():
+            raise SystemExit("找不到材质包：%s" % self.path)
+
+        if self.path.is_file() and self.path.suffix.lower() == ".rar":
+            # Python 读不了 rar，交给系统工具解到临时目录，再当普通目录用
+            self._temp_dir = tempfile.TemporaryDirectory(prefix="ltpack-")
+            self.path = self._extract_rar(self.path, Path(self._temp_dir.name))
+
+        if self.path.is_dir():
+            names = self._walk(self.path)
+        elif zipfile.is_zipfile(self.path):
             self._zip = zipfile.ZipFile(self.path)
             names = self._zip.namelist()
-        elif self.path.is_dir():
-            names = [
-                str(p.relative_to(self.path)).replace(os.sep, "/")
-                for p in self.path.rglob("*")
-            ]
         else:
-            raise SystemExit("找不到材质包：%s" % self.path)
+            raise SystemExit("%s 既不是目录，也不是可读的 zip/rar" % self.path)
 
         self.prefix = self._find_pack_prefix(names)
         self.names = names
+
+    @staticmethod
+    def _walk(root):
+        return [
+            str(p.relative_to(root)).replace(os.sep, "/")
+            for p in root.rglob("*")
+        ]
+
+    @staticmethod
+    def _extract_rar(rar_path, target):
+        """用 bsdtar（macOS 自带，能读 rar）或 unar 解压到 target。"""
+        commands = [
+            ["bsdtar", "-xf", str(rar_path), "-C", str(target)],
+            ["unar", "-q", "-o", str(target), str(rar_path)],
+        ]
+        for command in commands:
+            if shutil.which(command[0]) is None:
+                continue
+            done = subprocess.run(command, capture_output=True, text=True)
+            if done.returncode == 0 and any(target.rglob("*")):
+                return target
+        raise SystemExit(
+            "解压 rar 失败：需要系统自带的 bsdtar 或 brew 的 unar；"
+            "也可以手动解压后 --pack <目录>"
+        )
 
     @staticmethod
     def _find_pack_prefix(names):
