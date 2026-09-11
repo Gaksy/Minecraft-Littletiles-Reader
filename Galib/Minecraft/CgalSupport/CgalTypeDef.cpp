@@ -48,6 +48,19 @@ const string& LtSurfaceMesh::getBlockID() const {
     return this->block_id_;
 }
 
+void LtSurfaceMesh::setTileColor(const GALIB_STD int32_t kColor, const bool kHasColor) {
+    this->tile_color_ = kColor;
+    this->has_tile_color_ = kHasColor;
+}
+
+bool LtSurfaceMesh::hasTileColor() const {
+    return this->has_tile_color_;
+}
+
+GALIB_STD int32_t LtSurfaceMesh::getTileColor() const {
+    return this->tile_color_;
+}
+
 void LtSurfaceMesh::setBlockCoordInWorld(const BlockCoordinate& kBlockCoord) {
     this->block_coord_in_world_ = kBlockCoord;
 }
@@ -76,5 +89,4 @@ string LtSurfaceMesh::getFormatBlockID()const {
 UVData LtSurfaceMesh::calculateFaceUV(const SurfaceMeshType::face_index& kFaceIndex){
     return {};
 }
-
 

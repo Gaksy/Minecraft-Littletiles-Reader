@@ -85,6 +85,21 @@ namespace galib::minecraft::littletiles{
         LittleTilesCoord pos_4 {0, 0, 0};
     };
 
+    // tile 的材质键：方块 id + 可选染色。
+    // LittleTiles 会把同一种方块的不同颜色存成不同的 tile 条目，
+    // 因此只用 block id 当键会把它们合并/丢弃。
+    struct TileMaterial {
+        GALIB_STD string block_id;
+        GALIB_STD int32_t color { 0 };
+        bool has_color { false };
+
+        bool operator<(const TileMaterial &kRhs) const {
+            if (block_id != kRhs.block_id) { return block_id < kRhs.block_id; }
+            if (has_color != kRhs.has_color) { return has_color < kRhs.has_color; }
+            return color < kRhs.color;
+        }
+    };
+
     class TileEntity {
     public:
         TileEntity();
@@ -99,8 +114,11 @@ namespace galib::minecraft::littletiles{
         GALIB_NODISCARD TileFace getTileFace(TileFaceID kTileFaceID, bool kWithOffset = false)const;
         GALIB_NODISCARD const Flipped& getFlippedData()const;
         GALIB_NODISCARD bool isOffsetOffBoundary()const;
+        GALIB_NODISCARD bool hasColor()const;
+        GALIB_NODISCARD GALIB_STD int32_t getColor()const;
         void setPos(const LittleTilesCoord& kPos1, const LittleTilesCoord& kPos2);
         void setFlippedData(const Flipped& kFlippedData);
+        void setColor(GALIB_STD int32_t kColor, bool kHasColor);
         void setOffsetData(AngleID kAngleId, const AngleOffset& kAngleOffsetData);
         void setOffsetData(const AngleOffset kOffsetData[8]);
 
@@ -109,17 +127,19 @@ namespace galib::minecraft::littletiles{
         Flipped flipped_data_;
         LittleTilesCoord pos_1_;
         LittleTilesCoord pos_2_;
+        GALIB_STD int32_t color_ { 0 };
+        bool has_color_ { false };
     };
 
     using BoxTileEnities = GALIB_STD vector<TileEntity>;
 
     class BlockTileEntities {
     public:
-        using const_iterator = GALIB_STD map<GALIB_STD string, BoxTileEnities>::const_iterator;
-        // <block_id, array of box>
-        using container = GALIB_STD map<GALIB_STD string, BoxTileEnities>;
-        using container_pair = GALIB_STD pair<GALIB_STD string, BoxTileEnities>;
-        using size_type = GALIB_STD map<GALIB_STD string, BoxTileEnities>::size_type;
+        using const_iterator = GALIB_STD map<TileMaterial, BoxTileEnities>::const_iterator;
+        // <material(block_id + color), array of box>
+        using container = GALIB_STD map<TileMaterial, BoxTileEnities>;
+        using container_pair = GALIB_STD pair<TileMaterial, BoxTileEnities>;
+        using size_type = GALIB_STD map<TileMaterial, BoxTileEnities>::size_type;
 
     public:
         BlockTileEntities();

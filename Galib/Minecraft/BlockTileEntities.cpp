@@ -27,6 +27,8 @@ using GALIB minecraft::littletiles::GridType;
 using GALIB minecraft::littletiles::BlockTileEntities;
 using GALIB minecraft::littletiles::AngleOffset;
 using GALIB minecraft::littletiles::Flipped;
+using GALIB minecraft::littletiles::TileEntity;
+using GALIB minecraft::littletiles::TileMaterial;
 
 using GALIB minecraft::BlockCoordinate;
 
@@ -91,16 +93,31 @@ BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(const tag_compo
 
         for (auto it = tiles.begin(); it != tiles.cend(); ++it) {
             tag_compound* p_boxes = &it->as<tag_compound>();   // Get boxes
-            string block_id = p_boxes->at("block").as<tag_string>().get(); // Get block id
 
-            // is haved block_id
-            if(box_tile_enities_map.find(block_id) != box_tile_enities_map.end()) {
-                continue; // that is not should happed
+            // 材质键 = 方块 id + 可选颜色。
+            // 同一种方块可以用不同染色，LittleTiles 会把它们存成不同的 tile 条目。
+            TileMaterial material;
+            material.block_id = p_boxes->at("block").as<tag_string>().get();
+            if (p_boxes->has_key("color")) {
+                material.color = p_boxes->at("color").as<tag_int>().get();
+                material.has_color = true;
+            }
+
+            // 只有 (block, color) 完全相同才跳过。
+            // 原先只用 block id 判重，会把同种方块的不同染色整条丢弃
+            // （实测 chunk(-136,49) 因此丢了 45% 的 box）。
+            if (box_tile_enities_map.find(material) != box_tile_enities_map.end()) {
+                continue;
             }
 
             // Get data, If Get successful, then insert data
             if(BoxTileEnities box_tile_enities; readBoxesTilesNbt_(*p_boxes, box_tile_enities, tile_count)) {
-                box_tile_enities_map.insert(container_pair(block_id, box_tile_enities));
+                if (material.has_color) {
+                    for (TileEntity &tile : box_tile_enities) {
+                        tile.setColor(material.color, true);
+                    }
+                }
+                box_tile_enities_map.insert(container_pair(material, box_tile_enities));
                 ++boxes_count;
             }
         }

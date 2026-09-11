@@ -84,7 +84,8 @@ size_t addTilesFromBlockTilesEntities(const BlockTileEntities &kBlockTileEntitie
 
             applyGrid(tile_cgal_mesh, grid_type);
             tile_cgal_mesh.setBlockCoordInWorld(kBlockTileEntities.getBlockCoordinate());
-            tile_cgal_mesh.setBlockID(box_it->first);
+            tile_cgal_mesh.setBlockID(box_it->first.block_id);
+            tile_cgal_mesh.setTileColor(box_it->first.color, box_it->first.has_color);
             tile_cgal_mesh.applyOffset(tile_cgal_mesh.getBlockCoord());
             mesh_array.push_back(tile_cgal_mesh);
             ++processed_tile_count;

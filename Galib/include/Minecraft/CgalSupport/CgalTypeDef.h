@@ -56,6 +56,10 @@ namespace galib::minecraft::cgal_support{
         GALIB_NODISCARD const SurfaceMeshType& getMesh()const;
         void setBlockID(const GALIB_STD string& str);
         GALIB_NODISCARD const GALIB_STD string& getBlockID()const;
+        // tile 的染色；未染色的 tile 保持 has_tile_color_ = false
+        void setTileColor(GALIB_STD int32_t kColor, bool kHasColor);
+        GALIB_NODISCARD bool hasTileColor()const;
+        GALIB_NODISCARD GALIB_STD int32_t getTileColor()const;
         void setBlockCoordInWorld(const GALIB minecraft::BlockCoordinate& kBlockCoord);
         const GALIB minecraft::BlockCoordinate& getBlockCoord()const;
         SurfaceMeshType getMeshWithOffset(const GALIB minecraft::BlockCoordinate& offset)const;
@@ -66,6 +70,8 @@ namespace galib::minecraft::cgal_support{
     private:
         SurfaceMeshType surface_mesh_;
         GALIB_STD string block_id_;
+        GALIB_STD int32_t tile_color_ { 0 };
+        bool has_tile_color_ { false };
         GALIB minecraft::BlockCoordinate block_coord_in_world_;
     };
 }

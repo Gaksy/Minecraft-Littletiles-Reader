@@ -151,6 +151,14 @@ const galib::minecraft::littletiles::Flipped & TileEntity::getFlippedData()const
     return flipped_data_;
 }
 
+bool TileEntity::hasColor()const {
+    return has_color_;
+}
+
+GALIB_STD int32_t TileEntity::getColor()const {
+    return color_;
+}
+
 void TileEntity::setPos(const LittleTilesCoord &kPos1, const LittleTilesCoord &kPos2) {
     pos_1_ = kPos1;
     pos_2_ = kPos2;
@@ -158,6 +166,11 @@ void TileEntity::setPos(const LittleTilesCoord &kPos1, const LittleTilesCoord &k
 
 void TileEntity::setFlippedData(const Flipped &kFlippedData) {
     flipped_data_ = kFlippedData;
+}
+
+void TileEntity::setColor(const GALIB_STD int32_t kColor, const bool kHasColor) {
+    color_ = kColor;
+    has_color_ = kHasColor;
 }
 
 void TileEntity::setOffsetData(const AngleID kAngleId, const AngleOffset &kAngleOffsetData) {

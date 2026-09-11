@@ -13,6 +13,7 @@
 | macOS 上 vcpkg 依赖未被使用，`find_package(Boost)` 落到已移除的 `FindBoost` | 配置报错 | `5a1cdf2`：统一依赖来源优先级 |
 | libnbt++ 每次配置拉 HEAD，构建不可复现 | `3rdparty/CMakeLists.txt` | `fc7dde0`：钉 commit `687e4303…` |
 | `readChunk` 的 `p_boxes_count` 输出参数从未被赋值 | `ChunkTileEntities.cpp` | `ecd30e4`：在共用的 `readTileEntities_` 中填充 |
+| **同种方块的不同染色被整条丢弃**：`readBlockTileNBT` 用 block id 作 map 键，遇到重复 block id 直接 `continue` | 实测 chunk(-136,49)：NBT 里共 8037 个 box，读取器只报告 4456（**丢 45%**）；全量数据有 526 个 tile 条目因此被丢 | 材质键改为 `(block id, color)`（新增 `TileMaterial`），并把染色保存到 `TileEntity` / `LtSurfaceMesh` |
 
 ## 2. 未修复
 
