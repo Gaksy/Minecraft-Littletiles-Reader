@@ -7,10 +7,11 @@ add_library(galib STATIC
     Minecraft/BlockTileEntities.cpp
     Minecraft/LittleTilesEntity.cpp
     Minecraft/LittleTiles.cpp
-    Minecraft/CgalSupport/CgalTypeDef.cpp
-    Minecraft/CgalSupport/CgalLtSupport.cpp
-    Minecraft/CgalSupport/CgalLittletilesBuilder.cpp
-    File/FileState.cpp
+  Minecraft/CgalSupport/CgalTypeDef.cpp
+  Minecraft/CgalSupport/CgalLtSupport.cpp
+  Minecraft/CgalSupport/CgalLittletilesBuilder.cpp
+  Minecraft/TextureSupport/BlockTextureTable.cpp
+  File/FileState.cpp
     File/PathFormat.cpp
     Exception/MinecraftException.cpp
     Exception/LittleTilesException.cpp
