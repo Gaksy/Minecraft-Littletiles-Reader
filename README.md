@@ -23,6 +23,27 @@ Therefore, **Version 2** officially replaces the first version and will serve as
 - **Minecraft 1.12.2**  
 - **Little Tiles 1.5.66**  
 
+## Test Data
+
+The region archives used for verification are kept in the repository
+(all of them are Minecraft 1.12.2 + Little Tiles 1.5.66 saves).
+Enter the folder, then a chunk coordinate and a scan radius:
+
+| Folder | Chunk (x, z) | Recommended radius | Scan size | Baseline (Debug, plain blocks on, hidden faces culled) |
+|---|---|---|---|---|
+| `test_region/` | **0, 0** | **1** | 3×3 chunks | 236 tiles → 4,733 faces → 0.6 MB OBJ, ~0.2 s |
+| `test_region_medim/` | **-136, 49** | **0** | 1 chunk | 8,037 tiles → 47,842 faces → 4.4 MB OBJ, ~1.2 s |
+| `test_region_large/` | **-7, -26** | **5** | 11×11 chunks | 324,427 tiles + 1,945,017 plain blocks → 2,034,653 faces → 177 MB OBJ, ~44 s |
+
+```sh
+# region folder, chunk x, chunk z, radius, plain blocks, cull hidden faces,
+# center the model, normalize scale
+printf "test_region_large\n-7\n-26\n5\ny\ny\ny\nn\n" | ./LittleTilesReader
+```
+
+The result is written to `out_file/` relative to the current working
+directory (OBJ + MTL + a `<obj name>_textures/` folder).
+
 ## Processing Workflow
 
 Once the target chunk coordinates are provided, the approximate processing steps are:
@@ -140,6 +161,24 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 
 - **Minecraft 1.12.2**  
 - **Little Tiles 1.5.66**  
+
+## 测试存档
+
+用于验证的 region 存档都在仓库里（均为 Minecraft 1.12.2 + Little Tiles 1.5.66）。
+运行时依次输入存档目录、区块坐标、扫描半径：
+
+| 目录 | 区块坐标 (x, z) | 推荐范围 | 扫描规模 | 基线（Debug 构建，开启完整方块、剔除相邻面） |
+|---|---|---|---|---|
+| `test_region/` | **0, 0** | **1** | 3×3 区块 | 236 个 tile → 4733 面 → 0.6 MB OBJ，约 0.2 s |
+| `test_region_medim/` | **-136, 49** | **0** | 1 个区块 | 8037 个 tile → 47842 面 → 4.4 MB OBJ，约 1.2 s |
+| `test_region_large/` | **-7, -26** | **5** | 11×11 区块 | 324427 个 tile + 194 万普通方块 → 2034653 面 → 177 MB OBJ，约 44 s |
+
+```sh
+# 依次为：存档目录、区块 x、区块 z、半径、完整方块、剔除相邻面、居中、单位化
+printf "test_region_large\n-7\n-26\n5\ny\ny\ny\nn\n" | ./LittleTilesReader
+```
+
+产物写在**当前工作目录**下的 `out_file/`（OBJ + MTL + 同名 `<obj 名>_textures/` 贴图目录）。
 
 ## 处理流程
 
