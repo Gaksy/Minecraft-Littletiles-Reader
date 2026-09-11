@@ -26,6 +26,7 @@
 #include <limits>
 #include <utility>
 
+#include "Log/GalibLog.h"
 #include "Minecraft/TextureSupport/BlockTextureTable.h"
 #include "Minecraft/TextureSupport/TextureBaker.h"
 
@@ -93,7 +94,7 @@ size_t addTilesFromBlockTilesEntities(
       if (tile_lt_entity.is_offset_off_boundary()) {
         if (!ClipTileEntityToBox(tile_cgal_mesh, tile_lt_entity)) {
 #ifdef GALIB_DEBUG
-          printf(
+          galib::ProgressPrintf(
               "CgalLittletilesBuilder::addTilesFromBlockTilesEntities: clip "
               "result is empty, tile skipped\n");
 #endif
@@ -127,7 +128,7 @@ ChunkMesh::size_type ChunkMesh::AddTilesFromChunkTileEntities(
   for (auto block_it = kChunkTileEntities.cbegin();
        block_it != kChunkTileEntities.cend(); ++block_it) {
 #ifdef GALIB_DEBUG
-    printf(
+    galib::ProgressPrintf(
         "ChunkMesh::AddTilesFromChunkTileEntities build block (%zu / %zu): %d "
         "%d %d\n",
         processed_tile_count + 1, all_tile_count,
@@ -281,6 +282,7 @@ struct ObjMeshBuilder::Impl {
             marged_mesh.add_face(face_vertices);
           } catch (...) {
 #ifdef GALIB_DEBUG
+            // 这条是"数据有问题"的警告，不随进度开关关闭
             printf("警告: 无法添加面，可能是重复面或无效几何\n");
 #endif
           }
@@ -377,9 +379,9 @@ struct ObjMeshBuilder::Impl {
 
 #ifdef GALIB_DEBUG
     // 检查合并后的网格
-    printf("合并后网格统计: ");
-    printf("顶点数: %u\n", marged_mesh.number_of_vertices());
-    printf("面数: %u\n", marged_mesh.number_of_faces());
+    galib::ProgressPrintf("合并后网格统计: ");
+    galib::ProgressPrintf("顶点数: %u\n", marged_mesh.number_of_vertices());
+    galib::ProgressPrintf("面数: %u\n", marged_mesh.number_of_faces());
 #endif
 
     // 导出为OBJ文件

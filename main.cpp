@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "Log/GalibLog.h"
 #include "Minecraft/Anvil.h"
 #include "Minecraft/BlockIdTable.h"
 #include "Minecraft/CgalSupport/CgalLittletilesBuilder.h"
@@ -120,6 +121,9 @@ int main() {
   // 单位缩放：会把最长边压成 1，丢失"1 单位 = 1 方块"的真实尺寸，默认不做
   const bool is_need_normalize_scale = askYesNo(
       "Also scale the longest edge to 1 unit (changes the real size)?", false);
+  // 进度提示与耗时统计一起开关：两者都是"看过程"的，脚本化/服务化时通常都不要。
+  const bool show_progress = askYesNo("Print progress and timing?", true);
+  galib::SetProgressEnabled(show_progress);
 
   const std::string assets_root = DetectAssetsRoot();
 
@@ -151,6 +155,12 @@ int main() {
   for (int offset_z = -chunk_radius; offset_z <= chunk_radius; ++offset_z) {
     for (int offset_x = -chunk_radius; offset_x <= chunk_radius; ++offset_x) {
       const ChunkCoordinate coord{chunk_x + offset_x, chunk_z + offset_z};
+      if (show_progress) {
+        const int chunk_index =
+            (offset_z + chunk_radius) * span + (offset_x + chunk_radius) + 1;
+        printf("[进度] 区块 (%d, %d) —— %d/%d\n", coord.x, coord.z, chunk_index,
+               span * span);
+      }
       AnvilReader::ChunkDataReference reference{};
       bool has_chunk = true;
       try {
@@ -242,12 +252,14 @@ int main() {
   const Clock::time_point write_end = Clock::now();
 
   // 总耗时包含写出文件的时间（大范围导出里写 OBJ 往往占相当一部分）
-  printf(
-      "总耗时: %.1f 秒（读取与建网格 %.1f 秒，普通方块网格 %.1f 秒，写出文件 "
-      "%.1f 秒）\n",
-      ElapsedSeconds(process_start, write_end),
-      ElapsedSeconds(process_start, read_end),
-      ElapsedSeconds(read_end, build_end),
-      ElapsedSeconds(build_end, write_end));
+  if (show_progress) {
+    printf(
+        "总耗时: %.1f 秒（读取与建网格 %.1f 秒，普通方块网格 %.1f 秒，写出文件 "
+        "%.1f 秒）\n",
+        ElapsedSeconds(process_start, write_end),
+        ElapsedSeconds(process_start, read_end),
+        ElapsedSeconds(read_end, build_end),
+        ElapsedSeconds(build_end, write_end));
+  }
   return EXIT_SUCCESS;
 }

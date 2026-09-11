@@ -18,6 +18,7 @@ add_library(galib STATIC
   Minecraft/TextureSupport/TextureBaker.cpp
   File/FileState.cpp
     File/PathFormat.cpp
+    Log/GalibLog.cpp
     Exception/MinecraftException.cpp
     Exception/LittleTilesException.cpp
 )

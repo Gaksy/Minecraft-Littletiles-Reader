@@ -58,7 +58,10 @@ git ls-files '*.cpp' '*.h' | while IFS= read -r f; do "$CF" -i "$f"; done
 已全部去掉，直接写 `std::` / `nbt::` / `CGAL::` / `boost::` / `::` / `galib::`；
 C++17 之后不再需要的 `GALIB_NODISCARD` / `GALIB_NOEXCEPT` 也已改为 `[[nodiscard]]` / `noexcept`。
 
-仍然保留的宏只有两类：
+仍然保留的宏有三类：
 
-1. `GALIB_DEBUG`（调试输出开关；目前恒为打开，应改为 CMake 选项，见 `known-issues.md`）；
-2. `GALIB_STATIC_ASSERT_*`（把类型名拼进报错信息的辅助宏）。
+1. `GALIB_DEBUG`（调试输出的编译期开关；目前恒为打开，应改为 CMake 选项，见 `known-issues.md`。
+   运行期的进度输出开关是 `galib::SetProgressEnabled()`，不走宏）；
+2. `GALIB_STATIC_ASSERT_*`（把类型名拼进报错信息的辅助宏）；
+3. `GALIB_PRINTF_LIKE(a, b)`（`Log/GalibLog.h`，给 `ProgressPrintf` 挂 GCC/Clang 的
+   printf 格式检查；MSVC 下展开为空）。

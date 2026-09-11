@@ -17,6 +17,7 @@
 #include "Exception/LittleTilesException.h"
 #include "Exception/MinecraftException.h"
 #include "GalibNamespaceDef.h"
+#include "Log/GalibLog.h"
 #include "Minecraft/LittleTiles.h"
 #include "Minecraft/MinecraftCoord.h"
 
@@ -98,8 +99,8 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
   size_type boxes_count = 0;
 
 #ifdef GALIB_DEBUG
-  printf("ChunkTileEntities::ReadChunk read chunk: %d %d\n",
-         chunk_coordinate_.x, chunk_coordinate_.z);
+  ProgressPrintf("ChunkTileEntities::ReadChunk read chunk: %d %d\n",
+                 chunk_coordinate_.x, chunk_coordinate_.z);
 #endif
 
   // Decode...
@@ -127,8 +128,9 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
   block_tile_entities_.swap(block_tile_entities);
 
 #ifdef GALIB_DEBUG
-  printf("ChunkTileEntities::ReadChunk Tile count: %zu, Boxes count: %zu\n",
-         tile_count, boxes_count);
+  ProgressPrintf(
+      "ChunkTileEntities::ReadChunk Tile count: %zu, Boxes count: %zu\n",
+      tile_count, boxes_count);
 #endif
 
   if (p_boxes_count) {

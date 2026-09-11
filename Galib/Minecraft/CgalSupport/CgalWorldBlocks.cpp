@@ -20,6 +20,8 @@
 #include <map>
 #include <utility>
 
+#include "Log/GalibLog.h"
+
 using galib::minecraft::BlockIdTable;
 using galib::minecraft::ChunkBlocks;
 
@@ -115,8 +117,8 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
         ++hosts;
       }
     }
-    printf("[worldblocks] 网格 %dx%dx%d：非空气 %zu，LT 宿主 %zu\n", size_x,
-           kWorldHeight, size_z, filled, hosts);
+    ProgressPrintf("[worldblocks] 网格 %dx%dx%d：非空气 %zu，LT 宿主 %zu\n",
+                   size_x, kWorldHeight, size_z, filled, hosts);
   }
 #endif
 
@@ -229,7 +231,7 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
   }
 
 #ifdef GALIB_DEBUG
-  printf(
+  ProgressPrintf(
       "[worldblocks] 输出方块 %zu 个，面 %zu 个（邻居剔除 %zu 个，被 CGAL 拒绝 "
       "%zu 个）\n",
       emitted_blocks, emitted_faces, culled_faces, rejected_faces);
@@ -241,8 +243,9 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
       stored_faces += mesh.surface_mesh().number_of_faces();
       stored_vertices += mesh.surface_mesh().number_of_vertices();
     }
-    printf("[worldblocks] 分组网格实际保存：%zu 个网格，面 %zu，顶点 %zu\n",
-           p_desc_meshes->size(), stored_faces, stored_vertices);
+    ProgressPrintf(
+        "[worldblocks] 分组网格实际保存：%zu 个网格，面 %zu，顶点 %zu\n",
+        p_desc_meshes->size(), stored_faces, stored_vertices);
   }
 #endif
 }

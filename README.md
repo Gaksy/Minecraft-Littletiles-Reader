@@ -37,9 +37,13 @@ Enter the folder, then a chunk coordinate and a scan radius:
 
 ```sh
 # region folder, chunk x, chunk z, radius, plain blocks, cull hidden faces,
-# center the model, normalize scale
-printf "test_region_large\n-7\n-26\n5\ny\ny\ny\nn\n" | ./LittleTilesReader
+# center the model, normalize scale, print progress and timing
+printf "test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
 ```
+
+The last question controls both the progress output (`[进度] 区块 (x, z) —— i/n`,
+plus the per-chunk/per-block detail from the library) and the final
+total-time line. Answer `n` for clean, script-friendly output.
 
 The result is written to `out_file/` relative to the current working
 directory (OBJ + MTL + a `<obj name>_textures/` folder).
@@ -174,9 +178,13 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 | `test_region_large/` | **-7, -26** | **5** | 11×11 区块 | 324427 个 tile + 194 万普通方块 → 2036139 面 → 178 MB OBJ，约 45 s |
 
 ```sh
-# 依次为：存档目录、区块 x、区块 z、半径、完整方块、剔除相邻面、居中、单位化
-printf "test_region_large\n-7\n-26\n5\ny\ny\ny\nn\n" | ./LittleTilesReader
+# 依次为：存档目录、区块 x、区块 z、半径、完整方块、剔除相邻面、居中、单位化、进度与耗时
+printf "test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
 ```
+
+最后一项同时控制**进度提示**（每处理一个区块打印 `[进度] 区块 (x, z) —— i/n`，
+以及库里逐区块、逐方块的详细信息）和结尾的**总耗时**一行。
+想要干净的、方便脚本处理的输出就答 `n`。
 
 产物写在**当前工作目录**下的 `out_file/`（OBJ + MTL + 同名 `<obj 名>_textures/` 贴图目录）。
 
