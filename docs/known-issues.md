@@ -6,10 +6,10 @@
 
 | 问题 | 证据 | 修复 |
 |---|---|---|
-| **缺失区块二次访问崩溃**：region 文件存在、但该 chunk 槽为空时，第 1 次调用抛异常，第 2 次调用 SIGSEGV | 探针连续调用两次，修复前 `exit=139` | `5a1cdf2`：读取失败路径统一清缓存后重抛（`Anvil.cpp:133-170`） |
-| 错误语义反了：空槽抛 `mc_chunk_exists` / "The chunk is exists" | 同上 | `5a1cdf2`：新增 `mc_chunk_not_exist = 7` 与正确文案（`Anvil.cpp:226`） |
-| 区块长度还原时首字节 `<< 32`（int 移位越界，UB） | 编译告警 `-Wshift-count-overflow` | `5a1cdf2`：改为 `<< 24`（`Anvil.cpp:241`）。注意：现有测试数据长度首字节为 0，新旧结果相同，属**隐患修复** |
-| `CacheManagerBase` const 版 `GetCachePointer` 用 `.y` 索引 `Coordinate2D` | `Anvil.h:75`（该重载一旦实例化即编译失败） | `5a1cdf2`：改为 `.z` |
+| **缺失区块二次访问崩溃**：region 文件存在、但该 chunk 槽为空时，第 1 次调用抛异常，第 2 次调用 SIGSEGV | 探针连续调用两次，修复前 `exit=139` | `5a1cdf2`：读取失败路径统一清缓存后重抛（`Anvil.cpp`） |
+| 错误语义反了：空槽抛 `mc_chunk_exists` / "The chunk is exists" | 同上 | `5a1cdf2`：新增 `mc_chunk_not_exist = 7` 与正确文案（`Anvil.cpp`） |
+| 区块长度还原时首字节 `<< 32`（int 移位越界，UB） | 编译告警 `-Wshift-count-overflow` | `5a1cdf2`：改为 `<< 24`（`Anvil.cpp`）。注意：现有测试数据长度首字节为 0，新旧结果相同，属**隐患修复** |
+| `CacheManagerBase` const 版 `GetCachePointer` 用 `.y` 索引 `Coordinate2D` | `Anvil.h`（该重载一旦实例化即编译失败） | `5a1cdf2`：改为 `.z` |
 | macOS 上 vcpkg 依赖未被使用，`find_package(Boost)` 落到已移除的 `FindBoost` | 配置报错 | `5a1cdf2`：统一依赖来源优先级 |
 | libnbt++ 每次配置拉 HEAD，构建不可复现 | `3rdparty/CMakeLists.txt` | `fc7dde0`：钉 commit `687e4303…` |
 | `ReadChunk` 的 `p_boxes_count` 输出参数从未被赋值 | `ChunkTileEntities.cpp` | `ecd30e4`：在共用的 `ReadTileEntities` 中填充 |
@@ -20,7 +20,7 @@
 ### 2.1 服务器化阻塞项
 
 1. **`SetRegionFolder()` 不清缓存 → 跨来源数据串号**
-   `Anvil.cpp:72` 只改路径，缓存 key（`RegionCoordinate`）不含数据源标识。
+   `Anvil.cpp` 只改路径，缓存 key（`RegionCoordinate`）不含数据源标识。
    复用同一 `AnvilReader` 处理不同上传会返回上一次的数据 —— 这是**数据隔离**问题。
 2. **缓存无上限**：`mca_cache_` 每 region 存整份 `.mca`；`chunk_cache_` 每 region 一个 32×32 槽、
    每槽一份已解析 NBT 树，只在显式 `Clear()` 时释放。
@@ -29,20 +29,20 @@
 
 ### 2.2 已确认缺陷
 
-5. **`LittleTilesErrorCode` 越界读**：`lt_unknow_angle = 0`（`LittleTilesException.h:28`），
-   但查表为 `STD_ERROR_CODE[code - 1]`（`LittleTilesException.cpp:42`）→ 索引 -1；
+5. **`LittleTilesErrorCode` 越界读**：`lt_unknow_angle = 0`（`LittleTilesException.h`），
+   但查表为 `STD_ERROR_CODE[code - 1]`（`LittleTilesException.cpp`）→ 索引 -1；
    且基类把 `error_code == 0` 视为"无异常"，该异常文案会变成 "No exception."。
-6. **`ChunkData::p_chunk_level` 未初始化**（`Anvil.h:190`）且从未被赋值；目前无人读取，属埋雷。
-7. **`ReadMcaFile` 对空文件 UB**：`resize(st_size)` 后取 `&*begin()`（`Anvil.cpp:198`），
-   且 `GetFileStat` 返回值未检查（`Anvil.cpp:195`）。
-8. **`GALIB_DEBUG` 被无条件 `#define`**（`GalibNamespaceDef.h:27`）：调试 `printf` 常驻；
+6. **`ChunkData::p_chunk_level` 未初始化**（`Anvil.h`）且从未被赋值；目前无人读取，属埋雷。
+7. **`ReadMcaFile` 对空文件 UB**：`resize(st_size)` 后取 `&*begin()`（`Anvil.cpp`），
+   且 `GetFileStat` 返回值未检查（`Anvil.cpp`）。
+8. **`GALIB_DEBUG` 被无条件 `#define`**（`GalibNamespaceDef.h`）：调试 `printf` 常驻；
    并把 `catch(...)` 换成更窄的 `catch(std::exception&)`，非 std 异常会穿透。
 9. ~~**CLI 的"几何中心"选项永远无效**~~ —— 已修复：`scanf("%c")` 会读到前一个 `%d` 残留的换行符，
    已改为 `scanf(" %c", &choice)`；同时新增"归一化到单位尺寸"选项（见 2.6）。
    （修复前实测输入 `y` 与 `n` 产出的 OBJ 逐字节相同。）
-10. **`#if WIN32` 永不成立**（`main.cpp:19`）：MSVC 定义的是 `_WIN32`。
+10. **`#if WIN32` 永不成立**（`main.cpp`）：MSVC 定义的是 `_WIN32`。
 11. **OFF 导出是空实现**：`writeMeshToOff` 函数体只有一句局部变量声明
-    （`CgalLittletilesBuilder.cpp:273`），调用它的 `WriteToOff`（`:278`）因而什么也不产出。
+    （`CgalLittletilesBuilder.cpp`），调用它的 `WriteToOff`（`:278`）因而什么也不产出。
 12. ~~**CMake 声明 C++14、代码使用 C++17**~~ —— 已修复：`CMAKE_CXX_STANDARD` 改为 17
     （代码使用 if-init、嵌套命名空间定义与 `std::filesystem`，CGAL 6.x 也要求 C++17）。
     此前在 clang 下靠扩展特性勉强编过，MSVC `/std:c++14` 会直接失败。
@@ -55,7 +55,7 @@
     现在会先 `create_directories` 建出父目录，并打印**规范化后的绝对路径**，
     便于定位产物；`/out_file/` 也已加入 `.gitignore`。
 
-    输出路径仍由 `main.cpp:21,24` 的宏 `OUT_OBJ_FILE_NAME = "../out_file/marge_obj_from_chunk_"`
+    输出路径仍由 `main.cpp,24` 的宏 `OUT_OBJ_FILE_NAME = "../out_file/marge_obj_from_chunk_"`
     决定，是**相对运行时工作目录**的：在构建目录下运行会写到 `<repo>/out_file/`，
     在仓库根目录下运行会写到 `<repo>/../out_file/`。
 
@@ -84,11 +84,11 @@
 ### 2.3 导出质量（与 UV / 材质相关）
 
 13. **顶点不焊接**：合并时对每张 mesh 的每个顶点都 `add_vertex`，且每个 mesh 后清空映射
-    （`CgalLittletilesBuilder.cpp:157-204`）→ 顶点数 ≈ 8 × tile 数，面之间不共享顶点。
+    （`CgalLittletilesBuilder.cpp`）→ 顶点数 ≈ 8 × tile 数，面之间不共享顶点。
 14. **per-tile 颜色与 meta 全丢**：`block_id_` 已存于 `LtSurfaceMesh`，但 OBJ 只写 `v`/`f`
     （无 `vt`/`vn`/`usemtl`/`mtllib`/group）。
-15. **没有 UV、法线、材质**：`UVData` 类型存在（`CgalTypeDef.h:43`），但
-    `CalculateFaceUv` 直接 `return {}`（`CgalTypeDef.cpp:76`）。
+15. **没有 UV、法线、材质**：`UVData` 类型存在（`CgalTypeDef.h`），但
+    `CalculateFaceUv` 直接 `return {}`（`CgalTypeDef.cpp`）。
 16. **内部面不剔除**：相邻/相交 tile 之间会留下看不到的面。
 
 ### 2.4 裁剪路径产生大量碎三角形（"杂乱辅助线"）—— 已修复
@@ -97,7 +97,7 @@
 > 见本节末尾的「修复方案与实测效果」。以下为修复前的问题记录。
 
 越界 tile 的裁剪使用 `corefine_and_compute_intersection`
-（`CgalLittletilesBuilder.cpp:86`），实测副作用如下（`test_region_medim` chunk (-136,49)，4456 个 tile）：
+（`CgalLittletilesBuilder.cpp`），实测副作用如下（`test_region_medim` chunk (-136,49)，4456 个 tile）：
 
 | 指标 | 数值 |
 |---|---|
@@ -112,7 +112,7 @@
    而这里的裁剪盒正好是 **tile 自己的盒子**（`CreateMeshFromTileEntity(..., false)`），
    于是被裁剪网格与裁剪盒必然存在**共面重合的面** —— 共面布尔正是 CGAL 最容易产生
    碎三角形、细长片与 T 形接点的场景。
-2. 合并导出时**不做顶点焊接**（`CgalLittletilesBuilder.cpp:157-204`）：
+2. 合并导出时**不做顶点焊接**（`CgalLittletilesBuilder.cpp`）：
    实测 37658 个顶点去重后只有 24243 个，**35.6% 是重复顶点**。
 3. 输出全部是三角形，被切的面变成三角扇，线框视图里会显示大量内部边。
 

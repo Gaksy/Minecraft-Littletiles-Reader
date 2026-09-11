@@ -12,12 +12,13 @@
 | 4096 – 8191 | 1024 个 4 字节时间戳 |
 | 扇区 | 每 chunk：4 字节长度（大端，含压缩类型字节）+ 1 字节压缩类型 + 压缩数据 |
 
-实现见 `Anvil.cpp:206`（索引解析）、`Anvil.cpp:264`（解压）、`Anvil.cpp:293`（NBT 解码）。
+实现见 `Anvil.cpp` 的 `GetChunkConstIterator`（索引解析）、`DecompressChunkBinaryData`（解压）、
+`DecompressChunkBinaryNbtData`（NBT 解码）。
 
 - **压缩类型只支持 2（zlib）**，其他类型会被直接拒绝。
 - 区块在 region 内的槽位下标 = `region_chunk_x + region_chunk_z * 32`。
 
-坐标换算（`MinecraftCoord.cpp:33,40,44`）：
+坐标换算（`MinecraftCoord.cpp,40,44`）：
 
 ```
 region_coord       = floor(chunk / 32)
@@ -32,7 +33,7 @@ chunk(from block)  = CoordSwap2D(block.xz, 16)
 - **1.12**（本项目测试数据）：`root → "Level" → "TileEntities"`
 - **1.18+**：level 内容摊平到根上
 
-当前 `AnvilReader` **硬编码** `.at("Level")`（`Anvil.cpp:176`），只支持 1.12 结构；
+当前 `AnvilReader` **硬编码** `.at("Level")`（`Anvil.cpp`），只支持 1.12 结构；
 新增的 `ReadChunkNbt` 已同时兼容两种结构。**没有任何 `DataVersion` 校验**，版本不符会静默误解析。
 
 ## 3. LittleTiles tile entity
@@ -63,13 +64,13 @@ TileEntities[i] = {
 
 | NBT key | 位置 | 代码 |
 |---|---|---|
-| `TileEntities` | chunk level | `ChunkTileEntities.cpp:102-107` |
-| `grid`（可选） | block TE | `BlockTileEntities.cpp:66` |
-| `id` | block TE | `BlockTileEntities.cpp:71` |
-| `content.tiles` | block TE | `BlockTileEntities.cpp:74` |
-| `x/y/z` | block TE | `BlockTileEntities.cpp:82-86` |
-| `block` | tile | `BlockTileEntities.cpp:94` |
-| `boxes`（列表）/ `box`（单值） | tile | `BlockTileEntities.cpp:166,169` |
+| `TileEntities` | chunk level | `ChunkTileEntities.cpp` |
+| `grid`（可选） | block TE | `BlockTileEntities.cpp` |
+| `id` | block TE | `BlockTileEntities.cpp` |
+| `content.tiles` | block TE | `BlockTileEntities.cpp` |
+| `x/y/z` | block TE | `BlockTileEntities.cpp` |
+| `block` | tile | `BlockTileEntities.cpp` |
+| `boxes`（列表）/ `box`（单值） | tile | `BlockTileEntities.cpp,169` |
 
 ### 3.2 尚未解析但确实存在的数据
 
@@ -91,14 +92,14 @@ TileEntities[i] = {
 | 24 / 25 / 26 | Flipped：down / up / north |
 | 27 / 28 / 29 | Flipped：south / west / east |
 
-角点顺序（`AngleID`，`LittleTiles.h:31`）：
+角点顺序（`AngleID`，`LittleTiles.h`）：
 
 ```
 EUN=0  EUS=1  EDN=2  EDS=3  WUN=4  WUS=5  WDN=6  WDS=7
 命名 = E/W(x) + U/D(y) + N/S(z)，表示该轴取 pos_1 还是 pos_2
 ```
 
-偏移值消费顺序：按 AngleID 升序，每个角点内依次 x → y → z（`SetAngleOffsetStateData`，`BlockTileEntities.cpp:237`）。
+偏移值消费顺序：按 AngleID 升序，每个角点内依次 x → y → z（`SetAngleOffsetStateData`，`BlockTileEntities.cpp`）。
 
 > **验证记录**：README 的示例 SNBT（状态 `-2135499923` = `0x80B6DB6D`）经 C++ 算法、
 > 仓库内 `python/IntArrayInterpreter.py`、以及 README 给出的 MATLAB 输出三者结果**完全一致**
@@ -108,22 +109,22 @@ EUN=0  EUS=1  EDN=2  EDS=3  WUN=4  WUS=5  WDN=6  WDS=7
 
 | 类型 | 定义 | 位置 |
 |---|---|---|
-| `BlockCoordinate` | `Coordinate3D<int32>` 世界方块坐标 | `MinecraftCoord.h:33` |
-| `ChunkCoordinate` | `Coordinate2D<int32>` 世界区块坐标 | `MinecraftCoord.h:45` |
-| `RegionCoordinate` | `Coordinate2D<int32>` region 文件坐标 | `MinecraftCoord.h:37` |
-| `RegionChunkCoordinate` | `Coordinate2D<int32>` 区块在 region 内的 0..31 | `MinecraftCoord.h:41` |
-| `EntityCoordinate` | `Coordinate3D<float>` | `MinecraftCoord.h:29` |
-| `LittleTilesCoord` | `Coordinate3D<double>` | `LittleTilesCoord.h:28` |
-| `GridType` / `OffsetType` | `int32_t` / `int16_t` | `LittleTilesCoord.h:26-27` |
+| `BlockCoordinate` | `Coordinate3D<int32>` 世界方块坐标 | `MinecraftCoord.h` |
+| `ChunkCoordinate` | `Coordinate2D<int32>` 世界区块坐标 | `MinecraftCoord.h` |
+| `RegionCoordinate` | `Coordinate2D<int32>` region 文件坐标 | `MinecraftCoord.h` |
+| `RegionChunkCoordinate` | `Coordinate2D<int32>` 区块在 region 内的 0..31 | `MinecraftCoord.h` |
+| `EntityCoordinate` | `Coordinate3D<float>` | `MinecraftCoord.h` |
+| `LittleTilesCoord` | `Coordinate3D<double>` | `LittleTilesCoord.h` |
+| `GridType` / `OffsetType` | `int32_t` / `int16_t` | `LittleTilesCoord.h` |
 
 从 tile 到世界坐标：`顶点(grid 单位) / grid + 方块坐标`
-（`GetVerticesApplyGrid`、`ApplyGrid` `CgalLtSupport.cpp:201`、`ApplyWorldOffset` `:181`）。
+（`GetVerticesApplyGrid`、`ApplyGrid` `CgalLtSupport.cpp`、`ApplyWorldOffset` `:181`）。
 
 ## 5. 浮点精度
 
-- `CgalTypeDef.h:30,36`：Windows → `FloatType=float` + `Simple_cartesian<float>`；
+- `CgalTypeDef.h,36`：Windows → `FloatType=float` + `Simple_cartesian<float>`；
   macOS → `double`。**同一输入在 Windows/macOS 上几何结果可能不同。**
 - 但 `LittleTilesCoord` 恒为 `double`，`ApplyGrid` 又除以 `static_cast<float>(grid)`
-  （`CgalLtSupport.cpp:201` 附近），`MergeAndWriteToObj` 里还硬编码了
-  `CGAL::Simple_cartesian<double>`（`CgalLittletilesBuilder.cpp:151`）→ 目前是混用状态。
+  （`CgalLtSupport.cpp` 附近），`MergeAndWriteToObj` 里还硬编码了
+  `CGAL::Simple_cartesian<double>`（`CgalLittletilesBuilder.cpp`）→ 目前是混用状态。
 - 服务器端若要"同输入同输出"，建议统一为 `double`（尚未实施）。

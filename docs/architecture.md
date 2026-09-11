@@ -29,25 +29,25 @@ CLI / Web Server（消费者）
 
 ```
 main()
- └ AnvilReader::SetRegionFolder(const char*)                   Anvil.cpp:72
- └ AnvilReader::GetChunkDataReference(ChunkCoordinate)         Anvil.cpp:90
-    └ mca_cache_ 未命中 → ReadMcaFile 读整份 .mca 进 ByteArray        Anvil.cpp:97-119
-    └ chunk_cache_[region] 不存在 → SingleChunkManager(32)             Anvil.cpp:124-127
-    └ GetChunkConstIterator  解析 8KiB 索引 + 2KiB 头                  Anvil.cpp:147,206
-    └ DecompressChunkBinaryData  boost::iostreams zlib（仅类型 2）      Anvil.cpp:155,264
-    └ DecompressChunkBinaryNbtData  libnbt++ stream_reader              Anvil.cpp:161,293
-    └ 返回 {chunk_info, p_chunk_root, p_chunk_level=&root.at("Level")}   Anvil.cpp:173-177
- └ ChunkTileEntities::ReadChunk(ChunkDataReference&)            ChunkTileEntities.cpp:41
- └ ChunkMesh::AddTilesFromChunkTileEntities(ChunkTileEntities&)  CgalLittletilesBuilder.cpp:117
- └ MergeAndWriteToObj(meshes, path, geom_center)                CgalLittletilesBuilder.cpp:144
+ └ AnvilReader::SetRegionFolder(const char*)                   Anvil.cpp
+ └ AnvilReader::GetChunkDataReference(ChunkCoordinate)         Anvil.cpp
+    └ mca_cache_ 未命中 → ReadMcaFile 读整份 .mca 进 ByteArray        Anvil.cpp
+    └ chunk_cache_[region] 不存在 → SingleChunkManager(32)             Anvil.cpp
+    └ GetChunkConstIterator  解析 8KiB 索引 + 2KiB 头                  Anvil.cpp,206
+    └ DecompressChunkBinaryData  boost::iostreams zlib（仅类型 2）      Anvil.cpp,264
+    └ DecompressChunkBinaryNbtData  libnbt++ stream_reader              Anvil.cpp,293
+    └ 返回 {chunk_info, p_chunk_root, p_chunk_level=&root.at("Level")}   Anvil.cpp
+ └ ChunkTileEntities::ReadChunk(ChunkDataReference&)            ChunkTileEntities.cpp
+ └ ChunkMesh::AddTilesFromChunkTileEntities(ChunkTileEntities&)  CgalLittletilesBuilder.cpp
+ └ MergeAndWriteToObj(meshes, path, geom_center)                CgalLittletilesBuilder.cpp
 ```
 
 解析链细节：
 
 ```
-ReadTileEntities                    ChunkTileEntities.cpp:97
- └ 取 level."TileEntities" 列表       ChunkTileEntities.cpp:102-107
- └ BlockTileEntities::ReadBlockTileNbt        BlockTileEntities.cpp:51
+ReadTileEntities                    ChunkTileEntities.cpp
+ └ 取 level."TileEntities" 列表       ChunkTileEntities.cpp
+ └ BlockTileEntities::ReadBlockTileNbt        BlockTileEntities.cpp
     └ ReadBoxesTilesNbt（"boxes" 列表 / "box" 单值）  :155,166,169
     └ SetAngleOffsetStateData（int_array[6..] 位域）  :198,237
 ```
@@ -55,38 +55,38 @@ ReadTileEntities                    ChunkTileEntities.cpp:97
 几何构建：
 
 ```
-addTilesFromBlockTilesEntities       CgalLittletilesBuilder.cpp:53
- ├ CreateMeshFromTileEntity（8 顶点 + 12 三角形，含 Flipped 分支）  CgalLtSupport.cpp:38
+addTilesFromBlockTilesEntities       CgalLittletilesBuilder.cpp
+ ├ CreateMeshFromTileEntity（8 顶点 + 12 三角形，含 Flipped 分支）  CgalLtSupport.cpp
  ├ 若偏移越界 → CleanupMesh + corefine_and_compute_intersection 裁剪  :86
- ├ ApplyGrid / ApplyWorldOffset       CgalLtSupport.cpp:201,181
+ ├ ApplyGrid / ApplyWorldOffset       CgalLtSupport.cpp,181
  └ 逐 tile 存入 ChunkMesh::tiles_in_world_
 ```
 
 注意：`addTilesFromBlockTilesEntities` 与 `writeMeshToOff` **定义在全局命名空间**，
-未进头文件（`CgalLittletilesBuilder.cpp:53,273`），只在同一 TU 内可见。
+未进头文件（`CgalLittletilesBuilder.cpp,273`），只在同一 TU 内可见。
 
 ### 2.2 裸 NBT 路径（NBT → 模型）
 
-`ChunkTileEntities::ReadChunkNbt(const nbt::tag_compound&)`（`LittleTiles.h:176`，
-实现 `ChunkTileEntities.cpp:67`）不经过 Anvil / 文件系统：
+`ChunkTileEntities::ReadChunkNbt(const nbt::tag_compound&)`（`LittleTiles.h`，
+实现 `ChunkTileEntities.cpp`）不经过 Anvil / 文件系统：
 
 - 优先取根下 `Level`，不存在则把根自身当作 level（兼容 1.18+ 扁平结构）
 - 若 level 内有 `xPos`/`zPos` 则同步区块坐标
-- 与 `ReadChunk` 共用 `ReadTileEntities`（`ChunkTileEntities.cpp:97`），两条入口行为一致
+- 与 `ReadChunk` 共用 `ReadTileEntities`（`ChunkTileEntities.cpp`），两条入口行为一致
 
 块级入口早已存在：`BlockTileEntities::ReadBlockTileNbt(const tag_compound&, size_type*)`
-（`LittleTiles.h:129`），可直接吃单个 block tile entity 的 compound。
+（`LittleTiles.h`），可直接吃单个 block tile entity 的 compound。
 
 ## 3. 类型与 ownership
 
 | 类型 | 说明 |
 |---|---|
-| `AnvilReader::ChunkDataReference` | POD，持有**非拥有裸指针** `tag_compound* p_chunk_root/p_chunk_level`，指向缓存内由 `unique_ptr` 持有的对象 → 缓存清空即悬垂（`Anvil.h:180-184`） |
-| `ChunkData::ChunkNbtRoot` | `std::unique_ptr<nbt::tag_compound>`，唯一真正拥有者（`Anvil.h:189`） |
-| `ChunkData::p_chunk_level` | **未初始化且从未被赋值**（`Anvil.h:190`），目前无人读取，属埋雷 |
+| `AnvilReader::ChunkDataReference` | POD，持有**非拥有裸指针** `tag_compound* p_chunk_root/p_chunk_level`，指向缓存内由 `unique_ptr` 持有的对象 → 缓存清空即悬垂（`Anvil.h`） |
+| `ChunkData::ChunkNbtRoot` | `std::unique_ptr<nbt::tag_compound>`，唯一真正拥有者（`Anvil.h`） |
+| `ChunkData::p_chunk_level` | **未初始化且从未被赋值**（`Anvil.h`），目前无人读取，属埋雷 |
 | `ChunkTileEntities` / `BlockTileEntities` | 值语义容器（vector / map），解析后持有数据，可移动 |
 | `ChunkMesh::tiles_in_world_` | `vector<LtSurfaceMesh>`，每个 tile 一份 CGAL `Surface_mesh`（值拷贝） |
-| `LtSurfaceMesh::GetMeshWithOffset` | 按值返回整张 mesh，代价高（`CgalTypeDef.cpp:60`） |
+| `LtSurfaceMesh::GetMeshWithOffset` | 按值返回整张 mesh，代价高（`CgalTypeDef.cpp`） |
 
 保持现代 C++ 风格：`unique_ptr`、move、`swap`、delete copy assignment；不要引入裸 `new/delete`。
 
@@ -99,8 +99,8 @@ addTilesFromBlockTilesEntities       CgalLittletilesBuilder.cpp:53
 | `mca_cache_` | `RegionCoordinate` | 整份 `.mca` 字节数组（40 KB – 数百 KB） |
 | `chunk_cache_` | `RegionCoordinate` | `CacheManagerBase<ChunkData,int32>`，固定 32×32 槽，每槽一份已解析 NBT 树 |
 
-`CacheManagerBase`（`Anvil.h:33`）是固定尺寸二维 `unique_ptr` 槽，只支持 0..31；
-`GetCachePointer`（`Anvil.h:61,70`）只读查表，`GetNewCachePointer` 是"未命中则创建"。
+`CacheManagerBase`（`Anvil.h`）是固定尺寸二维 `unique_ptr` 槽，只支持 0..31；
+`GetCachePointer`（`Anvil.h,70`）只读查表，`GetNewCachePointer` 是"未命中则创建"。
 
 服务器化前必须处理：缓存 key 不含数据源标识、`SetRegionFolder()` 不清缓存、
 无容量上限、无并发保护。详见 `known-issues.md`。
@@ -114,14 +114,14 @@ addTilesFromBlockTilesEntities       CgalLittletilesBuilder.cpp:53
 - `AnvilReader` 的缓存是可变成员且无同步；`SetRegionFolder()` 只改路径不清缓存
   → 复用同一实例处理不同来源会串数据。
 - `CreateIntersectionCube()` 用函数内 `new` 出的静态单例且从不释放
-  （`CgalLtSupport.cpp:141`，当前无调用者）。
+  （`CgalLtSupport.cpp`，当前无调用者）。
 
 ## 6. 异常体系
 
 - `GalibExceptionBasic<ErrorCodeType> : std::exception`，自带格式化的 `what()`。
 - `MinecraftException`（`MinecraftErrorCode` 1..7）、`LittleTilesException`（`LittleTilesErrorCode`）。
 - 解析层大量 `try/catch(...)` 静默吞异常，只在 `GALIB_DEBUG` 下打印；
-  而 `GALIB_DEBUG` 被**无条件** `#define`（`GalibNamespaceDef.h:27`）→ 服务器端日志噪音，
+  而 `GALIB_DEBUG` 被**无条件** `#define`（`GalibNamespaceDef.h`）→ 服务器端日志噪音，
   且该分支下 `catch(std::exception&)` 比 `catch(...)` 更窄，非 std 异常会穿透。
 - **库边界没有错误转换**：`main()` 无 try/catch，异常直接终止进程。
   V2 需要在库/服务边界映射为可返回的错误（invalid input / unsupported version / invalid NBT /
@@ -145,7 +145,7 @@ addTilesFromBlockTilesEntities       CgalLittletilesBuilder.cpp:53
 | libnbtplusplus | commit `687e43031df0dc641984b4256bcca50d5b3f7de3`（FetchContent，已钉） |
 
 注意 `CMakeLists.txt:35` 目前声明 `CMAKE_CXX_STANDARD 14`，但代码使用了 C++17 的 if-init
-（`BlockTileEntities.cpp:102`）；clang 按扩展接受并有告警，MSVC `/std:c++14` 会直接失败。
+（`BlockTileEntities.cpp`）；clang 按扩展接受并有告警，MSVC `/std:c++14` 会直接失败。
 
 ### 7.3 命令与产物
 
@@ -169,5 +169,5 @@ cmake --build cmake-build-debug
   若 `xcode-select -p` 指向**含空格**的路径（例如 `Xcode Beta.app`），autotools 生成的
   Makefile 会把 `MAKE` 截断导致 gmp 构建失败；可用 `MAKE=/usr/bin/make vcpkg install cgal` 绕过，
   根治方式是 `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`。
-- `main.cpp` 的输出路径 `../out_file/...` 是相对于**当前工作目录**的（`main.cpp:21,24`），
+- `main.cpp` 的输出路径 `../out_file/...` 是相对于**当前工作目录**的（`main.cpp,24`），
   不是可执行文件所在目录。
