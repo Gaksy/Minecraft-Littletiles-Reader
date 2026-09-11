@@ -12,6 +12,9 @@ cmake-build-debug-visual-studio/
 # 生成的模型输出
 /out_file/
 
+# Minecraft 原生素材（体积大，按 docs/texture-mapping.md 的步骤重建）
+/assets/
+
 # AI 助手上下文（本地知识库，不随仓库分发）
 /.ai/
 #
