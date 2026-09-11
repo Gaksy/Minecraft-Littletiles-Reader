@@ -104,8 +104,30 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
     return grid[index_of(kX, kY, kZ)];
   };
 
+#ifdef GALIB_DEBUG
+  {
+    std::size_t filled = 0;
+    std::size_t hosts = 0;
+    for (const ChunkBlocks::State& state : grid) {
+      if (!state.is_air()) {
+        ++filled;
+      }
+      if (state.little_tiles_host) {
+        ++hosts;
+      }
+    }
+    printf("[worldblocks] 网格 %dx%dx%d：非空气 %zu，LT 宿主 %zu\n", size_x,
+           kWorldHeight, size_z, filled, hosts);
+  }
+#endif
+
   // 2. 按 (方块 id, meta) 分组，每组一个网格
   std::map<std::pair<std::uint16_t, std::uint8_t>, std::size_t> group_index;
+#ifdef GALIB_DEBUG
+  std::size_t emitted_blocks = 0;
+  std::size_t emitted_faces = 0;
+  std::size_t culled_faces = 0;
+#endif
   // 每组一张"世界坐标 -> 顶点"表，用来在同一个方块内共享顶点。
   // 坐标都是整数，打包成 64 位做键（x/z 各 21 位、y 22 位足够覆盖任意区域）。
   std::vector<std::unordered_map<std::uint64_t, SurfaceMeshType::Vertex_index>>
@@ -168,6 +190,9 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
                 state_at(x + face.neighbor[0], y + face.neighbor[1],
                          z + face.neighbor[2]);
             if (!neighbor.is_air()) {
+#ifdef GALIB_DEBUG
+              ++culled_faces;
+#endif
               continue;
             }
           }
@@ -179,10 +204,34 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
                                         corner[1], corner[2]));
           }
           surface.add_face(corners);
+#ifdef GALIB_DEBUG
+          ++emitted_faces;
+#endif
         }
+#ifdef GALIB_DEBUG
+        ++emitted_blocks;
+#endif
       }
     }
   }
+
+#ifdef GALIB_DEBUG
+  printf("[worldblocks] 输出方块 %zu 个，面 %zu 个（邻居剔除 %zu 个面）\n",
+         emitted_blocks, emitted_faces, culled_faces);
+  // 按方块 id 统计"上方是空气"的数量，用于与存档侧统计对照
+  std::map<std::uint16_t, std::pair<int, int>> id_stats;
+  for (int y = 0; y < kWorldHeight; ++y) {
+    for (int z = 0; z < size_z; ++z) {
+      for (int x = 0; x < size_x; ++x) {
+        const ChunkBlocks::State& state = grid[index_of(x, y, z)];
+        if (state.is_air()) continue;
+        auto& entry = id_stats[state.block_id];
+        ++entry.first;
+        if (state_at(x, y + 1, z).is_air()) ++entry.second;
+      }
+    }
+  }
+#endif
 }
 
 }  // namespace galib::minecraft::cgal_support

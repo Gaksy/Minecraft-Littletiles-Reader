@@ -175,7 +175,8 @@ int main() {
         blocks.ReadFromChunkLevel(*reference.p_chunk_level);
         if (reference.p_chunk_level->has_key("TileEntities")) {
           blocks.MarkLittleTilesHosts(
-              reference.p_chunk_level->at("TileEntities").as<nbt::tag_list>());
+              reference.p_chunk_level->at("TileEntities").as<nbt::tag_list>(),
+              coord);
         }
       }
     }

@@ -107,15 +107,19 @@ bool ChunkBlocks::ReadFromChunkLevel(const nbt::tag_compound& kChunkLevel) {
   return found_section;
 }
 
-void ChunkBlocks::MarkLittleTilesHosts(const nbt::tag_list& kTileEntities) {
+void ChunkBlocks::MarkLittleTilesHosts(const nbt::tag_list& kTileEntities,
+                                       const ChunkCoordinate& kChunkCoord) {
   for (auto it = kTileEntities.begin(); it != kTileEntities.end(); ++it) {
     const auto& entity = it->as<nbt::tag_compound>();
     if (!entity.has_key("x") || !entity.has_key("y") || !entity.has_key("z")) {
       continue;
     }
-    const int x = entity.at("x").as<nbt::tag_int>().get();
+    // tile entity 的 x/y/z 是世界坐标，换算成区块内坐标
+    const int x =
+        entity.at("x").as<nbt::tag_int>().get() - kChunkCoord.x * kSizeX;
     const int y = entity.at("y").as<nbt::tag_int>().get();
-    const int z = entity.at("z").as<nbt::tag_int>().get();
+    const int z =
+        entity.at("z").as<nbt::tag_int>().get() - kChunkCoord.z * kSizeZ;
     if (x < 0 || x >= kSizeX || y < 0 || y >= kSizeY || z < 0 || z >= kSizeZ) {
       continue;
     }

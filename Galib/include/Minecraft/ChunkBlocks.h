@@ -22,6 +22,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "Minecraft/MinecraftCoord.h"
+
 namespace galib::minecraft {
 
 // 一个区块里的"普通方块"（Level.Sections[].Blocks/Data/Add）。
@@ -46,8 +48,11 @@ class ChunkBlocks {
   // 解析 Level.Sections（含 Add 高位数组）。没有 Sections 时返回 false。
   bool ReadFromChunkLevel(const nbt::tag_compound& kChunkLevel);
 
-  // 标记 LittleTiles tile entity 所在的方块位置（区块内坐标）。
-  void MarkLittleTilesHosts(const nbt::tag_list& kTileEntities);
+  // 标记 LittleTiles tile entity 所在的方块。
+  // 注意：1.12 的 tile entity 里 x/y/z 是**世界坐标**，需要 chunk 坐标才能换算成区块内坐标；
+  // 换算错了会一个都匹配不上，结果是 LT 结构下面的地形也被当成普通方块导出。
+  void MarkLittleTilesHosts(const nbt::tag_list& kTileEntities,
+                            const ChunkCoordinate& kChunkCoord);
 
   // 局部坐标访问；越界返回空气
   const State& At(int kX, int kY, int kZ) const;
