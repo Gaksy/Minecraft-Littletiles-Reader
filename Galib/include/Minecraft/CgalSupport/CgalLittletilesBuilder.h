@@ -63,7 +63,16 @@ namespace galib::minecraft::cgal_support {
     //
     // };
 
-    void margeAndWriteToObj(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* p_filename, bool geom_center = true);
+    // 合并所有 tile 网格并写出 OBJ。
+    // kGeomCenter     : 把包围盒中心平移到原点（默认开启）。
+    // kNormalizeScale : 在居中的基础上再等比缩放到"最长边 = 1"，便于第三方软件查看；
+    //                   注意这会丢失"1 单位 = 1 方块"的原始比例，因此默认关闭。
+    void margeAndWriteToObj(
+        const GALIB_STD vector<LtSurfaceMesh>& meshes,
+        const char* p_filename,
+        bool geom_center = true,
+        bool normalize_scale = false
+    );
 
     void writeToOff(const GALIB_STD vector<LtSurfaceMesh>& meshes, const char* p_filename);
 

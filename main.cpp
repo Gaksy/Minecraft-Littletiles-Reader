@@ -64,22 +64,23 @@ int main() {
     obj_file_path.append(to_string(chunk_z));
     obj_file_path.append(".obj");
 
-    bool is_need_gemo_center = false;
-
     char choice = 'n';
     printf("if need gemo center, press y (y/n):");
-    scanf("%c", &choice);
-    if (choice == 'y' || choice == 'Y') {
-        is_need_gemo_center = true;
-    }
+    // 注意 %c 前的空格：跳过上一个 %d 读取后残留的换行符，
+    // 否则这里永远读到 '\n'，用户输入 y 也不会生效。
+    scanf(" %c", &choice);
+    const bool is_need_gemo_center = (choice == 'y' || choice == 'Y');
 
-#ifdef _WIN32
-    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), obj_file_path.c_str());
-    // writeToOff(chunk_mesh_management.getMeshArray(), "D:/Development/MinecraftProject/MinecraftLittletilesReader/python/offs/test");
-#else
-    // margeAndWriteToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
-    margeAndWriteToObj(chunk_mesh_management.getMeshArray(), obj_file_path.c_str(), is_need_gemo_center);
+    printf("if need normalize to unit size, press y (y/n):");
+    scanf(" %c", &choice);
+    const bool is_need_normalize_scale = (choice == 'y' || choice == 'Y');
+
     // writeToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
-#endif
+    margeAndWriteToObj(
+        chunk_mesh_management.getMeshArray(),
+        obj_file_path.c_str(),
+        is_need_gemo_center,
+        is_need_normalize_scale
+    );
     return EXIT_SUCCESS;
 }

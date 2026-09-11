@@ -36,8 +36,9 @@
    且 `GetFileStat` 返回值未检查（`Anvil.cpp:195`）。
 8. **`GALIB_DEBUG` 被无条件 `#define`**（`GalibNamespaceDef.h:27`）：调试 `printf` 常驻；
    并把 `catch(...)` 换成更窄的 `catch(std::exception&)`，非 std 异常会穿透。
-9. **CLI 的"几何中心"选项永远无效**：`main.cpp:71` 的 `scanf("%c")` 读到前一个 `%d` 残留的换行。
-   实测输入 `y` 与 `n` 产出的 OBJ **逐字节相同**。
+9. ~~**CLI 的"几何中心"选项永远无效**~~ —— 已修复：`scanf("%c")` 会读到前一个 `%d` 残留的换行符，
+   已改为 `scanf(" %c", &choice)`；同时新增"归一化到单位尺寸"选项（见 2.6）。
+   （修复前实测输入 `y` 与 `n` 产出的 OBJ 逐字节相同。）
 10. **`#if WIN32` 永不成立**（`main.cpp:19`）：MSVC 定义的是 `_WIN32`。
 11. **OFF 导出是空实现**：`writeMeshToOff` 函数体只有一句局部变量声明
     （`CgalLittletilesBuilder.cpp:273`），调用它的 `writeToOff`（`:278`）因而什么也不产出。
@@ -56,6 +57,24 @@
     输出路径仍由 `main.cpp:21,24` 的宏 `OUT_OBJ_FILE_NAME = "../out_file/marge_obj_from_chunk_"`
     决定，是**相对运行时工作目录**的：在构建目录下运行会写到 `<repo>/out_file/`，
     在仓库根目录下运行会写到 `<repo>/../out_file/`。
+
+### 2.6 输出归一化与数值精度
+
+18. **OBJ 顶点精度不足**（已修复）：写出用 `std::ostream` 默认精度（6 位有效数字），
+    而顶点是 Minecraft 世界坐标（例如 x ≈ -2164），6 位有效数字意味着**量化步长约 0.01 方块**
+    （grid=64 时相当于 0.64 个网格单位），几何被静默改变。实测同一 chunk 的体积
+    因这项舍入偏差 0.27%。现在写出时设置 `setprecision(9)`，量化步长降到 1e-6 方块量级。
+
+19. **新增输出归一化**（`margeAndWriteToObj` 的第 4 个参数）：
+
+    | 模式 | 参数 | 效果 |
+    |---|---|---|
+    | 原始坐标 | `geom_center=false` | 保持 Minecraft 世界坐标（离原点可达数千单位） |
+    | 居中 | `geom_center=true`（默认） | 包围盒中心平移到原点，体积不变 |
+    | 居中 + 单位缩放 | 再加 `normalize_scale=true` | 再等比缩放到最长边 = 1（会丢失"1 单位 = 1 方块"比例） |
+
+    CLI 现在会依次询问这两项（第二问是新增的）。未居中的模型导入 Blender 后离原点很远
+    （例如 x ≈ -2164、z ≈ 797），而视口默认 Clip End = 100，会看起来"什么都没导入"。
 
 ### 2.3 导出质量（与 UV / 材质相关）
 

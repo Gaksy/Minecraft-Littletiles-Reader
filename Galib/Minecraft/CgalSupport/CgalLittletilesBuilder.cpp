@@ -19,6 +19,7 @@
 #include <Minecraft/CgalSupport/CgalLtSupport.h>
 
 #include <filesystem>
+#include <iomanip>
 
 using GALIB_STD vector;
 using GALIB_STD ofstream;
@@ -123,7 +124,8 @@ void ChunkMesh::clear() {
 void GALIB minecraft::cgal_support::margeAndWriteToObj(
     const vector<LtSurfaceMesh>& meshes,
     const char* const p_filename,
-    const bool geom_center
+    const bool geom_center,
+    const bool normalize_scale
 ) {
     using SurfaceMeshType = SurfaceMeshType;
     using Point = SurfaceMeshType::Point;
@@ -179,8 +181,8 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(
         vertex_index_map.clear();
     }
 
-    // 计算包围盒并平移网格到原点
-    if (marged_mesh.number_of_vertices() > 0 && geom_center) {
+    // 归一化：把包围盒中心平移到原点；如需要，再等比缩放到最长边 = 1
+    if (marged_mesh.number_of_vertices() > 0 && (geom_center || normalize_scale)) {
         CGAL::Bbox_3 bbox;
         bool first = true;
 
@@ -195,18 +197,24 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(
             }
         }
 
-        // 计算包围盒中心
-        Point center((bbox.xmin() + bbox.xmax()) / 2.0,
-                     (bbox.ymin() + bbox.ymax()) / 2.0,
-                     (bbox.zmin() + bbox.zmax()) / 2.0);
+        // 计算包围盒中心与缩放系数（以最长边为基准，保持长宽比）
+        const double center_x = (bbox.xmin() + bbox.xmax()) / 2.0;
+        const double center_y = (bbox.ymin() + bbox.ymax()) / 2.0;
+        const double center_z = (bbox.zmin() + bbox.zmax()) / 2.0;
 
-        // 创建平移向量（从中心到原点）
-        Vector translation(-center.x(), -center.y(), -center.z());
+        const double extent = GALIB_STD max(bbox.xmax() - bbox.xmin(),
+                                 GALIB_STD max(bbox.ymax() - bbox.ymin(), bbox.zmax() - bbox.zmin()));
+        double scale = 1.0;
+        if (normalize_scale && extent > 1e-12) {
+            scale = 1.0 / extent;
+        }
 
-        // 应用平移
+        // 先平移到原点，再按需缩放
         for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
             Point& p = marged_mesh.point(v);
-            p = Point(p.x() - center.x(), p.y() - center.y(), p.z() - center.z());
+            p = Point((p.x() - center_x) * scale,
+                      (p.y() - center_y) * scale,
+                      (p.z() - center_z) * scale);
         }
     }
 
@@ -238,6 +246,9 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(
     }
 
     // 输出顶点
+    // 提高精度：默认流精度只有 6 位有效数字，坐标在千级（未居中的世界坐标）时
+    // 量化步长可达 0.01 方块，会静默改变几何。
+    out << std::setprecision(9);
     for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
         const LtPoint3& p = marged_mesh.point(v);
         out << "v " << p.x() << " " << p.y() << " " << p.z() << std::endl;
