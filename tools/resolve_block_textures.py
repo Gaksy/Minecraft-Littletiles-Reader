@@ -46,16 +46,28 @@ FACES = ['down', 'up', 'north', 'south', 'west', 'east']
 
 
 class Resolver:
-    def __init__(self, root):
-        self.root = root
+    """按 root 列表解析 blockstate/model/texture，先找到的优先。
+
+    列表里通常第一个是材质包、最后一个是原版：材质包只覆盖它有的文件，
+    其余自动回退到原版（与 Minecraft 的资源包叠加规则一致）。
+    """
+
+    def __init__(self, roots):
+        self.roots = [roots] if isinstance(roots, str) else list(roots)
+        self.root = self.roots[-1]
         self.cache = {}
 
     def _load(self, sub, name):
         key = (sub, name)
         if key in self.cache:
             return self.cache[key]
-        path = os.path.join(self.root, sub, name + '.json')
-        data = json.load(open(path)) if os.path.exists(path) else None
+        data = None
+        for root in self.roots:
+            path = os.path.join(root, sub, name + '.json')
+            if os.path.exists(path):
+                with open(path) as handle:
+                    data = json.load(handle)
+                break
         self.cache[key] = data
         return data
 
@@ -137,9 +149,13 @@ def list_blockstates(root):
     return sorted(f[:-5] for f in os.listdir(directory) if f.endswith('.json'))
 
 
-def dump_table(root, out_path):
-    """生成完整映射表：minecraft:<blockstate> 与 minecraft:<family>:<meta> 两类键。"""
-    resolver = Resolver(root)
+def dump_table(root, out_path, overlay_roots=()):
+    """生成完整映射表：minecraft:<blockstate> 与 minecraft:<family>:<meta> 两类键。
+
+    overlay_roots 优先级高于 root（列表前面的优先），但方块清单取自 root——
+    调用方应把"提供 blockstates 清单的那一份"（通常是原版 1.12.2）当作 root。
+    """
+    resolver = Resolver(list(overlay_roots) + [root])
     keys = {}
     for name in list_blockstates(root):
         faces, _ = resolver.faces_of_blockstate(name)
@@ -152,6 +168,7 @@ def dump_table(root, out_path):
                 variant = mapper(meta)
             except IndexError:
                 break
+            # 变体清单同样以 root 为准，避免材质包引入的额外 blockstate 混进表里
             if not os.path.exists(os.path.join(root, 'blockstates', variant + '.json')):
                 continue
             faces, _ = resolver.faces_of_blockstate(variant)
@@ -204,4 +221,5 @@ def main():
     print('\n成功 %d / 失败 %d' % (ok, fail))
 
 
-main()
+if __name__ == '__main__':
+    main()

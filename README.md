@@ -51,6 +51,20 @@ total-time line. Answer `n` for clean, script-friendly output.
 The result is written to `out_file/` relative to the current working
 directory (OBJ + MTL + a `<obj name>_textures/` folder).
 
+## Using a Resource Pack
+
+Textures come from an assets root (`assets/1.12.2` by default). To export with a
+resource pack, merge it onto the vanilla assets first:
+
+```sh
+python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out assets/pack
+```
+
+Then point the reader at the result, either via `LITTLETILES_ASSETS=assets/pack`
+or by typing the path at the `assets root (blank = auto-detect):` prompt.
+The pack overrides only the textures it ships; the rest falls back to vanilla.
+Details and limits: [`docs/texture-mapping.md`](docs/texture-mapping.md).
+
 ## Processing Workflow
 
 Once the target chunk coordinates are provided, the approximate processing steps are:
@@ -193,6 +207,20 @@ printf "test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
 想要干净的、方便脚本处理的输出就答 `n`。
 
 产物写在**当前工作目录**下的 `out_file/`（OBJ + MTL + 同名 `<obj 名>_textures/` 贴图目录）。
+
+## 使用自定义材质包
+
+贴图来自一个素材根目录（默认 `assets/1.12.2`）。想用别的材质包（例如工作室内部包，
+不入库），先把材质包与原版素材合并：
+
+```sh
+python3 tools/build_assets_from_pack.py --pack "texture/INCEPTION texture V1.4.zip" --out assets/pack
+```
+
+合并出的目录就是标准素材根：材质包里有的贴图用它自己的，没有的回退原版。指定方式两种——
+环境变量 `LITTLETILES_ASSETS=assets/pack`，或运行时在 `assets root (blank = auto-detect):`
+那一问里直接填路径（可留空走自动探测）。细节与限制见
+[`docs/texture-mapping.md`](docs/texture-mapping.md)。
 
 ## 处理流程
 

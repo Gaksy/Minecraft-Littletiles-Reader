@@ -136,7 +136,53 @@ MC 的原生渲染是"贴图像素 × 该颜色"。两种落地方式：
 本项目的 `assets/` 目录**不进入版本库**（见 `.gitignore`），需要时按上面步骤重建。
 LT 自身方块（`littletiles:*`）的贴图在 LT mod jar 的 assets 里，需要另行提供。
 
-## 5.1 UV 验证模型（人工核对用）
+## 5.1 使用自定义材质包（资源包叠加）
+
+想用别的材质包（工作室内部包不入库，见 `.gitignore` 的 `/texture`）导出时，
+先把材质包与原版素材**合并**成一个 assets 根：
+
+```sh
+python3 tools/build_assets_from_pack.py --pack "texture/INCEPTION texture V1.4.zip" --out assets/pack_v14
+```
+
+工具做三件事：
+
+1. 用**原版 1.12.2** 的 `blockstates`/`models` 解析出 `block:meta → 六面贴图` 映射表。
+   材质包大多是 1.13+ 命名（`block/xxx`、扁平化 blockstate），模型对不上，
+   所以默认只借用它的贴图；`--use-pack-models` 才会连模型一起覆盖（仅限 1.12.2 命名的包）。
+2. 按映射表**逐张**挑贴图：材质包里有就用材质包的，没有就回退原版——
+   与游戏内资源包叠加规则一致。只有被引用到的 PNG 会被复制，PBR 法线/高光
+   （`*_n.png` / `*_s.png`）不会被带进来。
+3. 复制 `block_ids.tsv`，并写一份 `pack-source.txt` 记录来源，便于回溯。
+
+产物是标准 assets 根，两种指定方式：
+
+```sh
+LITTLETILES_ASSETS=assets/pack_v14 ./LittleTilesReader     # 环境变量
+# 或者运行时在 "assets root (blank = auto-detect):" 一问里直接填路径（可留空）
+```
+
+实测（INCEPTION texture V1.4 + 1.12.2 存档）：
+
+| 项目 | 结果 |
+|---|---|
+| 映射表 | 455 个键（与原版一致） |
+| 贴图来源 | 材质包 **159 张** + 原版兜底 142 张，缺失 0 |
+| 分辨率 | 原版 16×16 → 材质包 128/256/512/1024 |
+| 合并素材根 | `assets/pack_v14` ≈ 69 MB |
+| `test_region_medim` 11×11 导出 | OBJ 34.3 MB / 388744 面（**与原版完全一致**）+ 贴图 77 张 18 MB；写出文件 1.4 s → **11.5 s**（烘焙 512²/1024² 变慢） |
+| `test_region_large` 11×11 导出 | OBJ 177.5 MB / 2036139 面（与原版一致）+ 120 张贴图；写出文件 7.1 s → **16.4 s** |
+
+（数字来自 `docs/benchmark.md` 里 2026-09-12 那一节，`tools/benchmark.py --assets assets/pack_v14`。）
+
+注意事项：
+
+- `.zip` 直接支持；**`.rar` 请先手动解压**（Python 读不了 rar），再 `--pack <解压目录>`。
+- 材质包里的 `mcpatcher/` CTM（连接纹理）暂不支持：用的是它连接纹理的基础贴图。
+- 贴图变大后 OBJ 本身不变，但 `..._textures/` 会显著变大（medim 从 0.3 MB 变 18 MB），
+  导出 11×11 那种规模前先确认磁盘空间。
+
+## 5.2 UV 验证模型（人工核对用）
 
 ```sh
 python3 tools/resolve_block_textures.py assets/1.12.2 --table assets/1.12.2/block_textures.tsv

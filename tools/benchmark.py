@@ -36,8 +36,9 @@ CASES = [
     ("test_region_large", -7, -26, 5),
 ]
 
-# 交互式 CLI 的回答顺序：存档目录、x、z、半径、完整方块、剔面、居中、单位化、进度
-CLI_ANSWERS = "y\ny\ny\nn\ny\n"
+# 交互式 CLI 的回答顺序：存档目录、x、z、半径、完整方块、剔面、居中、单位化、进度、
+# 素材目录（留空 = 自动探测；材质包导出用 --assets 指向合并后的素材根）
+CLI_ANSWERS = "y\ny\ny\nn\ny\n\n"
 
 
 @dataclass
@@ -64,6 +65,7 @@ class Result:
     materials: int = 0
     textures: int = 0
     obj_bytes: int = 0
+    assets_root: str = ""
     warnings: list = field(default_factory=list)
 
     def as_row(self) -> str:
@@ -123,6 +125,7 @@ def run_case(reader: Path, assets: Path, case, work_dir: Path) -> Result:
     result.merged_faces = int(find(r"面数: (\d+)"))
     result.materials = int(find(r"材质 (\d+) 个"))
     result.textures = int(find(r"已写出贴图 (\d+) 张"))
+    result.assets_root = find(r"assets root: (.*)", default="(未知)").strip()
     result.seconds = float(find(r"总耗时: ([\d.]+) 秒"))
     result.seconds_read = float(find(r"读取与建网格 ([\d.]+) 秒"))
     result.seconds_blocks = float(find(r"普通方块网格 ([\d.]+) 秒"))
@@ -198,6 +201,7 @@ def markdown_section(results, reader: Path) -> str:
             f"；普通方块面 {result.block_faces}"
             f"（剔除 {result.culled_faces}，被拒 {result.rejected_faces}）"
             f"；材质 {result.materials} / 贴图 {result.textures}"
+            f"；素材根 {result.assets_root}"
         )
         for warning in result.warnings:
             lines.append(f"  - ⚠️ {warning}")
@@ -208,7 +212,8 @@ def markdown_section(results, reader: Path) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="LittleTilesReader 导出基准")
     parser.add_argument("--reader", type=Path, default=DEFAULT_READER)
-    parser.add_argument("--assets", type=Path, default=DEFAULT_ASSETS)
+    parser.add_argument("--assets", type=Path, default=DEFAULT_ASSETS,
+                        help="素材根目录（相对路径会按当前 shell 目录解析成绝对路径）")
     parser.add_argument("--case", help="只跑指定存档（目录名）")
     parser.add_argument("--write", type=Path, help="把结果追加到这个 Markdown 文件")
     parser.add_argument("--keep", action="store_true", help="保留临时输出目录")
@@ -217,6 +222,8 @@ def main() -> int:
     if not args.reader.is_file():
         print(f"找不到可执行文件：{args.reader}", file=sys.stderr)
         return 1
+    # 用例在私有临时目录里跑，所以素材根必须是绝对路径，否则 reader 会找不到
+    args.assets = args.assets.resolve()
     if not (args.assets / "block_textures.tsv").is_file():
         print(
             f"找不到素材目录：{args.assets}（见 docs/texture-mapping.md 第 4 节）",

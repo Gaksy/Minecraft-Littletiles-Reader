@@ -78,6 +78,37 @@ std::string DetectAssetsRoot() {
   return {};
 }
 
+// 素材目录：回车走自动探测；也可以直接填材质包生成的合并素材根
+// （见 tools/build_assets_from_pack.py，产物形如 assets/pack）。
+// 这里按整行读取，路径里有空格也不用加引号（从 Finder 复制来的引号会自动去掉）。
+std::string AskAssetsRoot() {
+  printf("assets root (blank = auto-detect): ");
+  fflush(stdout);
+
+  char line[512];
+  if (!fgets(line, sizeof(line), stdin)) {
+    return DetectAssetsRoot();  // 非交互（管道）时直接走自动探测
+  }
+  std::string path(line);
+  const std::string kSpaces = " \t\r\n";
+  const std::size_t begin = path.find_first_not_of(kSpaces);
+  path = (begin == std::string::npos)
+             ? std::string()
+             : path.substr(begin, path.find_last_not_of(kSpaces) - begin + 1);
+  if (path.size() >= 2 && path.front() == '"' && path.back() == '"') {
+    path = path.substr(1, path.size() - 2);
+  }
+  if (path.empty()) {
+    return DetectAssetsRoot();
+  }
+  if (!std::filesystem::exists(path + "/block_textures.tsv")) {
+    printf("警告: %s 里没有 block_textures.tsv，改用自动探测的素材目录\n",
+           path.c_str());
+    return DetectAssetsRoot();
+  }
+  return path;
+}
+
 }  // namespace
 
 int main() {
@@ -125,7 +156,19 @@ int main() {
   const bool show_progress = askYesNo("Print progress and timing?", true);
   galib::SetProgressEnabled(show_progress);
 
-  const std::string assets_root = DetectAssetsRoot();
+  std::string assets_root = AskAssetsRoot();
+  if (!assets_root.empty()) {
+    // 统一成绝对路径：后面的读取（block_ids.tsv / block_textures.tsv / 贴图）
+    // 都按这个字符串拼，相对路径一旦换了工作目录就会静默读不到。
+    std::error_code canonical_error;
+    const std::filesystem::path absolute =
+        std::filesystem::weakly_canonical(assets_root, canonical_error);
+    if (!canonical_error) {
+      assets_root = absolute.string();
+    }
+  }
+  printf("assets root: %s\n",
+         assets_root.empty() ? "(未找到，只导出几何)" : assets_root.c_str());
 
   // 计时从这里开始：前面是人工输入，不计入处理耗时。
   const Clock::time_point process_start = Clock::now();
