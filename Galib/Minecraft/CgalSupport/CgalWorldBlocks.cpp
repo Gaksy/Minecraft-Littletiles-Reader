@@ -130,12 +130,20 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
 #endif
   // 每组一张"世界坐标 -> 顶点"表，用来在同一个方块内共享顶点。
   // 坐标都是整数，打包成 64 位做键（x/z 各 21 位、y 22 位足够覆盖任意区域）。
+  // 注意：世界坐标可以是负数，必须先加偏置再打包。直接左移负数会在 64 位里溢出并撞键，
+  // 导致同一个面的多个角指向同一顶点，CGAL 会拒收该面——表现为"完整方块一个面都没有"。
+  constexpr std::int64_t kPositionBias = 1 << 20;
   std::vector<std::unordered_map<std::uint64_t, SurfaceMeshType::Vertex_index>>
       group_vertices;
   const auto pack_position = [](const int kX, const int kY, const int kZ) {
-    return (static_cast<std::uint64_t>(kX) << 42) |
-           (static_cast<std::uint64_t>(kY) << 21) |
-           static_cast<std::uint64_t>(kZ);
+    return (static_cast<std::uint64_t>(static_cast<std::int64_t>(kX) +
+                                       kPositionBias)
+            << 42) |
+           (static_cast<std::uint64_t>(static_cast<std::int64_t>(kY) +
+                                       kPositionBias)
+            << 21) |
+           static_cast<std::uint64_t>(static_cast<std::int64_t>(kZ) +
+                                      kPositionBias);
   };
 
   for (int y = 0; y < kWorldHeight; ++y) {
@@ -218,18 +226,16 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
 #ifdef GALIB_DEBUG
   printf("[worldblocks] 输出方块 %zu 个，面 %zu 个（邻居剔除 %zu 个面）\n",
          emitted_blocks, emitted_faces, culled_faces);
-  // 按方块 id 统计"上方是空气"的数量，用于与存档侧统计对照
-  std::map<std::uint16_t, std::pair<int, int>> id_stats;
-  for (int y = 0; y < kWorldHeight; ++y) {
-    for (int z = 0; z < size_z; ++z) {
-      for (int x = 0; x < size_x; ++x) {
-        const ChunkBlocks::State& state = grid[index_of(x, y, z)];
-        if (state.is_air()) continue;
-        auto& entry = id_stats[state.block_id];
-        ++entry.first;
-        if (state_at(x, y + 1, z).is_air()) ++entry.second;
-      }
+  {
+    // 分组网格里"实际保存下来的面/顶点"——若远少于 emitted_faces，说明 add_face 被 CGAL 拒绝了
+    std::size_t stored_faces = 0;
+    std::size_t stored_vertices = 0;
+    for (const LtSurfaceMesh& mesh : *p_desc_meshes) {
+      stored_faces += mesh.surface_mesh().number_of_faces();
+      stored_vertices += mesh.surface_mesh().number_of_vertices();
     }
+    printf("[worldblocks] 分组网格实际保存：%zu 个网格，面 %zu，顶点 %zu\n",
+           p_desc_meshes->size(), stored_faces, stored_vertices);
   }
 #endif
 }
