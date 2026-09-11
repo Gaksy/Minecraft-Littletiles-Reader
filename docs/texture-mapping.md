@@ -92,6 +92,25 @@ MC 的原生渲染是"贴图像素 × 该颜色"。两种落地方式：
 
 → 这也是建议最终走 **GLB** 的原因之一。
 
+### 4.1 实测：染色组合数量很少，"按 (贴图, 颜色) 烘焙"完全可行
+
+对 `test_region*` 全量统计：
+
+```
+唯一 (block, color) 组合 : 16
+唯一 block               : 13
+唯一颜色                 : 6   （0xFF000000 / 0xFF242424 / 0xFF3C3C3C /
+                                0xFFFF2424 / 0xFFFF9100 / 0xFFFFBE00）
+```
+
+也就是说整个测试数据集只需要 **16 个材质**。既然目标是 OBJ+MTL 的专业流程
+（Blender 不会把 `Kd` 与 `map_Kd` 相乘），**按 (贴图, 颜色) 烘焙染色 PNG** 是最省事且
+开箱即用的做法——参考实现（Java 模组）也是这么做的，而这里只有 16 个组合，不存在纹理爆炸问题。
+
+工具链约束：本机 `python3` **没有 Pillow**，只有标准库 `zlib`。
+因此染色烘焙要么用纯 Python 自行解码/编码 PNG（PNG 有 zlib + 过滤器，可解），
+要么在 C++ 侧用已有的 zlib 实现（读写都自己做），要么装一个 Pillow / libpng 依赖。
+
 ## 5. 素材来源与放置
 
 1.12.2 客户端 jar（Mojang 官方）内含 `assets/minecraft/{blockstates,models,textures}`，
