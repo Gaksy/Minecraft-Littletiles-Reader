@@ -160,6 +160,8 @@ python3 tools/make_uv_test_model.py assets/1.12.2 out_file/uv_test
 
 ## 6. 实现计划（C++ 侧）
 
+> **进度**：第 1、2、3 步的"几何 + 贴图"部分已实现（见 6.1）；颜色烘焙（第 4 步）未做。
+
 1. **资源解析表**：由 `tools/resolve_block_textures.py` 预处理成紧凑映射表
    （`block(+meta) → 六个面的贴图路径`），C++ 只读表，不引入 JSON 依赖；
    服务器场景下每上传一个资源包预处理一次并缓存。
@@ -170,3 +172,25 @@ python3 tools/make_uv_test_model.py assets/1.12.2 out_file/uv_test
    或直接输出 GLB（材质用 baseColorTexture + baseColorFactor）。
 4. **待处理细节**：楼梯/原木等"有属性变体"的方块需要 meta→state 映射；
    透明与双面（玻璃/树叶）；动画纹理取第一帧；tint（草/树叶的颜色表）。
+
+### 6.1 已实现部分
+
+| 组件 | 位置 | 说明 |
+|---|---|---|
+| 贴图表 | `Minecraft/TextureSupport/BlockTextureTable.h/.cpp` | 读 TSV、按 `block(:meta)` 查表；附带六面 UV 计算与法线→朝向判定。不依赖 CGAL / nbt++ |
+| UV 记录 | `CgalLittletilesBuilder.cpp` 的合并过程 | 建网格后坐标是"方块内 0..1"，但导出前还会做居中/缩放，所以**在合并时**用 `世界坐标 − 方块坐标` 记下每个顶点的本地坐标；写出时再按面朝向算 UV |
+| 写出 | 同上的 `MergeAndWriteToObj` | 输出 `mtllib` / `vt` / `usemtl` / `f v/vt`；同时生成 `.mtl` 并把用到的 PNG 复制到 OBJ 同目录（输出可整体搬走） |
+| 调用 | `main.cpp` | 素材目录优先读环境变量 `LITTLETILES_ASSETS`，否则依次尝试 `./assets/1.12.2` 与 `../assets/1.12.2`；都找不到就只导出几何并给出提示 |
+
+实测（chunk (-136,49)，8037 个 tile）：
+
+```
+顶点 63980 / 面 47070（与加贴图前完全一致，几何未受影响）
+唯一 vt 5008 个，全部落在 [0,1] 内
+5008 个 vt 中有 5004 个是"非 0/1 的中间值" → 确实在做按位置裁剪取样
+材质 6 个、复制贴图 6 张
+```
+
+尚未实现：**颜色烘焙**。当前 MTL 的 `Kd` 写成白色，染色信息尚未用到；
+Blender 不会把 `Kd` 与 `map_Kd` 相乘，因此下一步要按 (贴图, 颜色) 生成染色 PNG
+（实测整个测试数据集只有 16 个组合，成本很低）。

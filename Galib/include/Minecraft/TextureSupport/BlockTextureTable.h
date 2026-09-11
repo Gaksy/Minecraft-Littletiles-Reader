@@ -63,7 +63,8 @@ class BlockTextureTable {
 
   // 先按原名（如 "minecraft:stone:3"）精确匹配，
   // 未命中时退回去掉 meta 的名字（"minecraft:stone"）。
-  bool Lookup(const std::string& kBlockId, BlockFaceTextures* p_desc_textures) const;
+  bool Lookup(const std::string& kBlockId,
+              BlockFaceTextures* p_desc_textures) const;
 
  private:
   std::unordered_map<std::string, BlockFaceTextures> entries_;
@@ -73,8 +74,8 @@ class BlockTextureTable {
 // 计算"方块内归一化坐标"在指定面上的贴图坐标。
 // x/y/z 为该点在方块内的归一化坐标（x 西→东，y 下→上，z 北→南），
 // 返回的 v = 0 在贴图顶部；写 OBJ 的 vt 时需要再翻转一次（vt_v = 1 - v）。
-void ComputeFaceUv(FaceDirection direction, double x, double y, double z, double* p_desc_u,
-                   double* p_desc_v);
+void ComputeFaceUv(FaceDirection direction, double x, double y, double z,
+                   double* p_desc_u, double* p_desc_v);
 
 // 由面法线判断朝向（取绝对值最大的那个轴；法线不必归一化）。
 FaceDirection FaceDirectionFromNormal(double nx, double ny, double nz);

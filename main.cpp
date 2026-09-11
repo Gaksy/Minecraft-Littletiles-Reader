@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 
 #include "Minecraft/Anvil.h"
@@ -11,6 +12,7 @@ using galib::minecraft::ChunkCoordinate;
 
 using galib::minecraft::cgal_support::ChunkMesh;
 using galib::minecraft::cgal_support::MergeAndWriteToObj;
+using galib::minecraft::cgal_support::ObjExportOptions;
 using galib::minecraft::cgal_support::WriteToOff;
 using galib::minecraft::littletiles::ChunkTileEntities;
 
@@ -107,7 +109,20 @@ int main() {
       "Also scale the longest edge to 1 unit (changes the real size)?", false);
 
   // WriteToOff(chunk_mesh_management.mesh_array(), "../python/offs/test");
+  ObjExportOptions export_options;
+  export_options.geom_center = is_need_geometry_center;
+  export_options.normalize_scale = is_need_normalize_scale;
+  // 素材根目录：环境变量 LITTLETILES_ASSETS 优先；否则依次尝试
+  // ./assets/1.12.2（从仓库根运行）与 ../assets/1.12.2（从构建目录运行）
+  if (const char* const assets_env = std::getenv("LITTLETILES_ASSETS")) {
+    export_options.assets_root = assets_env;
+  } else if (std::filesystem::exists("assets/1.12.2/block_textures.tsv")) {
+    export_options.assets_root = "assets/1.12.2";
+  } else if (std::filesystem::exists("../assets/1.12.2/block_textures.tsv")) {
+    export_options.assets_root = "../assets/1.12.2";
+  }
+
   MergeAndWriteToObj(chunk_mesh_management.mesh_array(), obj_file_path.c_str(),
-                     is_need_geometry_center, is_need_normalize_scale);
+                     export_options);
   return EXIT_SUCCESS;
 }

@@ -65,13 +65,22 @@ class ChunkMesh {
 //
 // };
 
-// 合并所有 tile 网格并写出 OBJ。
-// kGeomCenter     : 把包围盒中心平移到原点（默认开启）。
-// kNormalizeScale : 在居中的基础上再等比缩放到"最长边 = 1"，便于第三方软件查看；
-//                   注意这会丢失"1 单位 = 1 方块"的原始比例，因此默认关闭。
+// OBJ 导出选项。
+struct ObjExportOptions {
+  // 把包围盒中心平移到原点（默认开启）。
+  bool geom_center{true};
+  // 在居中的基础上再等比缩放到"最长边 = 1"，便于第三方软件查看；
+  // 会丢失"1 单位 = 1 方块"的原始比例，因此默认关闭。
+  bool normalize_scale{false};
+  // 素材根目录（需包含 block_textures.tsv 与 textures/）。
+  // 留空则只导出几何，不写 vt / usemtl / mtl。
+  std::string assets_root;
+};
+
+// 合并所有 tile 网格并写出 OBJ（可选同时写出 MTL 与所需贴图）。
 void MergeAndWriteToObj(const std::vector<LtSurfaceMesh>& meshes,
-                        const char* p_filename, bool geom_center = true,
-                        bool normalize_scale = false);
+                        const char* p_filename,
+                        const ObjExportOptions& options = ObjExportOptions());
 
 void WriteToOff(const std::vector<LtSurfaceMesh>& meshes,
                 const char* p_filename);

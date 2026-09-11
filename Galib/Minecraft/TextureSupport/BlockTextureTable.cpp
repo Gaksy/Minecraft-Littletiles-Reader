@@ -26,7 +26,7 @@ namespace {
 
 // 表的列顺序（与 tools/resolve_block_textures.py 的 FACES 一致）
 constexpr FaceDirection kColumnOrder[kFaceCount] = {
-    FaceDirection::kDown, FaceDirection::kUp,    FaceDirection::kNorth,
+    FaceDirection::kDown,  FaceDirection::kUp,   FaceDirection::kNorth,
     FaceDirection::kSouth, FaceDirection::kWest, FaceDirection::kEast,
 };
 
@@ -61,7 +61,8 @@ bool BlockFaceTextures::empty() const {
   return true;
 }
 
-const std::string& BlockFaceTextures::Path(const FaceDirection direction) const {
+const std::string& BlockFaceTextures::Path(
+    const FaceDirection direction) const {
   return paths[static_cast<std::size_t>(direction)];
 }
 
@@ -86,7 +87,8 @@ bool BlockTextureTable::LoadFromTsv(const std::string& kTsvPath) {
     BlockFaceTextures textures;
     for (int i = 0; i < kFaceCount; ++i) {
       const std::string& value = fields[static_cast<std::size_t>(i) + 1];
-      textures.paths[static_cast<std::size_t>(kColumnOrder[i])] = value == "-" ? "" : value;
+      textures.paths[static_cast<std::size_t>(kColumnOrder[i])] =
+          value == "-" ? "" : value;
     }
     entries_[fields[0]] = std::move(textures);
   }
@@ -114,8 +116,9 @@ bool BlockTextureTable::Lookup(const std::string& kBlockId,
   return true;
 }
 
-void ComputeFaceUv(const FaceDirection direction, const double x, const double y, const double z,
-                   double* const p_desc_u, double* const p_desc_v) {
+void ComputeFaceUv(const FaceDirection direction, const double x,
+                   const double y, const double z, double* const p_desc_u,
+                   double* const p_desc_v) {
   // 下表的依据见 docs/texture-mapping.md：MC 模型规范里每个面的 u/v 轴与方向。
   double u = 0.0;
   double v = 0.0;
@@ -153,7 +156,8 @@ void ComputeFaceUv(const FaceDirection direction, const double x, const double y
   }
 }
 
-FaceDirection FaceDirectionFromNormal(const double nx, const double ny, const double nz) {
+FaceDirection FaceDirectionFromNormal(const double nx, const double ny,
+                                      const double nz) {
   const double ax = nx < 0 ? -nx : nx;
   const double ay = ny < 0 ? -ny : ny;
   const double az = nz < 0 ? -nz : nz;
