@@ -188,7 +188,11 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
             const ChunkBlocks::State& neighbor =
                 state_at(x + face.neighbor[0], y + face.neighbor[1],
                          z + face.neighbor[2]);
-            if (!neighbor.is_air()) {
+            // 只有"另一个普通实心方块"才挡得住这个面。
+            // LT 宿主位置的方块 id 是 LittleTiles 自己的方块（实测 id 257，非空气），
+            // 但它占的往往只是一小块几何（例如花盆），
+            // 因此不能拿它当实心方块——否则花盆下面那个完整方块的顶面会被剔掉。
+            if (!neighbor.is_air() && !neighbor.little_tiles_host) {
 #ifdef GALIB_DEBUG
               ++culled_faces;
 #endif

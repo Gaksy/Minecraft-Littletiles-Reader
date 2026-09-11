@@ -15,6 +15,7 @@
 | `ReadChunk` 的 `p_boxes_count` 输出参数从未被赋值 | `ChunkTileEntities.cpp` | `ecd30e4`：在共用的 `ReadTileEntities` 中填充 |
 | **同种方块的不同染色被整条丢弃**：`ReadBlockTileNbt` 用 block id 作 map 键，遇到重复 block id 直接 `continue` | 实测 chunk(-136,49)：NBT 里共 8037 个 box，读取器只报告 4456（**丢 45%**）；全量数据有 526 个 tile 条目因此被丢 | 材质键改为 `(block id, color)`（新增 `TileMaterial`），并把染色保存到 `TileEntity` / `LtSurfaceMesh` |
 | **完整方块只导出一两个面**：分组网格里跨方块焊接顶点，`Euler::add_face` 静默拒收后续方块的面 | 最小复现 `.ai/tools/lt_cube_face_probe.cpp`：16 个方块 96 个面只接受 24 个 | 顶点只在单个方块内焊接（`CgalWorldBlocks.cpp`），并统计 `add_face` 返回值。见 2.7 |
+| **LT 结构下面的完整方块丢了面**：邻居剔除把 LittleTiles 宿主方块当成实心方块 | 探针 `.ai/tools/lt_host_probe.cpp`：LT 宿主位置的 block id 是 257（非空气），而那里可能只摆了一个花盆 | 剔除条件加上 `!little_tiles_host`（`CgalWorldBlocks.cpp`）。见 2.8 |
 
 ## 2. 未修复
 
@@ -225,6 +226,35 @@ B 方块内焊接（修复后）：期望面 96，add_face 接受 96，被拒绝
 按材质逐面统计法线方向也能对上：不剔除时 `blocks_dirt` 的 15630 个方块
 在 ±x / ±z / +y 各 15630 个面、−y 方向 15825 个面，即每个方块都是完整六面体。
 
+### 2.8 LittleTiles 结构下面的完整方块被削掉顶面 —— 已修复
+
+**症状**：`test_region` chunk (0,0) 里有一个完整方块，上面放了一个用 tile 拼的花盆；
+导出后那个完整方块的**顶面不见了**，地面像开了个洞。
+
+**根因**：邻居剔除把"LittleTiles 宿主方块"当成了实心方块。
+探针 `.ai/tools/lt_host_probe.cpp` 实测该位置的 `(block_id, meta) = (257, 0)`：
+LittleTiles 用自己的方块占了这个世界位置，所以 `is_air()` 为假，
+于是下面那个完整方块的 `+y` 面被判定为"看不见"而剔除。
+但 257 号方块渲染的是 tile（这里只有一个小花盆），并不填满整个方块的立方体。
+
+**修复**：`BuildWorldBlockMeshes` 的剔除条件改为"只有另一个**普通**实心方块才挡得住"：
+
+```cpp
+if (!neighbor.is_air() && !neighbor.little_tiles_host) { /* 剔除 */ }
+```
+
+**实测影响**：
+
+| 输入 | 修复前 | 修复后 |
+|---|---|---|
+| `test_region` (0,0) 半径 1 | 4733 面 | **4881 面**（+148，恰好等于该区域的 148 个 LT 宿主） |
+| `test_region_large` 11×11 普通方块面 | 103257 | **118783**（+15526，该区域共 17941 个 LT 宿主） |
+| `test_region_large` 11×11 总计 | 2,034,653 面 / 177 MB | **2,050,179 面 / 179 MB**，耗时不变（44.4 s） |
+
+> 已知取舍：如果某个 LT 宿主位置**刚好**被 tile 填满整个方块，那么保留下来的那个完整方块面
+> 会与 tile 表面共面，理论上可能出现 z-fighting。要彻底解决需要判断"邻居位置的 tile
+> 是否完整覆盖了这个面"（按 grid 做覆盖统计），列为后续项；当前策略是宁可有面也不要丢面。
+
 ## 3. 输出非确定性（重要）
 
 同一输入、同一个二进制，**OBJ 输出有两种形式，每次进程运行随机二选一**：
@@ -253,9 +283,9 @@ B 方块内焊接（修复后）：期望面 96，add_face 接受 96，被拒绝
 
 | 输入 | 结果 |
 |---|---|
-| `test_region` chunk (0,0) 半径 1 | 236 tiles → 4733 面 → 0.6 MB OBJ，约 0.2 s |
-| `test_region_medim` chunk (-136,49) | 8037 tiles → 47842 面 → 4.4 MB OBJ，约 1.2 s |
-| `test_region_large` 11×11（-7,-26 → -2,-21，含普通方块） | 324427 tiles + 103257 个普通方块面 → 2,982,366 顶点 / 2,034,653 面 → 177 MB OBJ，**44.3 s**（读取与建网格 34.8 + 普通方块网格 2.4 + 写出文件 7.1） |
+| `test_region` chunk (0,0) 半径 1 | 236 tiles → 4881 面 → 0.3 MB OBJ，约 0.2 s |
+| `test_region_medim` chunk (-136,49) | 8037 tiles → 47848 面 → 3.7 MB OBJ，约 1.1 s |
+| `test_region_large` 11×11（-7,-26 → -2,-21，含普通方块） | 324427 tiles + 118783 个普通方块面 → 3,034,096 顶点 / 2,050,179 面 → 179 MB OBJ，**44.4 s**（读取与建网格 34.6 + 普通方块网格 2.7 + 写出文件 7.1） |
 
 > 旧记录里的 "chunk (-136,49) 4456 tiles / 37658 顶点 / 57492 面" 是**染色去重修复与
 > 半空间裁剪之前**的数字：前者丢了 45% 的染色 tile，后者把面全拆成三角形。
