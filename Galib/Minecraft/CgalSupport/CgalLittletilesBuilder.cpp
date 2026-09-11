@@ -411,6 +411,9 @@ struct ObjMeshBuilder::Impl {
     out << std::setprecision(9);
     const std::string obj_stem = output_path.stem().string();
     const std::string mtl_filename = obj_stem + ".mtl";
+    // 贴图统一放进 OBJ 旁边的同名子目录，避免几十上百张 PNG 和 OBJ 混在一起；
+    // MTL 仍与 OBJ 同级（Blender 按 mtllib 的路径找 MTL，map_Kd 再相对 MTL 解析）。
+    const std::string texture_dir_name = obj_stem + "_textures";
     // 只有材质与逐面信息都对齐时才写贴图坐标，否则退回纯几何输出
     const bool write_materials =
         !material_names.empty() &&
@@ -493,19 +496,26 @@ struct ObjMeshBuilder::Impl {
     out.close();
 
     // 写 MTL：每个材质把 (贴图 × 生物群系染色 × tile 颜色) 烘焙成一张 PNG，
-    // 统一放到 OBJ 同目录，保证输出可以整体搬走。
+    // 统一放到 OBJ 旁边的 <obj_stem>_textures/ 目录，保证输出可以整体搬走。
     std::size_t baked_texture_count = 0;
     if (write_materials) {
       const std::filesystem::path mtl_path =
           output_path.parent_path() / mtl_filename;
+      const std::filesystem::path texture_dir =
+          output_path.parent_path() / texture_dir_name;
+      std::error_code texture_dir_error;
+      std::filesystem::create_directories(texture_dir, texture_dir_error);
+      if (texture_dir_error) {
+        std::cerr << "无法创建贴图目录: " << texture_dir << " —— "
+                  << texture_dir_error.message() << std::endl;
+      }
       std::ofstream mtl(mtl_path);
       if (mtl) {
         mtl << "# 由 LittleTilesReader 生成\n";
         for (std::size_t i = 0; i < material_names.size(); ++i) {
           const std::string& texture_path = material_textures[i];
           const std::string png_name = material_names[i] + ".png";
-          const std::filesystem::path target =
-              output_path.parent_path() / png_name;
+          const std::filesystem::path target = texture_dir / png_name;
 
           // 无染色时直接复制原贴图，避免多做一次无意义的编解码
           const bool needs_bake = material_tints[i] != 0x00FFFFFFu ||
@@ -543,7 +553,7 @@ struct ObjMeshBuilder::Impl {
               << "Ka 1.000 1.000 1.000\n"
               << "Kd 1.000 1.000 1.000\n"
               << "d 1.0\n"
-              << "map_Kd " << png_name << "\n";
+              << "map_Kd " << texture_dir_name << "/" << png_name << "\n";
         }
         mtl.close();
       }
@@ -555,7 +565,7 @@ struct ObjMeshBuilder::Impl {
               << "\n";
     if (write_materials) {
       std::cout << "  材质 " << material_names.size() << " 个，已写出贴图 "
-                << baked_texture_count << " 张";
+                << baked_texture_count << " 张到 " << texture_dir_name << "/";
       if (missing_texture_faces > 0) {
         std::cout << "（另有 " << missing_texture_faces
                   << " 个面没解析到贴图）";

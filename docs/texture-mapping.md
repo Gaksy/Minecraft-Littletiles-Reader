@@ -179,7 +179,7 @@ python3 tools/make_uv_test_model.py assets/1.12.2 out_file/uv_test
 |---|---|---|
 | 贴图表 | `Minecraft/TextureSupport/BlockTextureTable.h/.cpp` | 读 TSV、按 `block(:meta)` 查表；附带六面 UV 计算与法线→朝向判定。不依赖 CGAL / nbt++ |
 | UV 记录 | `CgalLittletilesBuilder.cpp` 的合并过程 | 建网格后坐标是"方块内 0..1"，但导出前还会做居中/缩放，所以**在合并时**用 `世界坐标 − 方块坐标` 记下每个顶点的本地坐标；写出时再按面朝向算 UV |
-| 写出 | 同上的 `MergeAndWriteToObj` | 输出 `mtllib` / `vt` / `usemtl` / `f v/vt`；同时生成 `.mtl` 并把用到的 PNG 复制到 OBJ 同目录（输出可整体搬走） |
+| 写出 | 同上的 `MergeAndWriteToObj` | 输出 `mtllib` / `vt` / `usemtl` / `f v/vt`；同时生成 `.mtl`，把用到的 PNG 写进 OBJ 旁边的 `<obj 名>_textures/` 子目录（`map_Kd` 指向该子目录，输出可整体搬走） |
 | 调用 | `main.cpp` | 素材目录优先读环境变量 `LITTLETILES_ASSETS`，否则依次尝试 `./assets/1.12.2` 与 `../assets/1.12.2`；都找不到就只导出几何并给出提示 |
 
 实测（chunk (-136,49)，8037 个 tile）：
