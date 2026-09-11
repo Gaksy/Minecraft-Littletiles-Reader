@@ -1,8 +1,10 @@
 # Galib 核心库：解析 + 几何构建，不包含任何 CLI / 文件输出入口。
 # 目前使用静态库，后续若要给 Web 服务以动态库形式调用，可在此切换为 SHARED。
 add_library(galib STATIC
-    Minecraft/Anvil.cpp
-    Minecraft/MinecraftCoord.cpp
+  Minecraft/Anvil.cpp
+  Minecraft/BlockIdTable.cpp
+  Minecraft/ChunkBlocks.cpp
+  Minecraft/MinecraftCoord.cpp
     Minecraft/ChunkTileEntities.cpp
     Minecraft/BlockTileEntities.cpp
     Minecraft/LittleTilesEntity.cpp
@@ -10,6 +12,7 @@ add_library(galib STATIC
   Minecraft/CgalSupport/CgalTypeDef.cpp
   Minecraft/CgalSupport/CgalLtSupport.cpp
   Minecraft/CgalSupport/CgalLittletilesBuilder.cpp
+  Minecraft/CgalSupport/CgalWorldBlocks.cpp
   Minecraft/TextureSupport/BlockTextureTable.cpp
   Minecraft/TextureSupport/PngImage.cpp
   Minecraft/TextureSupport/TextureBaker.cpp

@@ -33,7 +33,8 @@ class PngImage {
 
   // 失败时返回 false，并把原因写入 p_desc_error（可为空）
   bool Load(const std::string& kPath, std::string* p_desc_error = nullptr);
-  bool Save(const std::string& kPath, std::string* p_desc_error = nullptr) const;
+  bool Save(const std::string& kPath,
+            std::string* p_desc_error = nullptr) const;
 
   bool is_valid() const { return width_ > 0 && height_ > 0; }
   int width() const { return width_; }

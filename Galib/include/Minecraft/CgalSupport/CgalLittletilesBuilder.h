@@ -17,6 +17,7 @@
 #ifndef GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
 #define GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
 
+#include <memory>
 #include <vector>
 
 #include "GalibNamespaceDef.h"
@@ -81,6 +82,28 @@ struct ObjExportOptions {
 void MergeAndWriteToObj(const std::vector<LtSurfaceMesh>& meshes,
                         const char* p_filename,
                         const ObjExportOptions& options = ObjExportOptions());
+
+// 增量式 OBJ 构建器：逐批 AddMesh（每批加入后即可释放），最后 WriteToFile。
+// 用途：大范围导出（几百个区块、几十万个 tile）时避免同时持有所有网格——
+// 先把网格全部收进 vector 再交给 MergeAndWriteToObj，会因内存占用过高被系统杀掉。
+class ObjMeshBuilder {
+ public:
+  explicit ObjMeshBuilder(const ObjExportOptions& kOptions);
+  ~ObjMeshBuilder();
+
+  ObjMeshBuilder(const ObjMeshBuilder&) = delete;
+  ObjMeshBuilder& operator=(const ObjMeshBuilder&) = delete;
+
+  // 把一张网格并入结果（顶点、面、材质与逐面 UV 信息）
+  void AddMesh(const LtSurfaceMesh& kMesh);
+
+  // 归一化并写出 OBJ（含 mtllib/vt/usemtl 与 MTL、贴图）
+  bool WriteToFile(const char* kFilename);
+
+ private:
+  struct Impl;  // 定义在 .cpp 中
+  std::unique_ptr<Impl> impl_;
+};
 
 void WriteToOff(const std::vector<LtSurfaceMesh>& meshes,
                 const char* p_filename);

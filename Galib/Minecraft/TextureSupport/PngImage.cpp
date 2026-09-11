@@ -35,14 +35,16 @@ std::uint32_t ReadBigEndian32(const unsigned char* const kData) {
          static_cast<std::uint32_t>(kData[3]);
 }
 
-void AppendBigEndian32(std::vector<unsigned char>* const p_desc_out, const std::uint32_t kValue) {
+void AppendBigEndian32(std::vector<unsigned char>* const p_desc_out,
+                       const std::uint32_t kValue) {
   p_desc_out->push_back(static_cast<unsigned char>((kValue >> 24) & 0xFF));
   p_desc_out->push_back(static_cast<unsigned char>((kValue >> 16) & 0xFF));
   p_desc_out->push_back(static_cast<unsigned char>((kValue >> 8) & 0xFF));
   p_desc_out->push_back(static_cast<unsigned char>(kValue & 0xFF));
 }
 
-void AppendChunk(std::vector<unsigned char>* const p_desc_out, const char* const kType,
+void AppendChunk(std::vector<unsigned char>* const p_desc_out,
+                 const char* const kType,
                  const std::vector<unsigned char>& kData) {
   AppendBigEndian32(p_desc_out, static_cast<std::uint32_t>(kData.size()));
   const std::size_t type_offset = p_desc_out->size();
@@ -72,12 +74,14 @@ int ChannelsOfColorType(const int kColorType) {
 }
 
 // 反解一行 PNG 滤波器，输出到 kLine（就地修改）
-void UnfilterLine(const int kFilter, const int kBytesPerPixel, const int kStride,
-                  const unsigned char* const kPrev, unsigned char* const kLine) {
+void UnfilterLine(const int kFilter, const int kBytesPerPixel,
+                  const int kStride, const unsigned char* const kPrev,
+                  unsigned char* const kLine) {
   for (int i = 0; i < kStride; ++i) {
     const int a = i >= kBytesPerPixel ? kLine[i - kBytesPerPixel] : 0;
     const int b = kPrev ? kPrev[i] : 0;
-    const int c = (kPrev && i >= kBytesPerPixel) ? kPrev[i - kBytesPerPixel] : 0;
+    const int c =
+        (kPrev && i >= kBytesPerPixel) ? kPrev[i - kBytesPerPixel] : 0;
     switch (kFilter) {
       case 1:
         kLine[i] = static_cast<unsigned char>(kLine[i] + a);
@@ -109,14 +113,16 @@ void UnfilterLine(const int kFilter, const int kBytesPerPixel, const int kStride
 }  // namespace
 
 PngImage::PngImage(const int kWidth, const int kHeight)
-    : width_(kWidth), height_(kHeight),
+    : width_(kWidth),
+      height_(kHeight),
       pixels_(static_cast<std::size_t>(kWidth) * kHeight * kPixelsPerByte, 0) {}
 
 unsigned char* PngImage::Pixel(const int kX, const int kY) {
   if (kX < 0 || kY < 0 || kX >= width_ || kY >= height_) {
     return nullptr;
   }
-  return pixels_.data() + (static_cast<std::size_t>(kY) * width_ + kX) * kPixelsPerByte;
+  return pixels_.data() +
+         (static_cast<std::size_t>(kY) * width_ + kX) * kPixelsPerByte;
 }
 
 const unsigned char* PngImage::Pixel(const int kX, const int kY) const {
@@ -137,7 +143,8 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   }
   const std::vector<unsigned char> data((std::istreambuf_iterator<char>(input)),
                                         std::istreambuf_iterator<char>());
-  static const unsigned char kSignature[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+  static const unsigned char kSignature[8] = {0x89, 'P',  'N',  'G',
+                                              0x0D, 0x0A, 0x1A, 0x0A};
   if (data.size() < 8 || std::memcmp(data.data(), kSignature, 8) != 0) {
     return fail("不是合法的 PNG");
   }
@@ -154,7 +161,8 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   std::size_t offset = 8;
   while (offset + 12 <= data.size()) {
     const std::uint32_t length = ReadBigEndian32(data.data() + offset);
-    const char* const type = reinterpret_cast<const char*>(data.data() + offset + 4);
+    const char* const type =
+        reinterpret_cast<const char*>(data.data() + offset + 4);
     const unsigned char* const payload = data.data() + offset + 8;
     if (offset + 12 + length > data.size()) {
       break;
@@ -194,8 +202,8 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   const std::size_t stride = static_cast<std::size_t>(width) * channels;
   std::vector<unsigned char> raw(stride * height + height);
   uLongf raw_size = static_cast<uLongf>(raw.size());
-  if (uncompress(raw.data(), &raw_size, compressed.data(), static_cast<uLong>(compressed.size())) !=
-      Z_OK) {
+  if (uncompress(raw.data(), &raw_size, compressed.data(),
+                 static_cast<uLong>(compressed.size())) != Z_OK) {
     return fail("zlib 解压失败");
   }
   raw.resize(raw_size);
@@ -214,11 +222,12 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
     const int filter = raw[raw_offset++];
     std::memcpy(line.data(), raw.data() + raw_offset, stride);
     raw_offset += stride;
-    UnfilterLine(filter, channels, static_cast<int>(stride), y > 0 ? prev.data() : nullptr,
-                 line.data());
+    UnfilterLine(filter, channels, static_cast<int>(stride),
+                 y > 0 ? prev.data() : nullptr, line.data());
 
     for (int x = 0; x < width; ++x) {
-      const unsigned char* const source = line.data() + static_cast<std::size_t>(x) * channels;
+      const unsigned char* const source =
+          line.data() + static_cast<std::size_t>(x) * channels;
       unsigned char* const target = Pixel(x, y);
       switch (color_type) {
         case 0:
@@ -238,7 +247,8 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
             target[1] = palette[index + 1];
             target[2] = palette[index + 2];
           }
-          target[3] = source[0] < transparency.size() ? transparency[source[0]] : 255;
+          target[3] =
+              source[0] < transparency.size() ? transparency[source[0]] : 255;
           break;
         }
         case 4:
@@ -255,7 +265,8 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   return true;
 }
 
-bool PngImage::Save(const std::string& kPath, std::string* const p_desc_error) const {
+bool PngImage::Save(const std::string& kPath,
+                    std::string* const p_desc_error) const {
   if (!is_valid()) {
     if (p_desc_error) {
       *p_desc_error = "图像为空";
@@ -264,17 +275,20 @@ bool PngImage::Save(const std::string& kPath, std::string* const p_desc_error) c
   }
 
   std::vector<unsigned char> raw;
-  raw.reserve((static_cast<std::size_t>(width_) * kPixelsPerByte + 1) * height_);
+  raw.reserve((static_cast<std::size_t>(width_) * kPixelsPerByte + 1) *
+              height_);
   for (int y = 0; y < height_; ++y) {
     raw.push_back(0);  // filter 0
-    const unsigned char* const row = pixels_.data() + static_cast<std::size_t>(y) * width_ * 4;
-    raw.insert(raw.end(), row, row + static_cast<std::size_t>(width_) * kPixelsPerByte);
+    const unsigned char* const row =
+        pixels_.data() + static_cast<std::size_t>(y) * width_ * 4;
+    raw.insert(raw.end(), row,
+               row + static_cast<std::size_t>(width_) * kPixelsPerByte);
   }
 
   uLongf compressed_size = compressBound(static_cast<uLong>(raw.size()));
   std::vector<unsigned char> compressed(compressed_size);
-  if (compress2(compressed.data(), &compressed_size, raw.data(), static_cast<uLong>(raw.size()),
-                Z_BEST_COMPRESSION) != Z_OK) {
+  if (compress2(compressed.data(), &compressed_size, raw.data(),
+                static_cast<uLong>(raw.size()), Z_BEST_COMPRESSION) != Z_OK) {
     if (p_desc_error) {
       *p_desc_error = "zlib 压缩失败";
     }
@@ -283,7 +297,8 @@ bool PngImage::Save(const std::string& kPath, std::string* const p_desc_error) c
   compressed.resize(compressed_size);
 
   std::vector<unsigned char> output;
-  static const unsigned char kSignature[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+  static const unsigned char kSignature[8] = {0x89, 'P',  'N',  'G',
+                                              0x0D, 0x0A, 0x1A, 0x0A};
   output.insert(output.end(), kSignature, kSignature + 8);
 
   std::vector<unsigned char> header;

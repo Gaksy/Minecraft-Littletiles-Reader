@@ -23,6 +23,7 @@ using std::string;
 
 using galib::minecraft::BlockCoordinate;
 using galib::minecraft::cgal_support::ApplyWorldOffset;
+using galib::minecraft::cgal_support::LtPoint3;
 using galib::minecraft::cgal_support::LtSurfaceMesh;
 using galib::minecraft::cgal_support::SurfaceMeshType;
 using galib::minecraft::cgal_support::UVData;
@@ -34,6 +35,28 @@ SurfaceMeshType& LtSurfaceMesh::surface_mesh() { return this->surface_mesh_; }
 
 const SurfaceMeshType& LtSurfaceMesh::surface_mesh() const {
   return this->surface_mesh_;
+}
+
+void LtSurfaceMesh::SetVertexLocalPosition(
+    const SurfaceMeshType::Vertex_index kVertex,
+    const LtPoint3& kLocalPosition) {
+  if (vertex_local_positions_.size() <= static_cast<std::size_t>(kVertex)) {
+    vertex_local_positions_.resize(static_cast<std::size_t>(kVertex) + 1);
+  }
+  vertex_local_positions_[static_cast<std::size_t>(kVertex)] = kLocalPosition;
+}
+
+bool LtSurfaceMesh::has_vertex_local_positions() const {
+  return !vertex_local_positions_.empty();
+}
+
+const LtPoint3& LtSurfaceMesh::VertexLocalPosition(
+    const SurfaceMeshType::Vertex_index kVertex) const {
+  static const LtPoint3 kOrigin(0.0, 0.0, 0.0);
+  if (static_cast<std::size_t>(kVertex) >= vertex_local_positions_.size()) {
+    return kOrigin;
+  }
+  return vertex_local_positions_[static_cast<std::size_t>(kVertex)];
 }
 
 void LtSurfaceMesh::set_block_id(const string& str) { this->block_id_ = str; }

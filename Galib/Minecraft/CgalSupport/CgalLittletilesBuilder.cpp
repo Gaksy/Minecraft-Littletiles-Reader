@@ -48,6 +48,7 @@ using galib::minecraft::cgal_support::CreateMeshFromTileEntity;
 using galib::minecraft::cgal_support::LtPoint3;
 using galib::minecraft::cgal_support::LtSurfaceMesh;
 using galib::minecraft::cgal_support::ObjExportOptions;
+using galib::minecraft::cgal_support::ObjMeshBuilder;
 using galib::minecraft::cgal_support::SurfaceMeshType;
 
 using galib::minecraft::littletiles::BlockTileEntities;
@@ -208,366 +209,403 @@ long long QuantizeUvKey(const double kU, const double kV) {
 
 }  // namespace
 
+struct ObjMeshBuilder::Impl {
+  explicit Impl(const ObjExportOptions& kOptions)
+      : options(kOptions), baker(kOptions.assets_root) {
+    has_textures =
+        !options.assets_root.empty() &&
+        texture_table.LoadFromTsv(options.assets_root + "/block_textures.tsv");
+  }
+
+  // 把一张网格并入合并结果，并记录它的材质与逐面 UV 信息
+  void AddMesh(const LtSurfaceMesh& kMesh) {
+    using Point = SurfaceMeshType::Point;
+
+    {  // 并入这一张网格
+      const SurfaceMeshType& current_mesh = kMesh.surface_mesh();
+      const auto block_coord = kMesh.block_coord_in_world();
+      const std::string block_id = kMesh.block_id();
+      // 网格若记录了逐顶点本地坐标就用它（一个网格含多个方块时必须靠它算 UV），
+      // 否则退化为"世界坐标 − 方块坐标"（LittleTiles 每个 tile 一个网格的情形）。
+      const bool has_vertex_local = kMesh.has_vertex_local_positions();
+
+      BlockFaceTextures face_textures;
+      const bool has_block_textures =
+          has_textures && texture_table.Lookup(block_id, &face_textures) &&
+          !face_textures.empty();
+
+      // 首先为当前mesh的所有顶点在合并mesh中创建对应顶点
+      std::vector<SurfaceMeshType::Vertex_index>
+          current_mesh_vertices_in_marged;
+      for (const SurfaceMeshType::vertex_index& v : current_mesh.vertices()) {
+        LtPoint3 current_point = current_mesh.point(v);
+        SurfaceMeshType::Vertex_index new_vertex =
+            marged_mesh.add_vertex(current_point);
+        current_mesh_vertices_in_marged.push_back(new_vertex);
+        vertex_index_map[v] = new_vertex;  // 映射原始顶点索引到新顶点索引
+        // 记录"方块内本地坐标"：世界坐标 = 本地坐标 + 方块坐标。
+        // UV 必须用它来算，不能等导出归一化（居中/缩放）之后再从坐标反推。
+        if (has_vertex_local) {
+          vertex_local_positions.push_back(kMesh.VertexLocalPosition(v));
+        } else {
+          vertex_local_positions.emplace_back(
+              current_point.x() - block_coord.x,
+              current_point.y() - block_coord.y,
+              current_point.z() - block_coord.z);
+        }
+      }
+
+      // 然后添加面到合并的mesh中
+      for (const SurfaceMeshType::face_index& f : current_mesh.faces()) {
+        std::vector<SurfaceMeshType::Vertex_index> face_vertices;
+
+        // 获取当前面的所有顶点
+        CGAL::Vertex_around_face_iterator<SurfaceMeshType> vbegin, vend;
+        for (boost::tie(vbegin, vend) =
+                 vertices_around_face(current_mesh.halfedge(f), current_mesh);
+             vbegin != vend; ++vbegin) {
+          SurfaceMeshType::Vertex_index original_vertex = *vbegin;
+          // 通过映射找到在合并mesh中的对应顶点
+          auto it_vertex = vertex_index_map.find(original_vertex);
+          if (it_vertex != vertex_index_map.end()) {
+            face_vertices.push_back(it_vertex->second);
+          }
+        }
+
+        // 保留 n 边形：平面面片现在是四边形/多边形，不再强制拆成三角形
+        // （CGAL 的 Surface_mesh 支持多边形面，OBJ 也直接支持）
+        if (face_vertices.size() >= 3) {
+          const std::size_t faces_before = marged_mesh.number_of_faces();
+          // 使用try-catch防止添加无效的面
+          try {
+            marged_mesh.add_face(face_vertices);
+          } catch (...) {
+#ifdef GALIB_DEBUG
+            printf("警告: 无法添加面，可能是重复面或无效几何\n");
+#endif
+          }
+
+          // 只有真正加进去的面才记录附加信息，保证与网格的面顺序对齐
+          if (marged_mesh.number_of_faces() > faces_before) {
+            ExportedFaceInfo info;
+            if (has_block_textures) {
+              const FaceDirection direction = FaceDirectionOf(current_mesh, f);
+              const std::string& texture_path = face_textures.Path(direction);
+              if (texture_path.empty()) {
+                ++missing_texture_faces;
+              } else {
+                // 生物群系染色：只有模型标了 tintindex 的面才需要
+                std::uint32_t tint_rgb = 0x00FFFFFFu;
+                const int tint_index = face_textures.Tint(direction);
+                std::uint32_t tint_argb = 0;
+                if (tint_index >= 0 &&
+                    baker.ResolveTintColor(block_id, tint_index, &tint_argb)) {
+                  tint_rgb = tint_argb & 0x00FFFFFFu;
+                }
+                // tile 自带染色（LittleTiles 的彩色 tile）
+                const std::uint32_t tile_color =
+                    kMesh.has_tile_color()
+                        ? static_cast<std::uint32_t>(kMesh.tile_color())
+                        : 0xFFFFFFFFu;
+
+                const std::string name =
+                    MakeMaterialName(texture_path, tint_rgb, tile_color);
+                auto found = material_index.find(name);
+                if (found == material_index.end()) {
+                  found =
+                      material_index.emplace(name, material_names.size()).first;
+                  material_names.push_back(name);
+                  material_textures.push_back(texture_path);
+                  material_tints.push_back(tint_rgb);
+                  material_tile_colors.push_back(tile_color);
+                }
+                info.material_index = found->second;
+                info.direction = direction;
+                info.has_material = true;
+              }
+            }
+            face_infos.push_back(info);
+          }
+        }
+      }
+
+      // 清理当前mesh的顶点映射，为下一个mesh准备
+      vertex_index_map.clear();
+    }
+  }
+
+  // 归一化（居中/缩放）并写出 OBJ、MTL 与贴图
+  bool WriteToFile(const char* const kFilename) {
+    using Point = SurfaceMeshType::Point;
+    // 归一化：把包围盒中心平移到原点；如需要，再等比缩放到最长边 = 1
+    if (marged_mesh.number_of_vertices() > 0 &&
+        (options.geom_center || options.normalize_scale)) {
+      CGAL::Bbox_3 bbox;
+      bool first = true;
+
+      // 计算所有顶点的包围盒
+      for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
+        const Point& p = marged_mesh.point(v);
+        if (first) {
+          bbox = p.bbox();
+          first = false;
+        } else {
+          bbox = bbox + p.bbox();
+        }
+      }
+
+      // 计算包围盒中心与缩放系数（以最长边为基准，保持长宽比）
+      const double center_x = (bbox.xmin() + bbox.xmax()) / 2.0;
+      const double center_y = (bbox.ymin() + bbox.ymax()) / 2.0;
+      const double center_z = (bbox.zmin() + bbox.zmax()) / 2.0;
+
+      const double extent = std::max(
+          bbox.xmax() - bbox.xmin(),
+          std::max(bbox.ymax() - bbox.ymin(), bbox.zmax() - bbox.zmin()));
+      double scale = 1.0;
+      if (options.normalize_scale && extent > 1e-12) {
+        scale = 1.0 / extent;
+      }
+
+      // 先平移到原点，再按需缩放
+      for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
+        Point& p = marged_mesh.point(v);
+        p = Point((p.x() - center_x) * scale, (p.y() - center_y) * scale,
+                  (p.z() - center_z) * scale);
+      }
+    }
+
+#ifdef GALIB_DEBUG
+    // 检查合并后的网格
+    printf("合并后网格统计: ");
+    printf("顶点数: %u\n", marged_mesh.number_of_vertices());
+    printf("面数: %u\n", marged_mesh.number_of_faces());
+#endif
+
+    // 导出为OBJ文件
+    // 注意：ofstream 不会创建目录，必须先把输出目录建出来，否则会直接失败
+    const std::filesystem::path output_path(kFilename);
+    if (output_path.has_parent_path()) {
+      std::error_code create_error;
+      std::filesystem::create_directories(output_path.parent_path(),
+                                          create_error);
+      if (create_error) {
+        std::cerr << "无法创建输出目录: " << output_path.parent_path() << " —— "
+                  << create_error.message() << std::endl;
+        return false;
+      }
+    }
+
+    std::ofstream out(output_path);
+    if (!out) {
+      std::error_code path_error;
+      std::cerr << "无法打开文件: "
+                << std::filesystem::weakly_canonical(output_path, path_error)
+                << std::endl;
+      return false;
+    }
+
+    // 输出顶点
+    // 提高精度：默认流精度只有 6 位有效数字，坐标在千级（未居中的世界坐标）时
+    // 量化步长可达 0.01 方块，会静默改变几何。
+    out << std::setprecision(9);
+    const std::string obj_stem = output_path.stem().string();
+    const std::string mtl_filename = obj_stem + ".mtl";
+    // 只有材质与逐面信息都对齐时才写贴图坐标，否则退回纯几何输出
+    const bool write_materials =
+        !material_names.empty() &&
+        face_infos.size() == marged_mesh.number_of_faces() &&
+        vertex_local_positions.size() == marged_mesh.number_of_vertices();
+    if (write_materials) {
+      out << "mtllib " << mtl_filename << "\n";
+    }
+
+    for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
+      const LtPoint3& p = marged_mesh.point(v);
+      out << "v " << p.x() << " " << p.y() << " " << p.z() << "\n";
+    }
+
+    // 逐面算出每个角的贴图坐标。UV 由"方块内本地坐标 + 面朝向"决定：
+    // 本地坐标在建网格时记录，不能用导出归一化之后的坐标反推。
+    std::vector<std::vector<std::size_t>>
+        face_uv_indices;  // 每个角对应的 vt 下标（1 起）
+    if (write_materials) {
+      std::unordered_map<long long, std::size_t> uv_dedup;
+      std::vector<std::pair<double, double>> uv_values;
+      std::size_t face_index = 0;
+      for (const SurfaceMeshType::face_index& f : marged_mesh.faces()) {
+        const ExportedFaceInfo& info = face_infos[face_index++];
+        std::vector<std::size_t> uv_indices;
+        if (info.has_material) {
+          for (const SurfaceMeshType::vertex_index v :
+               vertices_around_face(marged_mesh.halfedge(f), marged_mesh)) {
+            const LtPoint3& local = vertex_local_positions[v.idx()];
+            double u = 0.0;
+            double uv_v = 0.0;
+            ComputeFaceUv(info.direction, local.x(), local.y(), local.z(), &u,
+                          &uv_v);
+            // OBJ 的 vt 以左下角为原点，而 v = 0 在贴图顶部，因此翻转一次
+            const double vt_u = u;
+            const double vt_v = 1.0 - uv_v;
+            const long long key = QuantizeUvKey(vt_u, vt_v);
+            auto found = uv_dedup.find(key);
+            if (found == uv_dedup.end()) {
+              uv_values.emplace_back(vt_u, vt_v);
+              found = uv_dedup.emplace(key, uv_values.size())
+                          .first;  // OBJ 下标从 1 开始
+            }
+            uv_indices.push_back(found->second);
+          }
+        }
+        face_uv_indices.push_back(std::move(uv_indices));
+      }
+      for (const auto& uv : uv_values) {
+        out << "vt " << uv.first << " " << uv.second << "\n";
+      }
+    }
+
+    // 输出面（按材质分组，切换材质时写 usemtl）
+    std::size_t face_index = 0;
+    std::size_t current_material = std::numeric_limits<std::size_t>::max();
+    for (const SurfaceMeshType::face_index& f : marged_mesh.faces()) {
+      if (write_materials) {
+        const ExportedFaceInfo& info = face_infos[face_index];
+        if (info.has_material && info.material_index != current_material) {
+          out << "usemtl " << material_names[info.material_index] << "\n";
+          current_material = info.material_index;
+        }
+      }
+
+      out << "f";
+      std::size_t corner = 0;
+      for (const SurfaceMeshType::vertex_index v :
+           vertices_around_face(marged_mesh.halfedge(f), marged_mesh)) {
+        out << " " << (v.idx() + 1);
+        if (write_materials && corner < face_uv_indices[face_index].size()) {
+          out << "/" << face_uv_indices[face_index][corner];
+        }
+        ++corner;
+      }
+      out << "\n";
+      ++face_index;
+    }
+
+    out.close();
+
+    // 写 MTL：每个材质把 (贴图 × 生物群系染色 × tile 颜色) 烘焙成一张 PNG，
+    // 统一放到 OBJ 同目录，保证输出可以整体搬走。
+    std::size_t baked_texture_count = 0;
+    if (write_materials) {
+      const std::filesystem::path mtl_path =
+          output_path.parent_path() / mtl_filename;
+      std::ofstream mtl(mtl_path);
+      if (mtl) {
+        mtl << "# 由 LittleTilesReader 生成\n";
+        for (std::size_t i = 0; i < material_names.size(); ++i) {
+          const std::string& texture_path = material_textures[i];
+          const std::string png_name = material_names[i] + ".png";
+          const std::filesystem::path target =
+              output_path.parent_path() / png_name;
+
+          // 无染色时直接复制原贴图，避免多做一次无意义的编解码
+          const bool needs_bake = material_tints[i] != 0x00FFFFFFu ||
+                                  material_tile_colors[i] != 0xFFFFFFFFu;
+          std::string bake_error;
+          bool texture_ready = false;
+          if (needs_bake) {
+            texture_ready = baker.Bake(texture_path, material_tints[i],
+                                       material_tile_colors[i], target.string(),
+                                       &bake_error);
+          }
+          if (!texture_ready) {
+            const std::filesystem::path source =
+                std::filesystem::path(options.assets_root) / "textures" /
+                (texture_path + ".png");
+            std::error_code copy_error;
+            if (std::filesystem::exists(source)) {
+              std::filesystem::copy_file(
+                  source, target,
+                  std::filesystem::copy_options::overwrite_existing,
+                  copy_error);
+              texture_ready = !copy_error;
+            }
+          }
+          if (texture_ready) {
+            ++baked_texture_count;
+          } else {
+            std::cerr << "警告: 贴图处理失败 " << texture_path;
+            if (!bake_error.empty()) {
+              std::cerr << " —— " << bake_error;
+            }
+            std::cerr << std::endl;
+          }
+          mtl << "\nnewmtl " << material_names[i] << "\n"
+              << "Ka 1.000 1.000 1.000\n"
+              << "Kd 1.000 1.000 1.000\n"
+              << "d 1.0\n"
+              << "map_Kd " << png_name << "\n";
+        }
+        mtl.close();
+      }
+    }
+
+    std::error_code path_error;
+    std::cout << "合并的网格已导出到: "
+              << std::filesystem::weakly_canonical(output_path, path_error)
+              << "\n";
+    if (write_materials) {
+      std::cout << "  材质 " << material_names.size() << " 个，已写出贴图 "
+                << baked_texture_count << " 张";
+      if (missing_texture_faces > 0) {
+        std::cout << "（另有 " << missing_texture_faces
+                  << " 个面没解析到贴图）";
+      }
+      std::cout << std::endl;
+    } else if (!options.assets_root.empty()) {
+      std::cout << "  未导出贴图：请检查素材目录是否包含 block_textures.tsv（"
+                << options.assets_root << "）" << std::endl;
+    }
+    return true;
+  }
+
+  ObjExportOptions options;
+  BlockTextureTable texture_table;
+  TextureBaker baker;
+  bool has_textures{false};
+  SurfaceMeshType marged_mesh;
+  unordered_map<SurfaceMeshType::Vertex_index, SurfaceMeshType::Vertex_index>
+      vertex_index_map;
+  std::vector<std::string> material_names;
+  std::vector<std::string> material_textures;
+  std::vector<std::uint32_t> material_tints;
+  std::vector<std::uint32_t> material_tile_colors;
+  std::unordered_map<std::string, std::size_t> material_index;
+  std::vector<ExportedFaceInfo> face_infos;
+  std::vector<LtPoint3> vertex_local_positions;
+  std::size_t missing_texture_faces{0};
+};
+
+ObjMeshBuilder::ObjMeshBuilder(const ObjExportOptions& kOptions)
+    : impl_(new Impl(kOptions)) {}
+
+ObjMeshBuilder::~ObjMeshBuilder() = default;
+
+void ObjMeshBuilder::AddMesh(const LtSurfaceMesh& kMesh) {
+  impl_->AddMesh(kMesh);
+}
+
+bool ObjMeshBuilder::WriteToFile(const char* const kFilename) {
+  return impl_->WriteToFile(kFilename);
+}
+
 void galib::minecraft::cgal_support::MergeAndWriteToObj(
     const vector<LtSurfaceMesh>& meshes, const char* const p_filename,
     const ObjExportOptions& options) {
-  using Point = SurfaceMeshType::Point;
-
-  SurfaceMeshType marged_mesh;
-  // 使用顶点坐标作为键值可能不够精确，改用容差比较或者直接映射原始顶点索引
-  unordered_map<SurfaceMeshType::Vertex_index, SurfaceMeshType::Vertex_index>
-      vertex_index_map;
-
-  // 贴图表（可选）。素材根目录为空、或表读不到时，退化为只导出几何。
-  BlockTextureTable texture_table;
-  const bool has_textures =
-      !options.assets_root.empty() &&
-      texture_table.LoadFromTsv(options.assets_root + "/block_textures.tsv");
-  // 染色烘焙器：解析生物群系 tint 并把颜色乘进贴图
-  const TextureBaker baker(options.assets_root);
-
-  std::vector<std::string> material_names;  // 材质名（顺序即 usemtl 出现顺序）
-  std::vector<std::string>
-      material_textures;  // 与 material_names 一一对应的贴图路径
-  std::vector<std::uint32_t>
-      material_tints;  // 生物群系染色（0xFFFFFF 表示不染色）
-  std::vector<std::uint32_t>
-      material_tile_colors;  // tile 颜色（0xFFFFFFFF 表示无染色）
-  std::unordered_map<std::string, std::size_t> material_index;
-  std::vector<ExportedFaceInfo> face_infos;      // 与合并网格的面顺序一一对应
-  std::vector<LtPoint3> vertex_local_positions;  // 与合并网格的顶点顺序一一对应
-  std::size_t missing_texture_faces = 0;
-
-  for (vector<LtSurfaceMesh>::const_iterator it = meshes.cbegin();
-       it != meshes.cend(); ++it) {
-    const SurfaceMeshType& current_mesh = it->surface_mesh();
-    const auto block_coord = it->block_coord_in_world();
-    const std::string block_id = it->block_id();
-
-    BlockFaceTextures face_textures;
-    const bool has_block_textures =
-        has_textures && texture_table.Lookup(block_id, &face_textures) &&
-        !face_textures.empty();
-
-    // 首先为当前mesh的所有顶点在合并mesh中创建对应顶点
-    std::vector<SurfaceMeshType::Vertex_index> current_mesh_vertices_in_marged;
-    for (const SurfaceMeshType::vertex_index& v : current_mesh.vertices()) {
-      LtPoint3 current_point = current_mesh.point(v);
-      SurfaceMeshType::Vertex_index new_vertex =
-          marged_mesh.add_vertex(current_point);
-      current_mesh_vertices_in_marged.push_back(new_vertex);
-      vertex_index_map[v] = new_vertex;  // 映射原始顶点索引到新顶点索引
-      // 记录"方块内本地坐标"：世界坐标 = 本地坐标 + 方块坐标。
-      // UV 必须用它来算，不能等导出归一化（居中/缩放）之后再从坐标反推。
-      vertex_local_positions.emplace_back(current_point.x() - block_coord.x,
-                                          current_point.y() - block_coord.y,
-                                          current_point.z() - block_coord.z);
-    }
-
-    // 然后添加面到合并的mesh中
-    for (const SurfaceMeshType::face_index& f : current_mesh.faces()) {
-      std::vector<SurfaceMeshType::Vertex_index> face_vertices;
-
-      // 获取当前面的所有顶点
-      CGAL::Vertex_around_face_iterator<SurfaceMeshType> vbegin, vend;
-      for (boost::tie(vbegin, vend) =
-               vertices_around_face(current_mesh.halfedge(f), current_mesh);
-           vbegin != vend; ++vbegin) {
-        SurfaceMeshType::Vertex_index original_vertex = *vbegin;
-        // 通过映射找到在合并mesh中的对应顶点
-        auto it_vertex = vertex_index_map.find(original_vertex);
-        if (it_vertex != vertex_index_map.end()) {
-          face_vertices.push_back(it_vertex->second);
-        }
-      }
-
-      // 保留 n 边形：平面面片现在是四边形/多边形，不再强制拆成三角形
-      // （CGAL 的 Surface_mesh 支持多边形面，OBJ 也直接支持）
-      if (face_vertices.size() >= 3) {
-        const std::size_t faces_before = marged_mesh.number_of_faces();
-        // 使用try-catch防止添加无效的面
-        try {
-          marged_mesh.add_face(face_vertices);
-        } catch (...) {
-#ifdef GALIB_DEBUG
-          printf("警告: 无法添加面，可能是重复面或无效几何\n");
-#endif
-        }
-
-        // 只有真正加进去的面才记录附加信息，保证与网格的面顺序对齐
-        if (marged_mesh.number_of_faces() > faces_before) {
-          ExportedFaceInfo info;
-          if (has_block_textures) {
-            const FaceDirection direction = FaceDirectionOf(current_mesh, f);
-            const std::string& texture_path = face_textures.Path(direction);
-            if (texture_path.empty()) {
-              ++missing_texture_faces;
-            } else {
-              // 生物群系染色：只有模型标了 tintindex 的面才需要
-              std::uint32_t tint_rgb = 0x00FFFFFFu;
-              const int tint_index = face_textures.Tint(direction);
-              std::uint32_t tint_argb = 0;
-              if (tint_index >= 0 &&
-                  baker.ResolveTintColor(block_id, tint_index, &tint_argb)) {
-                tint_rgb = tint_argb & 0x00FFFFFFu;
-              }
-              // tile 自带染色（LittleTiles 的彩色 tile）
-              const std::uint32_t tile_color =
-                  it->has_tile_color()
-                      ? static_cast<std::uint32_t>(it->tile_color())
-                      : 0xFFFFFFFFu;
-
-              const std::string name =
-                  MakeMaterialName(texture_path, tint_rgb, tile_color);
-              auto found = material_index.find(name);
-              if (found == material_index.end()) {
-                found =
-                    material_index.emplace(name, material_names.size()).first;
-                material_names.push_back(name);
-                material_textures.push_back(texture_path);
-                material_tints.push_back(tint_rgb);
-                material_tile_colors.push_back(tile_color);
-              }
-              info.material_index = found->second;
-              info.direction = direction;
-              info.has_material = true;
-            }
-          }
-          face_infos.push_back(info);
-        }
-      }
-    }
-
-    // 清理当前mesh的顶点映射，为下一个mesh准备
-    vertex_index_map.clear();
+  ObjMeshBuilder builder(options);
+  for (const LtSurfaceMesh& mesh : meshes) {
+    builder.AddMesh(mesh);
   }
-
-  // 归一化：把包围盒中心平移到原点；如需要，再等比缩放到最长边 = 1
-  if (marged_mesh.number_of_vertices() > 0 &&
-      (options.geom_center || options.normalize_scale)) {
-    CGAL::Bbox_3 bbox;
-    bool first = true;
-
-    // 计算所有顶点的包围盒
-    for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
-      const Point& p = marged_mesh.point(v);
-      if (first) {
-        bbox = p.bbox();
-        first = false;
-      } else {
-        bbox = bbox + p.bbox();
-      }
-    }
-
-    // 计算包围盒中心与缩放系数（以最长边为基准，保持长宽比）
-    const double center_x = (bbox.xmin() + bbox.xmax()) / 2.0;
-    const double center_y = (bbox.ymin() + bbox.ymax()) / 2.0;
-    const double center_z = (bbox.zmin() + bbox.zmax()) / 2.0;
-
-    const double extent = std::max(
-        bbox.xmax() - bbox.xmin(),
-        std::max(bbox.ymax() - bbox.ymin(), bbox.zmax() - bbox.zmin()));
-    double scale = 1.0;
-    if (options.normalize_scale && extent > 1e-12) {
-      scale = 1.0 / extent;
-    }
-
-    // 先平移到原点，再按需缩放
-    for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
-      Point& p = marged_mesh.point(v);
-      p = Point((p.x() - center_x) * scale, (p.y() - center_y) * scale,
-                (p.z() - center_z) * scale);
-    }
-  }
-
-#ifdef GALIB_DEBUG
-  // 检查合并后的网格
-  printf("合并后网格统计: ");
-  printf("顶点数: %u\n", marged_mesh.number_of_vertices());
-  printf("面数: %u\n", marged_mesh.number_of_faces());
-#endif
-
-  // 导出为OBJ文件
-  // 注意：ofstream 不会创建目录，必须先把输出目录建出来，否则会直接失败
-  const std::filesystem::path output_path(p_filename);
-  if (output_path.has_parent_path()) {
-    std::error_code create_error;
-    std::filesystem::create_directories(output_path.parent_path(),
-                                        create_error);
-    if (create_error) {
-      std::cerr << "无法创建输出目录: " << output_path.parent_path() << " —— "
-                << create_error.message() << std::endl;
-      return;
-    }
-  }
-
-  std::ofstream out(output_path);
-  if (!out) {
-    std::error_code path_error;
-    std::cerr << "无法打开文件: "
-              << std::filesystem::weakly_canonical(output_path, path_error)
-              << std::endl;
-    return;
-  }
-
-  // 输出顶点
-  // 提高精度：默认流精度只有 6 位有效数字，坐标在千级（未居中的世界坐标）时
-  // 量化步长可达 0.01 方块，会静默改变几何。
-  out << std::setprecision(9);
-  const std::string obj_stem = output_path.stem().string();
-  const std::string mtl_filename = obj_stem + ".mtl";
-  // 只有材质与逐面信息都对齐时才写贴图坐标，否则退回纯几何输出
-  const bool write_materials =
-      !material_names.empty() &&
-      face_infos.size() == marged_mesh.number_of_faces() &&
-      vertex_local_positions.size() == marged_mesh.number_of_vertices();
-  if (write_materials) {
-    out << "mtllib " << mtl_filename << "\n";
-  }
-
-  for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
-    const LtPoint3& p = marged_mesh.point(v);
-    out << "v " << p.x() << " " << p.y() << " " << p.z() << "\n";
-  }
-
-  // 逐面算出每个角的贴图坐标。UV 由"方块内本地坐标 + 面朝向"决定：
-  // 本地坐标在建网格时记录，不能用导出归一化之后的坐标反推。
-  std::vector<std::vector<std::size_t>>
-      face_uv_indices;  // 每个角对应的 vt 下标（1 起）
-  if (write_materials) {
-    std::unordered_map<long long, std::size_t> uv_dedup;
-    std::vector<std::pair<double, double>> uv_values;
-    std::size_t face_index = 0;
-    for (const SurfaceMeshType::face_index& f : marged_mesh.faces()) {
-      const ExportedFaceInfo& info = face_infos[face_index++];
-      std::vector<std::size_t> uv_indices;
-      if (info.has_material) {
-        for (const SurfaceMeshType::vertex_index v :
-             vertices_around_face(marged_mesh.halfedge(f), marged_mesh)) {
-          const LtPoint3& local = vertex_local_positions[v.idx()];
-          double u = 0.0;
-          double uv_v = 0.0;
-          ComputeFaceUv(info.direction, local.x(), local.y(), local.z(), &u,
-                        &uv_v);
-          // OBJ 的 vt 以左下角为原点，而 v = 0 在贴图顶部，因此翻转一次
-          const double vt_u = u;
-          const double vt_v = 1.0 - uv_v;
-          const long long key = QuantizeUvKey(vt_u, vt_v);
-          auto found = uv_dedup.find(key);
-          if (found == uv_dedup.end()) {
-            uv_values.emplace_back(vt_u, vt_v);
-            found = uv_dedup.emplace(key, uv_values.size())
-                        .first;  // OBJ 下标从 1 开始
-          }
-          uv_indices.push_back(found->second);
-        }
-      }
-      face_uv_indices.push_back(std::move(uv_indices));
-    }
-    for (const auto& uv : uv_values) {
-      out << "vt " << uv.first << " " << uv.second << "\n";
-    }
-  }
-
-  // 输出面（按材质分组，切换材质时写 usemtl）
-  std::size_t face_index = 0;
-  std::size_t current_material = std::numeric_limits<std::size_t>::max();
-  for (const SurfaceMeshType::face_index& f : marged_mesh.faces()) {
-    if (write_materials) {
-      const ExportedFaceInfo& info = face_infos[face_index];
-      if (info.has_material && info.material_index != current_material) {
-        out << "usemtl " << material_names[info.material_index] << "\n";
-        current_material = info.material_index;
-      }
-    }
-
-    out << "f";
-    std::size_t corner = 0;
-    for (const SurfaceMeshType::vertex_index v :
-         vertices_around_face(marged_mesh.halfedge(f), marged_mesh)) {
-      out << " " << (v.idx() + 1);
-      if (write_materials && corner < face_uv_indices[face_index].size()) {
-        out << "/" << face_uv_indices[face_index][corner];
-      }
-      ++corner;
-    }
-    out << "\n";
-    ++face_index;
-  }
-
-  out.close();
-
-  // 写 MTL：每个材质把 (贴图 × 生物群系染色 × tile 颜色) 烘焙成一张 PNG，
-  // 统一放到 OBJ 同目录，保证输出可以整体搬走。
-  std::size_t baked_texture_count = 0;
-  if (write_materials) {
-    const std::filesystem::path mtl_path =
-        output_path.parent_path() / mtl_filename;
-    std::ofstream mtl(mtl_path);
-    if (mtl) {
-      mtl << "# 由 LittleTilesReader 生成\n";
-      for (std::size_t i = 0; i < material_names.size(); ++i) {
-        const std::string& texture_path = material_textures[i];
-        const std::string png_name = material_names[i] + ".png";
-        const std::filesystem::path target =
-            output_path.parent_path() / png_name;
-
-        // 无染色时直接复制原贴图，避免多做一次无意义的编解码
-        const bool needs_bake = material_tints[i] != 0x00FFFFFFu ||
-                                material_tile_colors[i] != 0xFFFFFFFFu;
-        std::string bake_error;
-        bool texture_ready = false;
-        if (needs_bake) {
-          texture_ready =
-              baker.Bake(texture_path, material_tints[i],
-                         material_tile_colors[i], target.string(), &bake_error);
-        }
-        if (!texture_ready) {
-          const std::filesystem::path source =
-              std::filesystem::path(options.assets_root) / "textures" /
-              (texture_path + ".png");
-          std::error_code copy_error;
-          if (std::filesystem::exists(source)) {
-            std::filesystem::copy_file(
-                source, target,
-                std::filesystem::copy_options::overwrite_existing, copy_error);
-            texture_ready = !copy_error;
-          }
-        }
-        if (texture_ready) {
-          ++baked_texture_count;
-        } else {
-          std::cerr << "警告: 贴图处理失败 " << texture_path;
-          if (!bake_error.empty()) {
-            std::cerr << " —— " << bake_error;
-          }
-          std::cerr << std::endl;
-        }
-        mtl << "\nnewmtl " << material_names[i] << "\n"
-            << "Ka 1.000 1.000 1.000\n"
-            << "Kd 1.000 1.000 1.000\n"
-            << "d 1.0\n"
-            << "map_Kd " << png_name << "\n";
-      }
-      mtl.close();
-    }
-  }
-
-  std::error_code path_error;
-  std::cout << "合并的网格已导出到: "
-            << std::filesystem::weakly_canonical(output_path, path_error)
-            << "\n";
-  if (write_materials) {
-    std::cout << "  材质 " << material_names.size() << " 个，已写出贴图 "
-              << baked_texture_count << " 张";
-    if (missing_texture_faces > 0) {
-      std::cout << "（另有 " << missing_texture_faces << " 个面没解析到贴图）";
-    }
-    std::cout << std::endl;
-  } else if (!options.assets_root.empty()) {
-    std::cout << "  未导出贴图：请检查素材目录是否包含 block_textures.tsv（"
-              << options.assets_root << "）" << std::endl;
-  }
+  builder.WriteToFile(p_filename);
 }
 
 void writeMeshToOff(const LtSurfaceMesh& mesh, const char* const p_filename) {

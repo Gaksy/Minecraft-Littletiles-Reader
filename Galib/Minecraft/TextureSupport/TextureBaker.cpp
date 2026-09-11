@@ -16,9 +16,9 @@
 
 #include "Minecraft/TextureSupport/TextureBaker.h"
 
-#include "Minecraft/TextureSupport/PngImage.h"
-
 #include <utility>
+
+#include "Minecraft/TextureSupport/PngImage.h"
 
 namespace galib::minecraft::texture_support {
 
@@ -33,23 +33,27 @@ namespace {
 constexpr std::uint32_t kDefaultGrassColor = 0x0091BD59;
 constexpr std::uint32_t kDefaultFoliageColor = 0x0079C05A;
 
-std::uint32_t MakeArgb(const unsigned int kR, const unsigned int kG, const unsigned int kB) {
+std::uint32_t MakeArgb(const unsigned int kR, const unsigned int kG,
+                       const unsigned int kB) {
   return 0xFF000000u | (kR << 16) | (kG << 8) | kB;
 }
 
 // MC 的乘色是"按分量相乘"，这里用和参考实现一致的两次四舍五入
-unsigned char MultiplyChannel(const unsigned char kValue, const std::uint32_t kFactor) {
-  return static_cast<unsigned char>((static_cast<unsigned int>(kValue) * kFactor + 127) / 255);
+unsigned char MultiplyChannel(const unsigned char kValue,
+                              const std::uint32_t kFactor) {
+  return static_cast<unsigned char>(
+      (static_cast<unsigned int>(kValue) * kFactor + 127) / 255);
 }
 
 // 方块名 -> 用哪张 colormap；返回空表示该 tintindex 不需要染色
 std::string ColormapForBlock(const std::string& kBlockName) {
-  if (kBlockName == "grass" || kBlockName == "tallgrass" || kBlockName == "double_plant" ||
-      kBlockName == "waterlily" || kBlockName == "lily_pad") {
+  if (kBlockName == "grass" || kBlockName == "tallgrass" ||
+      kBlockName == "double_plant" || kBlockName == "waterlily" ||
+      kBlockName == "lily_pad") {
     return "grass";
   }
-  if (kBlockName == "leaves" || kBlockName == "leaves2" || kBlockName == "vine" ||
-      kBlockName == "vine_1") {
+  if (kBlockName == "leaves" || kBlockName == "leaves2" ||
+      kBlockName == "vine" || kBlockName == "vine_1") {
     return "foliage";
   }
   return {};
@@ -60,14 +64,17 @@ std::string BlockNameOf(const std::string& kBlockId) {
   const std::string without_namespace =
       colon == std::string::npos ? kBlockId : kBlockId.substr(colon + 1);
   const std::size_t second = without_namespace.find(':');
-  return second == std::string::npos ? without_namespace : without_namespace.substr(0, second);
+  return second == std::string::npos ? without_namespace
+                                     : without_namespace.substr(0, second);
 }
 
 }  // namespace
 
-TextureBaker::TextureBaker(std::string kAssetsRoot) : assets_root_(std::move(kAssetsRoot)) {}
+TextureBaker::TextureBaker(std::string kAssetsRoot)
+    : assets_root_(std::move(kAssetsRoot)) {}
 
-bool TextureBaker::ResolveTintColor(const std::string& kBlockId, const int kTintIndex,
+bool TextureBaker::ResolveTintColor(const std::string& kBlockId,
+                                    const int kTintIndex,
                                     std::uint32_t* const p_desc_argb) const {
   if (kTintIndex < 0) {
     return false;
@@ -75,18 +82,22 @@ bool TextureBaker::ResolveTintColor(const std::string& kBlockId, const int kTint
   // MC 里 tintindex 的含义由方块类型决定；这里覆盖最常见的草/树叶两类，
   // 其余（红石、作物茎等）暂时按草色处理，详见 docs/texture-mapping.md。
   const std::string kind = ColormapForBlock(BlockNameOf(kBlockId));
-  const std::uint32_t color = kind == "foliage" ? kDefaultFoliageColor : kDefaultGrassColor;
+  const std::uint32_t color =
+      kind == "foliage" ? kDefaultFoliageColor : kDefaultGrassColor;
   if (p_desc_argb) {
     *p_desc_argb = color;
   }
   return true;
 }
 
-bool TextureBaker::Bake(const std::string& kTexturePath, const std::uint32_t kTintRgb,
-                        const std::uint32_t kTileColorArgb, const std::string& kOutputPath,
+bool TextureBaker::Bake(const std::string& kTexturePath,
+                        const std::uint32_t kTintRgb,
+                        const std::uint32_t kTileColorArgb,
+                        const std::string& kOutputPath,
                         std::string* const p_desc_error) const {
   PngImage image;
-  if (!image.Load(assets_root_ + "/textures/" + kTexturePath + ".png", p_desc_error)) {
+  if (!image.Load(assets_root_ + "/textures/" + kTexturePath + ".png",
+                  p_desc_error)) {
     return false;
   }
 

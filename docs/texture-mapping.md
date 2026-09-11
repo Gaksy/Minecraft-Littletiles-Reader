@@ -223,3 +223,32 @@ PNG 解码   : 478 张 vanilla 贴图与 Python 参考解码器逐像素一致�
 端到端     : chunk(-136,49) 的材质数由 6 增到 8（purpur_block 的 3 种染色 +
              bedrock 的染色被区分开），MTL 引用的 8 张贴图全部存在
 ```
+
+### 6.3 完整方块（普通方块）导出（已实现）
+
+LittleTiles 的 tile entity 是**挂在普通方块上**的（实测 25/25、112/112 都落在实心方块上），
+所以只导 tile 会得到一个"残缺"的模型。完整方块导出补上这一部分：
+
+| 组件 | 位置 | 说明 |
+|---|---|---|
+| ID→名字表 | `tools/generate_block_id_table.py` + `Minecraft/BlockIdTable.{h,cpp}` | 1.12 的 `Sections[].Blocks` 存的是数字 ID，需要映射回 `minecraft:<name>[:meta]` |
+| 区块方块解析 | `Minecraft/ChunkBlocks.{h,cpp}` | 读 `Sections[].Blocks/Data/Add`；`Add` 是高位 nibble 数组（LT 自己的方块 id 1321 就走这里）；再标记出 LT 宿主方块 |
+| 立方体生成 | `Minecraft/CgalSupport/CgalWorldBlocks.{h,cpp}` | 跳过空气与 LT 宿主；按 (id, meta) 分组，每组一个网格；可选邻居剔除 |
+| 增量写出 | `CgalSupport` 的 `ObjMeshBuilder` | 逐批 `AddMesh` 后即可释放，避免大范围导出时内存爆掉 |
+
+实测（`test_region_large`，chunk (-7,-26) 周围 11×11 个区块，共 121 个区块）：
+
+```
+耗时 43.8 s
+顶点 2,681,607 / 面 2,034,653 / 唯一 vt 130,175 / usemtl 切换 35,719
+材质 120 个（含 tile 染色与草方块顶面的 tint），OBJ 190 MB
+```
+
+几个实现中踩到的坑（都已在代码注释里标注）：
+
+1. `Sections[].Y` 是 **TAG_Byte**（不是 Int），按 `tag_int` 取会抛 `std::bad_cast`；
+2. 这个 libnbt++ 版本在 macOS 上对数组**不能**用 `value::as<tag_byte_array>()`，
+   要用 `static_cast<const nbt::tag_byte_array&>(value.get())`（原代码处理 `box` 时已有先例）；
+3. 大范围导出必须**增量合并**：先把所有网格收进 vector 会因内存占用过高被系统杀掉
+   （实测 121 个区块在 22 秒时被 kill）；改成逐批合并后内存稳定在 ~70 MB；
+4. 别把贴图表放进逐网格的循环里——那会把 TSV 重读几十万次（实测 6 分钟 → 44 秒）。
