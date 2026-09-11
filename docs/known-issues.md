@@ -41,7 +41,21 @@
 10. **`#if WIN32` 永不成立**（`main.cpp:19`）：MSVC 定义的是 `_WIN32`。
 11. **OFF 导出是空实现**：`writeMeshToOff` 函数体只有一句局部变量声明
     （`CgalLittletilesBuilder.cpp:273`），调用它的 `writeToOff`（`:278`）因而什么也不产出。
-12. **CMake 声明 C++14、代码使用 C++17**（`CMakeLists.txt:35` vs `BlockTileEntities.cpp:102`）。
+12. ~~**CMake 声明 C++14、代码使用 C++17**~~ —— 已修复：`CMAKE_CXX_STANDARD` 改为 17
+    （代码使用 if-init、嵌套命名空间定义与 `std::filesystem`，CGAL 6.x 也要求 C++17）。
+    此前在 clang 下靠扩展特性勉强编过，MSVC `/std:c++14` 会直接失败。
+
+### 2.5 导出路径与输出目录
+
+17. **输出失败时只打印文件名、不建目录**（已修复）：`margeAndWriteToObj` 直接 `ofstream`
+    打开 `../out_file/xxx.obj`，而 `ofstream` **不会创建目录**，目录不存在时只会打印
+    「无法打开文件」并且什么都不产出（参考实现的 Java 版有 `folder.mkdirs()`）。
+    现在会先 `create_directories` 建出父目录，并打印**规范化后的绝对路径**，
+    便于定位产物；`/out_file/` 也已加入 `.gitignore`。
+
+    输出路径仍由 `main.cpp:21,24` 的宏 `OUT_OBJ_FILE_NAME = "../out_file/marge_obj_from_chunk_"`
+    决定，是**相对运行时工作目录**的：在构建目录下运行会写到 `<repo>/out_file/`，
+    在仓库根目录下运行会写到 `<repo>/../out_file/`。
 
 ### 2.3 导出质量（与 UV / 材质相关）
 

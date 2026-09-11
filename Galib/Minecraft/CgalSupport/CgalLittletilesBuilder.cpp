@@ -18,6 +18,8 @@
 
 #include <Minecraft/CgalSupport/CgalLtSupport.h>
 
+#include <filesystem>
+
 using GALIB_STD vector;
 using GALIB_STD ofstream;
 using GALIB_STD distance;
@@ -216,9 +218,22 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(
 #endif
 
     // 导出为OBJ文件
-    std::ofstream out(p_filename);
+    // 注意：ofstream 不会创建目录，必须先把输出目录建出来，否则会直接失败
+    const std::filesystem::path output_path(p_filename);
+    if (output_path.has_parent_path()) {
+        std::error_code create_error;
+        std::filesystem::create_directories(output_path.parent_path(), create_error);
+        if (create_error) {
+            std::cerr << "无法创建输出目录: " << output_path.parent_path()
+                      << " —— " << create_error.message() << std::endl;
+            return;
+        }
+    }
+
+    std::ofstream out(output_path);
     if (!out) {
-        std::cerr << "无法打开文件: " << p_filename << std::endl;
+        std::error_code path_error;
+        std::cerr << "无法打开文件: " << std::filesystem::weakly_canonical(output_path, path_error) << std::endl;
         return;
     }
 
@@ -241,7 +256,8 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(
     }
 
     out.close();
-    std::cout << "合并的网格已导出到: " << p_filename << std::endl;
+    std::error_code path_error;
+    std::cout << "合并的网格已导出到: " << std::filesystem::weakly_canonical(output_path, path_error) << std::endl;
 }
 
 void writeMeshToOff(const LtSurfaceMesh& mesh, const char* const p_filename) {

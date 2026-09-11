@@ -9,6 +9,9 @@ cmake-build-debug-visual-studio/
 /python/objs/**
 /research
 
+# 生成的模型输出
+/out_file/
+
 # AI 助手上下文（本地知识库，不随仓库分发）
 /.ai/
 #

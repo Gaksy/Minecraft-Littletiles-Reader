@@ -32,7 +32,9 @@ elseif(WIN32)
 endif()
 
 project(LittleTilesReader)
-set(CMAKE_CXX_STANDARD 14)
+# 代码实际使用 C++17 特性（if-init、嵌套命名空间定义、std::filesystem），
+# 且 CGAL 6.x 也要求 C++17；此前声明为 14 与代码不符。
+set(CMAKE_CXX_STANDARD 17)
 
 # 查找所需的库
 add_subdirectory(3rdparty)
