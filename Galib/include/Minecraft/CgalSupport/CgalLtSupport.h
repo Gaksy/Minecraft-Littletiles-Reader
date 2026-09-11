@@ -25,13 +25,13 @@
 #include "Minecraft/LittleTilesCoord.h"
 
 namespace galib::minecraft::cgal_support {
-inline LtPoint3 convertToCGALPoint(
+inline LtPoint3 ConvertToCgalPoint(
     const GALIB minecraft::littletiles::LittleTilesCoord& kLtCoord) {
   return GALIB minecraft::cgal_support::LtPoint3(kLtCoord.x, kLtCoord.y,
                                                  kLtCoord.z);
 }
 
-void createMeshFromTileEntity(
+void CreateMeshFromTileEntity(
     LtSurfaceMesh& mesh,
     const GALIB minecraft::littletiles::TileEntity& kTileEntity,
     bool kApplyOffset = true);
@@ -43,20 +43,20 @@ void createMeshFromTileEntity(
 // 裁剪体为"偏移前的盒子"（与原先 corefine_and_compute_intersection 的用法一致）。
 // desc_mesh 应为本 tile 新建的空网格。
 // 返回 false 表示裁剪结果为空，调用方应丢弃该 tile。
-bool clipTileEntityToBox(
+bool ClipTileEntityToBox(
     LtSurfaceMesh& desc_mesh,
     const GALIB minecraft::littletiles::TileEntity& kTileEntity,
     bool kApplyOffset = true);
 
-const LtSurfaceMesh& createIntersectionCube(
+const LtSurfaceMesh& CreateIntersectionCube(
     GALIB minecraft::littletiles::GridType kGrid);
-void applyWorldOffset(LtSurfaceMesh& mesh,
+void ApplyWorldOffset(LtSurfaceMesh& mesh,
                       const BlockCoordinate& block_coordinate);
-void applyWorldOffset(SurfaceMeshType& mesh,
+void ApplyWorldOffset(SurfaceMeshType& mesh,
                       const BlockCoordinate& block_coordinate);
-void applyGrid(LtSurfaceMesh& mesh,
+void ApplyGrid(LtSurfaceMesh& mesh,
                GALIB minecraft::littletiles::GridType grid);
-void cleanupMesh(LtSurfaceMesh& mesh);
+void CleanupMesh(LtSurfaceMesh& mesh);
 }  // namespace galib::minecraft::cgal_support
 
 #endif  //GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLTSUPPORT_H

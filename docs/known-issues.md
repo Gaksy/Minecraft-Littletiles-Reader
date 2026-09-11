@@ -12,18 +12,18 @@
 | `CacheManagerBase` const 版 `GetCachePointer` 用 `.y` 索引 `Coordinate2D` | `Anvil.h:75`（该重载一旦实例化即编译失败） | `5a1cdf2`：改为 `.z` |
 | macOS 上 vcpkg 依赖未被使用，`find_package(Boost)` 落到已移除的 `FindBoost` | 配置报错 | `5a1cdf2`：统一依赖来源优先级 |
 | libnbt++ 每次配置拉 HEAD，构建不可复现 | `3rdparty/CMakeLists.txt` | `fc7dde0`：钉 commit `687e4303…` |
-| `readChunk` 的 `p_boxes_count` 输出参数从未被赋值 | `ChunkTileEntities.cpp` | `ecd30e4`：在共用的 `readTileEntities_` 中填充 |
-| **同种方块的不同染色被整条丢弃**：`readBlockTileNBT` 用 block id 作 map 键，遇到重复 block id 直接 `continue` | 实测 chunk(-136,49)：NBT 里共 8037 个 box，读取器只报告 4456（**丢 45%**）；全量数据有 526 个 tile 条目因此被丢 | 材质键改为 `(block id, color)`（新增 `TileMaterial`），并把染色保存到 `TileEntity` / `LtSurfaceMesh` |
+| `ReadChunk` 的 `p_boxes_count` 输出参数从未被赋值 | `ChunkTileEntities.cpp` | `ecd30e4`：在共用的 `ReadTileEntities` 中填充 |
+| **同种方块的不同染色被整条丢弃**：`ReadBlockTileNbt` 用 block id 作 map 键，遇到重复 block id 直接 `continue` | 实测 chunk(-136,49)：NBT 里共 8037 个 box，读取器只报告 4456（**丢 45%**）；全量数据有 526 个 tile 条目因此被丢 | 材质键改为 `(block id, color)`（新增 `TileMaterial`），并把染色保存到 `TileEntity` / `LtSurfaceMesh` |
 
 ## 2. 未修复
 
 ### 2.1 服务器化阻塞项
 
-1. **`setRegionFolder()` 不清缓存 → 跨来源数据串号**
+1. **`SetRegionFolder()` 不清缓存 → 跨来源数据串号**
    `Anvil.cpp:72` 只改路径，缓存 key（`RegionCoordinate`）不含数据源标识。
    复用同一 `AnvilReader` 处理不同上传会返回上一次的数据 —— 这是**数据隔离**问题。
 2. **缓存无上限**：`mca_cache_` 每 region 存整份 `.mca`；`chunk_cache_` 每 region 一个 32×32 槽、
-   每槽一份已解析 NBT 树，只在显式 `clear()` 时释放。
+   每槽一份已解析 NBT 树，只在显式 `Clear()` 时释放。
 3. **无任何线程安全**：见 `architecture.md` 第 5 节。
 4. **库边界没有错误转换**：`main()` 无 try/catch，异常直接终止进程。
 
@@ -33,7 +33,7 @@
    但查表为 `STD_ERROR_CODE[code - 1]`（`LittleTilesException.cpp:42`）→ 索引 -1；
    且基类把 `error_code == 0` 视为"无异常"，该异常文案会变成 "No exception."。
 6. **`ChunkData::p_chunk_level` 未初始化**（`Anvil.h:190`）且从未被赋值；目前无人读取，属埋雷。
-7. **`readMcaFile_` 对空文件 UB**：`resize(st_size)` 后取 `&*begin()`（`Anvil.cpp:198`），
+7. **`ReadMcaFile` 对空文件 UB**：`resize(st_size)` 后取 `&*begin()`（`Anvil.cpp:198`），
    且 `GetFileStat` 返回值未检查（`Anvil.cpp:195`）。
 8. **`GALIB_DEBUG` 被无条件 `#define`**（`GalibNamespaceDef.h:27`）：调试 `printf` 常驻；
    并把 `catch(...)` 换成更窄的 `catch(std::exception&)`，非 std 异常会穿透。
@@ -42,14 +42,14 @@
    （修复前实测输入 `y` 与 `n` 产出的 OBJ 逐字节相同。）
 10. **`#if WIN32` 永不成立**（`main.cpp:19`）：MSVC 定义的是 `_WIN32`。
 11. **OFF 导出是空实现**：`writeMeshToOff` 函数体只有一句局部变量声明
-    （`CgalLittletilesBuilder.cpp:273`），调用它的 `writeToOff`（`:278`）因而什么也不产出。
+    （`CgalLittletilesBuilder.cpp:273`），调用它的 `WriteToOff`（`:278`）因而什么也不产出。
 12. ~~**CMake 声明 C++14、代码使用 C++17**~~ —— 已修复：`CMAKE_CXX_STANDARD` 改为 17
     （代码使用 if-init、嵌套命名空间定义与 `std::filesystem`，CGAL 6.x 也要求 C++17）。
     此前在 clang 下靠扩展特性勉强编过，MSVC `/std:c++14` 会直接失败。
 
 ### 2.5 导出路径与输出目录
 
-17. **输出失败时只打印文件名、不建目录**（已修复）：`margeAndWriteToObj` 直接 `ofstream`
+17. **输出失败时只打印文件名、不建目录**（已修复）：`MergeAndWriteToObj` 直接 `ofstream`
     打开 `../out_file/xxx.obj`，而 `ofstream` **不会创建目录**，目录不存在时只会打印
     「无法打开文件」并且什么都不产出（参考实现的 Java 版有 `folder.mkdirs()`）。
     现在会先 `create_directories` 建出父目录，并打印**规范化后的绝对路径**，
@@ -66,7 +66,7 @@
     （grid=64 时相当于 0.64 个网格单位），几何被静默改变。实测同一 chunk 的体积
     因这项舍入偏差 0.27%。现在写出时设置 `setprecision(9)`，量化步长降到 1e-6 方块量级。
 
-19. **新增输出归一化**（`margeAndWriteToObj` 的第 4 个参数）：
+19. **新增输出归一化**（`MergeAndWriteToObj` 的第 4 个参数）：
 
     | 模式 | 参数 | 效果 |
     |---|---|---|
@@ -88,7 +88,7 @@
 14. **per-tile 颜色与 meta 全丢**：`block_id_` 已存于 `LtSurfaceMesh`，但 OBJ 只写 `v`/`f`
     （无 `vt`/`vn`/`usemtl`/`mtllib`/group）。
 15. **没有 UV、法线、材质**：`UVData` 类型存在（`CgalTypeDef.h:43`），但
-    `calculateFaceUV` 直接 `return {}`（`CgalTypeDef.cpp:76`）。
+    `CalculateFaceUv` 直接 `return {}`（`CgalTypeDef.cpp:76`）。
 16. **内部面不剔除**：相邻/相交 tile 之间会留下看不到的面。
 
 ### 2.4 裁剪路径产生大量碎三角形（"杂乱辅助线"）—— 已修复
@@ -109,7 +109,7 @@
 原因分析：
 
 1. `corefine_and_compute_intersection` 是**两个三角网格之间的布尔运算**，会沿交线把两个网格都细分；
-   而这里的裁剪盒正好是 **tile 自己的盒子**（`createMeshFromTileEntity(..., false)`），
+   而这里的裁剪盒正好是 **tile 自己的盒子**（`CreateMeshFromTileEntity(..., false)`），
    于是被裁剪网格与裁剪盒必然存在**共面重合的面** —— 共面布尔正是 CGAL 最容易产生
    碎三角形、细长片与 T 形接点的场景。
 2. 合并导出时**不做顶点焊接**（`CgalLittletilesBuilder.cpp:157-204`）：
@@ -139,9 +139,9 @@
 
 #### 修复方案与实测效果
 
-实现：新增 `cgal_support::clipTileEntityToBox()`
+实现：新增 `cgal_support::ClipTileEntityToBox()`
 （声明 `CgalLtSupport.h`，实现 `CgalLtSupport.cpp`），`addTilesFromBlockTilesEntities`
-不再调用 `corefine_and_compute_intersection`；同时 `createMeshFromTileEntity` 对**平面**四边形
+不再调用 `corefine_and_compute_intersection`；同时 `CreateMeshFromTileEntity` 对**平面**四边形
 输出单个 n 边形，只有**扭曲（非平面）**四边形才按 `Flipped` 规则拆成两个三角形。
 
 算法要点（实现时踩过的坑都写在这里）：
@@ -176,7 +176,7 @@
 ```
 
 注意：裁剪体仍是「偏移前的盒子」（与原实现一致）。若要改为「方块边界 `[0, grid]`」，
-只需把 `clipTileEntityToBox` 里的 `box_min/box_max` 换成 `(0,0,0)`–`(grid,grid,grid)`，
+只需把 `ClipTileEntityToBox` 里的 `box_min/box_max` 换成 `(0,0,0)`–`(grid,grid,grid)`，
 但这会改变语义，需先确认（见上文 2.4 中关于裁剪体的疑问）。
 
 ## 3. 输出非确定性（重要）

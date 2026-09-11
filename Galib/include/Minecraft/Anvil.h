@@ -62,7 +62,7 @@ class CacheManagerBase {
  public:
   // Get the pointer to the cached data, requires a 2D coordinate.
   CacheType* GetCachePointer(const Coord2dType& kInteger2dCoord) {
-    if (!IsHadCache(kInteger2dCoord)) {
+    if (!HasCache(kInteger2dCoord)) {
       return nullptr;
     }
 
@@ -71,7 +71,7 @@ class CacheManagerBase {
 
   // Get the pointer to the cached data, requires a 2D coordinate.
   const CacheType* GetCachePointer(const Coord2dType& kInteger2dCoord) const {
-    if (!IsHadCache(kInteger2dCoord)) {
+    if (!HasCache(kInteger2dCoord)) {
       return nullptr;
     }
 
@@ -84,7 +84,7 @@ class CacheManagerBase {
       cache_.resize(kBaseSize_);
     }
 
-    if (!IsValidCheckForCoord_(kBaseSize_, kInteger2dCoord)) {
+    if (!IsValidCheckForCoord(kBaseSize_, kInteger2dCoord)) {
       throw GALIB exception::MinecraftException(
           GALIB exception::MinecraftErrorCode::mc_invalid_coord);
     }
@@ -107,7 +107,7 @@ class CacheManagerBase {
 
   // Clear the specified cache.
   void ClearCache(const Coord2dType& kInteger2dCoord) {
-    if (IsHadCache(kInteger2dCoord)) {
+    if (HasCache(kInteger2dCoord)) {
       (*cache_[kInteger2dCoord.x].get())[kInteger2dCoord.z].reset(nullptr);
     }
   }
@@ -116,15 +116,15 @@ class CacheManagerBase {
   void ClearCache() { cache_.clear(); }
 
   // Check if the cache is empty
-  GALIB_NODISCARD bool IsEmpty() const { return cache_.empty(); }
+  GALIB_NODISCARD bool is_empty() const { return cache_.empty(); }
 
   // Check if the specified cache exists, requires a 2D coordinate
-  bool IsHadCache(const Coord2dType& kInteger2dCoord) const {
+  bool HasCache(const Coord2dType& kInteger2dCoord) const {
     if (cache_.empty()) {
       return false;
     }
 
-    if (!IsValidCheckForCoord_(kBaseSize_, kInteger2dCoord)) {
+    if (!IsValidCheckForCoord(kBaseSize_, kInteger2dCoord)) {
       throw GALIB exception::MinecraftException(
           GALIB exception::MinecraftErrorCode::mc_invalid_coord);
     }
@@ -134,8 +134,8 @@ class CacheManagerBase {
   }
 
  private:
-  static bool IsValidCheckForCoord_(const GALIB_STD size_t kBaseSize,
-                                    const Coord2dType& kInteger2dCoord) {
+  static bool IsValidCheckForCoord(const GALIB_STD size_t kBaseSize,
+                                   const Coord2dType& kInteger2dCoord) {
     return !(kInteger2dCoord.x >= kBaseSize || kInteger2dCoord.z >= kBaseSize);
   }
 
@@ -221,38 +221,38 @@ class AnvilReader {
 
  public:
   // Set the directory path for the Region folder in the Minecraft save file.
-  bool setRegionFolder(const char* kPRegionFolderPath);
+  bool SetRegionFolder(const char* kPRegionFolderPath);
 
   // Get the current directory address of the Region folder.
-  GALIB_NODISCARD const GALIB_STD string& getRegionFolder() const;
+  GALIB_NODISCARD const GALIB_STD string& region_folder() const;
 
   // Get the chunk data, requires passing the chunk coordinates. This function will throw an exception.
-  ChunkDataReference getChunkDataReference(
+  ChunkDataReference GetChunkDataReference(
       const GALIB minecraft::ChunkCoordinate& kChunkCoord);
 
-  void clear();
+  void Clear();
 
  private:
   // Build the mca file directory.
   static GALIB_STD string
-  buildMcaFilePath_(const GALIB_STD string& kRegionFolderPath,
-                    const GALIB minecraft::RegionCoordinate& kRegionCoord);
+  BuildMcaFilePath(const GALIB_STD string& kRegionFolderPath,
+                   const GALIB minecraft::RegionCoordinate& kRegionCoord);
 
   // Read the mca file.
-  static bool readMcaFile_(const GALIB_STD string& kMcaFilePath,
-                           ByteArray& desc_bytearray);
+  static bool ReadMcaFile(const GALIB_STD string& kMcaFilePath,
+                          ByteArray& desc_bytearray);
 
   // Get the chunk index data.
-  static bool getChunkConstIterator_(const ByteArray& kMcaData,
-                                     ChunkConstIterator& desc_chunk_iterator);
+  static bool GetChunkConstIterator(const ByteArray& kMcaData,
+                                    ChunkConstIterator& desc_chunk_iterator);
 
   // Unzip the chunk binary raw data.
-  static bool decompressChunkBinaryData_(
+  static bool DecompressChunkBinaryData(
       const ChunkConstIterator& kChunkIterator,
       ByteArray& desc_compressed_chunk_data);
 
   // Unzip the chunk NBT data.
-  static bool decompressChunkBinaryNbtData_(
+  static bool DecompressChunkBinaryNbtData(
       const ByteArray& kCompressedChunkData, ChunkNbtRoot& desc_chunk_root);
 
  private:

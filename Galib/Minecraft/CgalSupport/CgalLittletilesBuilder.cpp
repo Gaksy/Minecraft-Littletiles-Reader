@@ -34,11 +34,11 @@ using GALIB_STD unordered_map;
 using GALIB_STD map;
 
 using GALIB minecraft::cgal_support::LtSurfaceMesh;
-using GALIB minecraft::cgal_support::createMeshFromTileEntity;
+using GALIB minecraft::cgal_support::CreateMeshFromTileEntity;
 using GALIB minecraft::cgal_support::ChunkMesh;
-using GALIB minecraft::cgal_support::applyGrid;
-using GALIB minecraft::cgal_support::applyWorldOffset;
-using GALIB minecraft::cgal_support::cleanupMesh;
+using GALIB minecraft::cgal_support::ApplyGrid;
+using GALIB minecraft::cgal_support::ApplyWorldOffset;
+using GALIB minecraft::cgal_support::CleanupMesh;
 using GALIB minecraft::cgal_support::LtPoint3;
 
 using GALIB minecraft::littletiles::GridType;
@@ -52,7 +52,7 @@ using GALIB_CGAL SM_Vertex_index;
 size_t addTilesFromBlockTilesEntities(
     const BlockTileEntities& kBlockTileEntities,
     vector<LtSurfaceMesh>& mesh_array) {
-  const GridType grid_type = kBlockTileEntities.getGridType();
+  const GridType grid_type = kBlockTileEntities.grid();
   size_t processed_tile_count = 0;
   // BlockTile -> BoxTile -> Tile
 
@@ -73,8 +73,8 @@ size_t addTilesFromBlockTilesEntities(
 
       // 如有偏移且超出边界：用半空间裁剪（凸六面体 ∩ AABB），不再用 CGAL 布尔求交，
       // 避免布尔运算在共面面上产生的大量碎三角形与多余边。
-      if (tile_lt_entity.isOffsetOffBoundary()) {
-        if (!clipTileEntityToBox(tile_cgal_mesh, tile_lt_entity)) {
+      if (tile_lt_entity.is_offset_off_boundary()) {
+        if (!ClipTileEntityToBox(tile_cgal_mesh, tile_lt_entity)) {
 #ifdef GALIB_DEBUG
           printf(
               "CgalLittletilesBuilder::addTilesFromBlockTilesEntities: clip "
@@ -83,15 +83,16 @@ size_t addTilesFromBlockTilesEntities(
           continue;
         }
       } else {
-        createMeshFromTileEntity(tile_cgal_mesh, tile_lt_entity);
+        CreateMeshFromTileEntity(tile_cgal_mesh, tile_lt_entity);
       }
 
-      applyGrid(tile_cgal_mesh, grid_type);
-      tile_cgal_mesh.setBlockCoordInWorld(
-          kBlockTileEntities.getBlockCoordinate());
-      tile_cgal_mesh.setBlockID(box_it->first.block_id);
-      tile_cgal_mesh.setTileColor(box_it->first.color, box_it->first.has_color);
-      tile_cgal_mesh.applyOffset(tile_cgal_mesh.getBlockCoord());
+      ApplyGrid(tile_cgal_mesh, grid_type);
+      tile_cgal_mesh.set_block_coord_in_world(
+          kBlockTileEntities.block_coordinate());
+      tile_cgal_mesh.set_block_id(box_it->first.block_id);
+      tile_cgal_mesh.set_tile_color(box_it->first.color,
+                                    box_it->first.has_color);
+      tile_cgal_mesh.ApplyOffset(tile_cgal_mesh.block_coord_in_world());
       mesh_array.push_back(tile_cgal_mesh);
       ++processed_tile_count;
     }
@@ -100,21 +101,21 @@ size_t addTilesFromBlockTilesEntities(
   return processed_tile_count;
 }
 
-ChunkMesh::size_type ChunkMesh::addTilesFromChukTileEntities(
+ChunkMesh::size_type ChunkMesh::AddTilesFromChunkTileEntities(
     const ChunkTileEntities& kChunkTileEntities) {
   size_t processed_tile_count = 0;
 #ifdef GALIB_DEBUG
-  size_t all_tile_count = kChunkTileEntities.tileCount();
+  size_t all_tile_count = kChunkTileEntities.TileCount();
 #endif
   for (auto block_it = kChunkTileEntities.cbegin();
        block_it != kChunkTileEntities.cend(); ++block_it) {
 #ifdef GALIB_DEBUG
     printf(
-        "ChunkMesh::addTilesFromChukTileEntities build block (%zu / %zu): %d "
+        "ChunkMesh::AddTilesFromChunkTileEntities build block (%zu / %zu): %d "
         "%d %d\n",
         processed_tile_count + 1, all_tile_count,
-        block_it->getBlockCoordinate().x, block_it->getBlockCoordinate().y,
-        block_it->getBlockCoordinate().z);
+        block_it->block_coordinate().x, block_it->block_coordinate().y,
+        block_it->block_coordinate().z);
 #endif
     processed_tile_count +=
         addTilesFromBlockTilesEntities(*block_it, this->tiles_in_world_);
@@ -122,13 +123,13 @@ ChunkMesh::size_type ChunkMesh::addTilesFromChukTileEntities(
   return processed_tile_count;
 }
 
-const ChunkMesh::container& ChunkMesh::getMeshArray() const {
+const ChunkMesh::container& ChunkMesh::mesh_array() const {
   return this->tiles_in_world_;
 }
 
-void ChunkMesh::clear() { this->tiles_in_world_.clear(); }
+void ChunkMesh::Clear() { this->tiles_in_world_.clear(); }
 
-void GALIB minecraft::cgal_support::margeAndWriteToObj(
+void GALIB minecraft::cgal_support::MergeAndWriteToObj(
     const vector<LtSurfaceMesh>& meshes, const char* const p_filename,
     const bool geom_center, const bool normalize_scale) {
   using SurfaceMeshType = SurfaceMeshType;
@@ -142,7 +143,7 @@ void GALIB minecraft::cgal_support::margeAndWriteToObj(
 
   for (vector<LtSurfaceMesh>::const_iterator it = meshes.cbegin();
        it != meshes.cend(); ++it) {
-    const SurfaceMeshType& current_mesh = it->getMesh();
+    const SurfaceMeshType& current_mesh = it->surface_mesh();
 
     // 首先为当前mesh的所有顶点在合并mesh中创建对应顶点
     std::vector<SurfaceMeshType::Vertex_index> current_mesh_vertices_in_marged;
@@ -290,7 +291,7 @@ void writeMeshToOff(const LtSurfaceMesh& mesh, const char* const p_filename) {
   vector<LtPoint3> v_array;
 }
 
-void GALIB minecraft::cgal_support::writeToOff(
+void GALIB minecraft::cgal_support::WriteToOff(
     const GALIB_STD vector<LtSurfaceMesh>& meshes,
     const char* const p_filename) {
   for (size_t i = 0; i < meshes.size(); ++i) {

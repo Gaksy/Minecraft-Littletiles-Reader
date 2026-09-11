@@ -56,13 +56,13 @@ struct AngleOffset {
   OffsetType y_offset{0};
   OffsetType z_offset{0};
 
-  GALIB_NODISCARD bool hasAnyEnable() const {
+  GALIB_NODISCARD bool has_any_enable() const {
     return x_enable || y_enable || z_enable;
   }
 };
 
-GALIB_STD uint8_t convertAngleIdToInt(AngleID kAngleId);
-AngleID convertIntToAngleId(GALIB_STD uint8_t kNumId);
+GALIB_STD uint8_t ConvertAngleIdToInt(AngleID kAngleId);
+AngleID ConvertIntToAngleId(GALIB_STD uint8_t kNumId);
 
 struct Flipped {
   bool down{false};
@@ -72,7 +72,7 @@ struct Flipped {
   bool west{false};
   bool east{false};
 
-  GALIB_NODISCARD bool hasAnyEnable() const {
+  GALIB_NODISCARD bool has_any_enable() const {
     return down || up || north || south || west || east;
   }
 };
@@ -109,26 +109,26 @@ class TileEntity {
   ~TileEntity() = default;
 
  public:
-  GALIB_NODISCARD bool hasAnyOffsetEnable() const;
-  GALIB_NODISCARD LittleTilesCoord applyAngleOffset(AngleID kAngleId) const;
-  GALIB_NODISCARD AngleOffset getAngleOffset(AngleID kAngleID) const;
-  GALIB_NODISCARD LittleTilesCoord getVertices(AngleID kAngleId) const;
-  GALIB_NODISCARD LittleTilesCoord getVertices(AngleID kAngleId,
+  GALIB_NODISCARD bool has_any_offset_enable() const;
+  GALIB_NODISCARD LittleTilesCoord ApplyAngleOffset(AngleID kAngleId) const;
+  GALIB_NODISCARD AngleOffset GetAngleOffset(AngleID kAngleID) const;
+  GALIB_NODISCARD LittleTilesCoord GetVertices(AngleID kAngleId) const;
+  GALIB_NODISCARD LittleTilesCoord GetVertices(AngleID kAngleId,
                                                bool kWithOffset) const;
-  GALIB_NODISCARD LittleTilesCoord getVerticesApplyGrid(AngleID kAngleId,
+  GALIB_NODISCARD LittleTilesCoord GetVerticesApplyGrid(AngleID kAngleId,
                                                         GridType kGridType,
                                                         bool kWithOffset) const;
-  GALIB_NODISCARD TileFace getTileFace(TileFaceID kTileFaceID,
+  GALIB_NODISCARD TileFace GetTileFace(TileFaceID kTileFaceID,
                                        bool kWithOffset = false) const;
-  GALIB_NODISCARD const Flipped& getFlippedData() const;
-  GALIB_NODISCARD bool isOffsetOffBoundary() const;
-  GALIB_NODISCARD bool hasColor() const;
-  GALIB_NODISCARD GALIB_STD int32_t getColor() const;
-  void setPos(const LittleTilesCoord& kPos1, const LittleTilesCoord& kPos2);
-  void setFlippedData(const Flipped& kFlippedData);
-  void setColor(GALIB_STD int32_t kColor, bool kHasColor);
-  void setOffsetData(AngleID kAngleId, const AngleOffset& kAngleOffsetData);
-  void setOffsetData(const AngleOffset kOffsetData[8]);
+  GALIB_NODISCARD const Flipped& flipped_data() const;
+  GALIB_NODISCARD bool is_offset_off_boundary() const;
+  GALIB_NODISCARD bool has_color() const;
+  GALIB_NODISCARD GALIB_STD int32_t color() const;
+  void set_pos(const LittleTilesCoord& kPos1, const LittleTilesCoord& kPos2);
+  void set_flipped_data(const Flipped& kFlippedData);
+  void set_color(GALIB_STD int32_t kColor, bool kHasColor);
+  void set_offset_data(AngleID kAngleId, const AngleOffset& kAngleOffsetData);
+  void set_offset_data(const AngleOffset kOffsetData[8]);
 
  private:
   AngleOffset offset_data_[8];
@@ -155,25 +155,25 @@ class BlockTileEntities {
   ~BlockTileEntities() = default;
 
  public:
-  size_type readBlockTileNBT(const GALIB_NBT tag_compound& kBlockTilesNBT,
+  size_type ReadBlockTileNbt(const GALIB_NBT tag_compound& kBlockTilesNBT,
                              size_type* p_boxes_count = nullptr);
 
-  GALIB_NODISCARD const GALIB minecraft::BlockCoordinate& getBlockCoordinate()
+  GALIB_NODISCARD const GALIB minecraft::BlockCoordinate& block_coordinate()
       const;
-  GALIB_NODISCARD const GridType& getGridType() const;
-  GALIB_NODISCARD const GALIB_STD string& getLittleTilesID() const;
+  GALIB_NODISCARD const GridType& grid() const;
+  GALIB_NODISCARD const GALIB_STD string& little_tiles_id() const;
 
   GALIB_NODISCARD const_iterator cbegin() const;
   GALIB_NODISCARD const_iterator cend() const;
 
-  GALIB_NODISCARD size_type tileCount() const;
+  GALIB_NODISCARD size_type TileCount() const;
 
  private:
-  GALIB_NODISCARD static bool readBoxesTilesNbt_(
+  GALIB_NODISCARD static bool ReadBoxesTilesNbt(
       const GALIB_NBT tag_compound& kBoxesTilesNbt,
       BoxTileEnities& desc_box_tile_enities, size_type& tile_count);
 
-  GALIB_NODISCARD static bool setAngleOffsetStateData_(
+  GALIB_NODISCARD static bool SetAngleOffsetStateData(
       const GALIB_NBT tag_int_array& offset_nbt, AngleOffset* p_offset_data,
       Flipped* p_flipped_data);
 
@@ -195,32 +195,32 @@ class ChunkTileEntities {
   ~ChunkTileEntities() = default;
 
  public:
-  size_type readChunk(const GALIB minecraft::AnvilReader::ChunkDataReference&
+  size_type ReadChunk(const GALIB minecraft::AnvilReader::ChunkDataReference&
                           kChunkDataReference,
                       size_type* p_boxes_count = nullptr);
 
   // 直接读取 chunk 根 NBT，不经过 Anvil / mca 文件。
   // 这是"上传 NBT 数据"这类场景的最小入口：优先取根下的 "Level" 子标签，
   // 若不存在则把根自身当作 level（1.18+ 的扁平结构）。
-  size_type readChunkNbt(const GALIB_NBT tag_compound& kChunkRootNbt,
+  size_type ReadChunkNbt(const GALIB_NBT tag_compound& kChunkRootNbt,
                          size_type* p_boxes_count = nullptr);
 
-  GALIB_NODISCARD const GALIB minecraft::ChunkCoordinate& getChunkCoordinate()
+  GALIB_NODISCARD const GALIB minecraft::ChunkCoordinate& chunk_coordinate()
       const;
 
   GALIB_NODISCARD const_iterator cbegin() const;
   GALIB_NODISCARD const_iterator cend() const;
 
-  void clear();
+  void Clear();
   GALIB_NODISCARD bool isEmpty() const;
 
-  GALIB_NODISCARD size_type tileCount() const;
+  GALIB_NODISCARD size_type TileCount() const;
 
  private:
   // 解析 level 下的 "TileEntities" 列表并填充 block_tile_entities_。
-  // readChunk 与 readChunkNbt 共用此实现，保证两条入口行为一致。
-  size_type readTileEntities_(const GALIB_NBT tag_compound& kChunkLevelNbt,
-                              size_type* p_boxes_count);
+  // ReadChunk 与 ReadChunkNbt 共用此实现，保证两条入口行为一致。
+  size_type ReadTileEntities(const GALIB_NBT tag_compound& kChunkLevelNbt,
+                             size_type* p_boxes_count);
 
  private:
   GALIB minecraft::ChunkCoordinate chunk_coordinate_;

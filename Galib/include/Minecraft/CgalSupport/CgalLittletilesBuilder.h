@@ -36,11 +36,11 @@ class ChunkMesh {
   ~ChunkMesh() = default;
 
  public:
-  size_type addTilesFromChukTileEntities(
+  size_type AddTilesFromChunkTileEntities(
       const GALIB minecraft::littletiles::ChunkTileEntities&
           kChunkTileEntities);
-  GALIB_NODISCARD const container& getMeshArray() const;
-  void clear();
+  GALIB_NODISCARD const container& mesh_array() const;
+  void Clear();
 
  private:
   container tiles_in_world_;
@@ -69,11 +69,11 @@ class ChunkMesh {
 // kGeomCenter     : 把包围盒中心平移到原点（默认开启）。
 // kNormalizeScale : 在居中的基础上再等比缩放到"最长边 = 1"，便于第三方软件查看；
 //                   注意这会丢失"1 单位 = 1 方块"的原始比例，因此默认关闭。
-void margeAndWriteToObj(const GALIB_STD vector<LtSurfaceMesh>& meshes,
+void MergeAndWriteToObj(const GALIB_STD vector<LtSurfaceMesh>& meshes,
                         const char* p_filename, bool geom_center = true,
                         bool normalize_scale = false);
 
-void writeToOff(const GALIB_STD vector<LtSurfaceMesh>& meshes,
+void WriteToOff(const GALIB_STD vector<LtSurfaceMesh>& meshes,
                 const char* p_filename);
 
 }  // namespace galib::minecraft::cgal_support

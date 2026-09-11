@@ -121,28 +121,28 @@ void addQuadFace(galib::minecraft::cgal_support::SurfaceMeshType& mesh,
 }
 }  // namespace
 
-void GALIB minecraft::cgal_support::createMeshFromTileEntity(
+void GALIB minecraft::cgal_support::CreateMeshFromTileEntity(
     LtSurfaceMesh& mesh_data, const TileEntity& kTileEntity,
     const bool kApplyOffset) {
-  SurfaceMeshType& mesh = mesh_data.getMesh();
+  SurfaceMeshType& mesh = mesh_data.surface_mesh();
   using VertexIndex = SurfaceMeshType::Vertex_index;
 
   const LtPoint p_eun =
-      convertToCGALPoint(kTileEntity.getVertices(AngleID::EUN, kApplyOffset));
+      ConvertToCgalPoint(kTileEntity.GetVertices(AngleID::EUN, kApplyOffset));
   const LtPoint p_eus =
-      convertToCGALPoint(kTileEntity.getVertices(AngleID::EUS, kApplyOffset));
+      ConvertToCgalPoint(kTileEntity.GetVertices(AngleID::EUS, kApplyOffset));
   const LtPoint p_edn =
-      convertToCGALPoint(kTileEntity.getVertices(AngleID::EDN, kApplyOffset));
+      ConvertToCgalPoint(kTileEntity.GetVertices(AngleID::EDN, kApplyOffset));
   const LtPoint p_eds =
-      convertToCGALPoint(kTileEntity.getVertices(AngleID::EDS, kApplyOffset));
+      ConvertToCgalPoint(kTileEntity.GetVertices(AngleID::EDS, kApplyOffset));
   const LtPoint p_wun =
-      convertToCGALPoint(kTileEntity.getVertices(AngleID::WUN, kApplyOffset));
+      ConvertToCgalPoint(kTileEntity.GetVertices(AngleID::WUN, kApplyOffset));
   const LtPoint p_wus =
-      convertToCGALPoint(kTileEntity.getVertices(AngleID::WUS, kApplyOffset));
+      ConvertToCgalPoint(kTileEntity.GetVertices(AngleID::WUS, kApplyOffset));
   const LtPoint p_wdn =
-      convertToCGALPoint(kTileEntity.getVertices(AngleID::WDN, kApplyOffset));
+      ConvertToCgalPoint(kTileEntity.GetVertices(AngleID::WDN, kApplyOffset));
   const LtPoint p_wds =
-      convertToCGALPoint(kTileEntity.getVertices(AngleID::WDS, kApplyOffset));
+      ConvertToCgalPoint(kTileEntity.GetVertices(AngleID::WDS, kApplyOffset));
 
   const VertexIndex eun = mesh.add_vertex(p_eun);
   const VertexIndex eus = mesh.add_vertex(p_eus);
@@ -153,7 +153,7 @@ void GALIB minecraft::cgal_support::createMeshFromTileEntity(
   const VertexIndex wdn = mesh.add_vertex(p_wdn);
   const VertexIndex wds = mesh.add_vertex(p_wds);
 
-  const Flipped& flipped_data = kTileEntity.getFlippedData();
+  const Flipped& flipped_data = kTileEntity.flipped_data();
   const bool east_flipped = flipped_data.east;
   const bool west_flipped = flipped_data.west;
   const bool south_flipped = flipped_data.south;
@@ -344,7 +344,7 @@ bool clipIsPlanarQuad(const ClipPolygon& kQuad) {
 // 把一个四边形面加入待裁剪多面体：
 // 角点重合时先合并退化点；平面四边形保留为 1 个面，
 // 非平面（扭曲）四边形按 Flipped 规则拆成两个三角形——
-// 与 createMeshFromTileEntity 的渲染一致，否则裁剪结果会与原布尔运算不同。
+// 与 CreateMeshFromTileEntity 的渲染一致，否则裁剪结果会与原布尔运算不同。
 void appendQuadFace(ClipPolyhedron& desc_polyhedron, ClipPolygon kPoints,
                     const bool kFlipped) {
   ClipPolygon polygon;
@@ -376,29 +376,29 @@ void appendQuadFace(ClipPolyhedron& desc_polyhedron, ClipPolygon kPoints,
 }
 }  // namespace
 
-bool GALIB minecraft::cgal_support::clipTileEntityToBox(
+bool GALIB minecraft::cgal_support::ClipTileEntityToBox(
     LtSurfaceMesh& desc_mesh, const TileEntity& kTileEntity,
     const bool kApplyOffset) {
   // 8 个角点（grid 单位）
   const ClipVec3 eun =
-      clipToVec3(kTileEntity.getVertices(AngleID::EUN, kApplyOffset));
+      clipToVec3(kTileEntity.GetVertices(AngleID::EUN, kApplyOffset));
   const ClipVec3 eus =
-      clipToVec3(kTileEntity.getVertices(AngleID::EUS, kApplyOffset));
+      clipToVec3(kTileEntity.GetVertices(AngleID::EUS, kApplyOffset));
   const ClipVec3 edn =
-      clipToVec3(kTileEntity.getVertices(AngleID::EDN, kApplyOffset));
+      clipToVec3(kTileEntity.GetVertices(AngleID::EDN, kApplyOffset));
   const ClipVec3 eds =
-      clipToVec3(kTileEntity.getVertices(AngleID::EDS, kApplyOffset));
+      clipToVec3(kTileEntity.GetVertices(AngleID::EDS, kApplyOffset));
   const ClipVec3 wun =
-      clipToVec3(kTileEntity.getVertices(AngleID::WUN, kApplyOffset));
+      clipToVec3(kTileEntity.GetVertices(AngleID::WUN, kApplyOffset));
   const ClipVec3 wus =
-      clipToVec3(kTileEntity.getVertices(AngleID::WUS, kApplyOffset));
+      clipToVec3(kTileEntity.GetVertices(AngleID::WUS, kApplyOffset));
   const ClipVec3 wdn =
-      clipToVec3(kTileEntity.getVertices(AngleID::WDN, kApplyOffset));
+      clipToVec3(kTileEntity.GetVertices(AngleID::WDN, kApplyOffset));
   const ClipVec3 wds =
-      clipToVec3(kTileEntity.getVertices(AngleID::WDS, kApplyOffset));
+      clipToVec3(kTileEntity.GetVertices(AngleID::WDS, kApplyOffset));
 
-  // 凸六面体的 6 个面（环绕顺序与 createMeshFromTileEntity 一致）
-  const Flipped& flipped = kTileEntity.getFlippedData();
+  // 凸六面体的 6 个面（环绕顺序与 CreateMeshFromTileEntity 一致）
+  const Flipped& flipped = kTileEntity.flipped_data();
   ClipPolyhedron polyhedron;
   polyhedron.reserve(12);
   appendQuadFace(polyhedron, {eds, edn, eun, eus}, flipped.east);
@@ -410,9 +410,9 @@ bool GALIB minecraft::cgal_support::clipTileEntityToBox(
 
   // 裁剪体 = 未偏移的盒子（与原先布尔求交使用的 AABB 相同）
   const ClipVec3 box_a =
-      clipToVec3(kTileEntity.getVertices(AngleID::WDN, false));
+      clipToVec3(kTileEntity.GetVertices(AngleID::WDN, false));
   const ClipVec3 box_b =
-      clipToVec3(kTileEntity.getVertices(AngleID::EUS, false));
+      clipToVec3(kTileEntity.GetVertices(AngleID::EUS, false));
   const ClipVec3 box_min{GALIB_STD min(box_a.x, box_b.x),
                          GALIB_STD min(box_a.y, box_b.y),
                          GALIB_STD min(box_a.z, box_b.z)};
@@ -431,7 +431,7 @@ bool GALIB minecraft::cgal_support::clipTileEntityToBox(
     return false;
   }
 
-  SurfaceMeshType& mesh = desc_mesh.getMesh();
+  SurfaceMeshType& mesh = desc_mesh.surface_mesh();
   GALIB_STD map<GALIB_STD array<long long, 3>, SurfaceMeshType::Vertex_index>
       welded_vertices;
   const double weld_scale = 1e6;  // grid 单位下 1e-6 的量化精度足够区分真实顶点
@@ -467,14 +467,14 @@ bool GALIB minecraft::cgal_support::clipTileEntityToBox(
 }
 
 const LtSurfaceMesh& GALIB
-minecraft::cgal_support::createIntersectionCube(const GridType kGrid) {
+minecraft::cgal_support::CreateIntersectionCube(const GridType kGrid) {
   // 静态指针，确保只在第一次调用时创建
   static LtSurfaceMesh* p_lt_surface_mesh = nullptr;
 
   // 如果cube尚未创建，则构建它
   if (!p_lt_surface_mesh) {
     p_lt_surface_mesh = new LtSurfaceMesh();
-    SurfaceMeshType& cube = p_lt_surface_mesh->getMesh();
+    SurfaceMeshType& cube = p_lt_surface_mesh->surface_mesh();
 
     // 构建正方体顶点 p1(0, 0, 0) 和 p2(1, 1, 1)
     using Point = SurfaceMeshType::Point;
@@ -507,12 +507,12 @@ minecraft::cgal_support::createIntersectionCube(const GridType kGrid) {
   return *p_lt_surface_mesh;  // 返回静态指针
 }
 
-void(GALIB minecraft::cgal_support::applyWorldOffset)(
+void(GALIB minecraft::cgal_support::ApplyWorldOffset)(
     LtSurfaceMesh& mesh, const BlockCoordinate& block_coordinate) {
-  applyWorldOffset(mesh.getMesh(), block_coordinate);
+  ApplyWorldOffset(mesh.surface_mesh(), block_coordinate);
 }
 
-void(GALIB minecraft::cgal_support::applyWorldOffset)(
+void(GALIB minecraft::cgal_support::ApplyWorldOffset)(
     SurfaceMeshType& mesh, const BlockCoordinate& block_coordinate) {
   using Point = SurfaceMeshType::Point;
   const double offset_x = block_coordinate.x;
@@ -525,9 +525,9 @@ void(GALIB minecraft::cgal_support::applyWorldOffset)(
   }
 }
 
-void(GALIB minecraft::cgal_support::applyGrid)(LtSurfaceMesh& mesh,
+void(GALIB minecraft::cgal_support::ApplyGrid)(LtSurfaceMesh& mesh,
                                                const GridType grid) {
-  SurfaceMeshType& transformed = mesh.getMesh();
+  SurfaceMeshType& transformed = mesh.surface_mesh();
   using Point = SurfaceMeshType::Point;
 
   for (auto v : transformed.vertices()) {
@@ -539,8 +539,8 @@ void(GALIB minecraft::cgal_support::applyGrid)(LtSurfaceMesh& mesh,
 }
 
 // 网格清理函数
-void(GALIB minecraft::cgal_support::cleanupMesh)(LtSurfaceMesh& mesh) {
-  SurfaceMeshType& surface_mesh = mesh.getMesh();
+void(GALIB minecraft::cgal_support::CleanupMesh)(LtSurfaceMesh& mesh) {
+  SurfaceMeshType& surface_mesh = mesh.surface_mesh();
 
   // 移除孤立顶点
   CGAL::Polygon_mesh_processing::remove_isolated_vertices(surface_mesh);

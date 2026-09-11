@@ -51,22 +51,22 @@ class LtSurfaceMesh {
   explicit LtSurfaceMesh(const SurfaceMeshType& mesh);
   ~LtSurfaceMesh() = default;
 
-  GALIB_NODISCARD SurfaceMeshType& getMesh();
-  GALIB_NODISCARD const SurfaceMeshType& getMesh() const;
-  void setBlockID(const GALIB_STD string& str);
-  GALIB_NODISCARD const GALIB_STD string& getBlockID() const;
+  GALIB_NODISCARD SurfaceMeshType& surface_mesh();
+  GALIB_NODISCARD const SurfaceMeshType& surface_mesh() const;
+  void set_block_id(const GALIB_STD string& str);
+  GALIB_NODISCARD const GALIB_STD string& block_id() const;
   // tile 的染色；未染色的 tile 保持 has_tile_color_ = false
-  void setTileColor(GALIB_STD int32_t kColor, bool kHasColor);
-  GALIB_NODISCARD bool hasTileColor() const;
-  GALIB_NODISCARD GALIB_STD int32_t getTileColor() const;
-  void setBlockCoordInWorld(
+  void set_tile_color(GALIB_STD int32_t kColor, bool kHasColor);
+  GALIB_NODISCARD bool has_tile_color() const;
+  GALIB_NODISCARD GALIB_STD int32_t tile_color() const;
+  void set_block_coord_in_world(
       const GALIB minecraft::BlockCoordinate& kBlockCoord);
-  const GALIB minecraft::BlockCoordinate& getBlockCoord() const;
-  SurfaceMeshType getMeshWithOffset(
+  const GALIB minecraft::BlockCoordinate& block_coord_in_world() const;
+  SurfaceMeshType GetMeshWithOffset(
       const GALIB minecraft::BlockCoordinate& offset) const;
-  void applyOffset(const GALIB minecraft::BlockCoordinate& offset);
-  GALIB_STD string getFormatBlockID() const;
-  UVData calculateFaceUV(const SurfaceMeshType::face_index& kFaceIndex);
+  void ApplyOffset(const GALIB minecraft::BlockCoordinate& offset);
+  GALIB_STD string GetFormatBlockId() const;
+  UVData CalculateFaceUv(const SurfaceMeshType::face_index& kFaceIndex);
 
  private:
   SurfaceMeshType surface_mesh_;

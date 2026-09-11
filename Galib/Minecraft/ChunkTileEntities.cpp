@@ -36,7 +36,7 @@ using GALIB_NBT tag_list;
 GALIB minecraft::littletiles::ChunkTileEntities::ChunkTileEntities()
     : chunk_coordinate_({}) {}
 
-ChunkTileEntities::size_type ChunkTileEntities::readChunk(
+ChunkTileEntities::size_type ChunkTileEntities::ReadChunk(
     const AnvilReader::ChunkDataReference& kChunkDataReference,
     size_type* p_boxes_count) {
   // Check chunk root is not empty
@@ -53,10 +53,10 @@ ChunkTileEntities::size_type ChunkTileEntities::readChunk(
   }
 
   chunk_coordinate_ = kChunkDataReference.chunk_info.chunk_coord;
-  return readTileEntities_(*kChunkDataReference.p_chunk_level, p_boxes_count);
+  return ReadTileEntities(*kChunkDataReference.p_chunk_level, p_boxes_count);
 }
 
-ChunkTileEntities::size_type ChunkTileEntities::readChunkNbt(
+ChunkTileEntities::size_type ChunkTileEntities::ReadChunkNbt(
     const tag_compound& kChunkRootNbt, size_type* p_boxes_count) {
   // Check chunk root is not empty
   if (!kChunkRootNbt.size()) {
@@ -77,10 +77,10 @@ ChunkTileEntities::size_type ChunkTileEntities::readChunkNbt(
                          chunk_level.at("zPos").as<GALIB_NBT tag_int>().get()};
   }
 
-  return readTileEntities_(chunk_level, p_boxes_count);
+  return ReadTileEntities(chunk_level, p_boxes_count);
 }
 
-ChunkTileEntities::size_type ChunkTileEntities::readTileEntities_(
+ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
     const tag_compound& kChunkLevelNbt, size_type* p_boxes_count) {
   // Chenk TileEnities is exist
   if (!kChunkLevelNbt.has_key("TileEntities")) {
@@ -98,7 +98,7 @@ ChunkTileEntities::size_type ChunkTileEntities::readTileEntities_(
   size_type boxes_count = 0;
 
 #ifdef GALIB_DEBUG
-  printf("ChunkTileEntities::readChunk read chunk: %d %d\n",
+  printf("ChunkTileEntities::ReadChunk read chunk: %d %d\n",
          chunk_coordinate_.x, chunk_coordinate_.z);
 #endif
 
@@ -108,7 +108,7 @@ ChunkTileEntities::size_type ChunkTileEntities::readTileEntities_(
     try {
       BlockTileEntities block_tiles;
       size_type block_boxes_count = 0;
-      tile_count += block_tiles.readBlockTileNBT(it->as<tag_compound>(),
+      tile_count += block_tiles.ReadBlockTileNbt(it->as<tag_compound>(),
                                                  &block_boxes_count);
       boxes_count += block_boxes_count;
       block_tile_entities.push_back(block_tiles);
@@ -118,7 +118,7 @@ ChunkTileEntities::size_type ChunkTileEntities::readTileEntities_(
     }
 #else
     catch (const GALIB_STD exception& e) {
-      printf("ChunkTileEntities::readChunk error: %s\n", e.what());
+      printf("ChunkTileEntities::ReadChunk error: %s\n", e.what());
     }
 #endif
   }
@@ -127,7 +127,7 @@ ChunkTileEntities::size_type ChunkTileEntities::readTileEntities_(
   block_tile_entities_.swap(block_tile_entities);
 
 #ifdef GALIB_DEBUG
-  printf("ChunkTileEntities::readChunk Tile count: %zu, Boxes count: %zu\n",
+  printf("ChunkTileEntities::ReadChunk Tile count: %zu, Boxes count: %zu\n",
          tile_count, boxes_count);
 #endif
 
@@ -138,7 +138,7 @@ ChunkTileEntities::size_type ChunkTileEntities::readTileEntities_(
   return tile_count;
 }
 
-const ChunkCoordinate& ChunkTileEntities::getChunkCoordinate() const {
+const ChunkCoordinate& ChunkTileEntities::chunk_coordinate() const {
   return chunk_coordinate_;
 }
 
@@ -150,17 +150,17 @@ ChunkTileEntities::const_iterator ChunkTileEntities::cend() const {
   return block_tile_entities_.cend();
 }
 
-void ChunkTileEntities::clear() {
+void ChunkTileEntities::Clear() {
   chunk_coordinate_ = {0, 0};
   block_tile_entities_.clear();
 }
 
 bool ChunkTileEntities::isEmpty() const { return block_tile_entities_.empty(); }
 
-ChunkTileEntities::size_type ChunkTileEntities::tileCount() const {
+ChunkTileEntities::size_type ChunkTileEntities::TileCount() const {
   size_t num = 0;
   for (const_iterator chunk_it = cbegin(); chunk_it != cend(); ++chunk_it) {
-    num += chunk_it->tileCount();
+    num += chunk_it->TileCount();
   }
   return num;
 }

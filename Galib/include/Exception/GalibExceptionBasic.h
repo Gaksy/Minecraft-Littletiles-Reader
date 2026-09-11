@@ -107,9 +107,9 @@ class GalibExceptionBasic : public GALIB_STD exception {
     last_exception_ = *this;
   }
 
-  GALIB_NODISCARD ErrorCodeType GetErrorCode() const { return error_code_; }
+  GALIB_NODISCARD ErrorCodeType error_code() const { return error_code_; }
 
-  GALIB_NODISCARD const char* GetErrorMessage() const GALIB_NOEXCEPT {
+  GALIB_NODISCARD const char* error_message() const GALIB_NOEXCEPT {
     return desc_error_message_.c_str();
   }
 

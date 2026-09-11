@@ -33,7 +33,7 @@ chunk(from block)  = CoordSwap2D(block.xz, 16)
 - **1.18+**：level 内容摊平到根上
 
 当前 `AnvilReader` **硬编码** `.at("Level")`（`Anvil.cpp:176`），只支持 1.12 结构；
-新增的 `readChunkNbt` 已同时兼容两种结构。**没有任何 `DataVersion` 校验**，版本不符会静默误解析。
+新增的 `ReadChunkNbt` 已同时兼容两种结构。**没有任何 `DataVersion` 校验**，版本不符会静默误解析。
 
 ## 3. LittleTiles tile entity
 
@@ -98,7 +98,7 @@ EUN=0  EUS=1  EDN=2  EDS=3  WUN=4  WUS=5  WDN=6  WDS=7
 命名 = E/W(x) + U/D(y) + N/S(z)，表示该轴取 pos_1 还是 pos_2
 ```
 
-偏移值消费顺序：按 AngleID 升序，每个角点内依次 x → y → z（`setAngleOffsetStateData_`，`BlockTileEntities.cpp:237`）。
+偏移值消费顺序：按 AngleID 升序，每个角点内依次 x → y → z（`SetAngleOffsetStateData`，`BlockTileEntities.cpp:237`）。
 
 > **验证记录**：README 的示例 SNBT（状态 `-2135499923` = `0x80B6DB6D`）经 C++ 算法、
 > 仓库内 `python/IntArrayInterpreter.py`、以及 README 给出的 MATLAB 输出三者结果**完全一致**
@@ -117,13 +117,13 @@ EUN=0  EUS=1  EDN=2  EDS=3  WUN=4  WUS=5  WDN=6  WDS=7
 | `GridType` / `OffsetType` | `int32_t` / `int16_t` | `LittleTilesCoord.h:26-27` |
 
 从 tile 到世界坐标：`顶点(grid 单位) / grid + 方块坐标`
-（`getVerticesApplyGrid`、`applyGrid` `CgalLtSupport.cpp:201`、`applyWorldOffset` `:181`）。
+（`GetVerticesApplyGrid`、`ApplyGrid` `CgalLtSupport.cpp:201`、`ApplyWorldOffset` `:181`）。
 
 ## 5. 浮点精度
 
 - `CgalTypeDef.h:30,36`：Windows → `FloatType=float` + `Simple_cartesian<float>`；
   macOS → `double`。**同一输入在 Windows/macOS 上几何结果可能不同。**
-- 但 `LittleTilesCoord` 恒为 `double`，`applyGrid` 又除以 `static_cast<float>(grid)`
-  （`CgalLtSupport.cpp:201` 附近），`margeAndWriteToObj` 里还硬编码了
+- 但 `LittleTilesCoord` 恒为 `double`，`ApplyGrid` 又除以 `static_cast<float>(grid)`
+  （`CgalLtSupport.cpp:201` 附近），`MergeAndWriteToObj` 里还硬编码了
   `CGAL::Simple_cartesian<double>`（`CgalLittletilesBuilder.cpp:151`）→ 目前是混用状态。
 - 服务器端若要"同输入同输出"，建议统一为 `double`（尚未实施）。

@@ -10,8 +10,8 @@ using galib::minecraft::AnvilReader;
 using galib::minecraft::ChunkCoordinate;
 
 using galib::minecraft::cgal_support::ChunkMesh;
-using galib::minecraft::cgal_support::margeAndWriteToObj;
-using galib::minecraft::cgal_support::writeToOff;
+using galib::minecraft::cgal_support::MergeAndWriteToObj;
+using galib::minecraft::cgal_support::WriteToOff;
 using galib::minecraft::littletiles::ChunkTileEntities;
 
 using std::string;
@@ -68,20 +68,20 @@ int main() {
 
   ChunkCoordinate chunk_coord{chunk_x, chunk_z};
 
-  anvil_reader.setRegionFolder(region_folder);
+  anvil_reader.SetRegionFolder(region_folder);
   const AnvilReader::ChunkDataReference chunk_data_reference =
-      anvil_reader.getChunkDataReference(chunk_coord);
+      anvil_reader.GetChunkDataReference(chunk_coord);
 
   ChunkTileEntities chunk_tile_manager;
   ChunkTileEntities::size_type tile_count =
-      chunk_tile_manager.readChunk(chunk_data_reference);
+      chunk_tile_manager.ReadChunk(chunk_data_reference);
 
   printf("nbt tile processed count: %zu\n", tile_count);
 
   ChunkMesh chunk_mesh_management;
-  const size_t all_tile_count = chunk_tile_manager.tileCount();
+  const size_t all_tile_count = chunk_tile_manager.TileCount();
   const size_t processed_tile_count =
-      chunk_mesh_management.addTilesFromChukTileEntities(chunk_tile_manager);
+      chunk_mesh_management.AddTilesFromChunkTileEntities(chunk_tile_manager);
 
   printf("all tile count: %zu, porcessed tile count: %zu\n", all_tile_count,
          processed_tile_count);
@@ -106,9 +106,8 @@ int main() {
   const bool is_need_normalize_scale = askYesNo(
       "Also scale the longest edge to 1 unit (changes the real size)?", false);
 
-  // writeToOff(chunk_mesh_management.getMeshArray(), "../python/offs/test");
-  margeAndWriteToObj(chunk_mesh_management.getMeshArray(),
-                     obj_file_path.c_str(), is_need_geometry_center,
-                     is_need_normalize_scale);
+  // WriteToOff(chunk_mesh_management.mesh_array(), "../python/offs/test");
+  MergeAndWriteToObj(chunk_mesh_management.mesh_array(), obj_file_path.c_str(),
+                     is_need_geometry_center, is_need_normalize_scale);
   return EXIT_SUCCESS;
 }

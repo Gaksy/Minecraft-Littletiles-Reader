@@ -23,12 +23,12 @@
 using GALIB minecraft::littletiles::AngleID;
 using GALIB_STD uint8_t;
 
-uint8_t(GALIB minecraft::littletiles::convertAngleIdToInt)(
+uint8_t(GALIB minecraft::littletiles::ConvertAngleIdToInt)(
     const AngleID kAngleId) {
   return static_cast<uint8_t>(kAngleId);
 }
 
-AngleID(galib::minecraft::littletiles::convertIntToAngleId)(
+AngleID(galib::minecraft::littletiles::ConvertIntToAngleId)(
     const uint8_t kNumId) {
   return static_cast<AngleID>(kNumId);
 }

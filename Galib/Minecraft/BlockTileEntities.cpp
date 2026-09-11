@@ -48,7 +48,7 @@ using GALIB_NBT tag_int_array;
 BlockTileEntities::BlockTileEntities()
     : block_coordinate_({0, 0, 0}), grid_(0) {}
 
-BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(
+BlockTileEntities::size_type BlockTileEntities::ReadBlockTileNbt(
     const tag_compound& kBlockTilesNBT, size_type* p_boxes_count) {
   // check block tiles root is not empty
   if (!kBlockTilesNBT.size()) {
@@ -82,7 +82,7 @@ BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(
                          kBlockTilesNBT.at("z").as<tag_int>().get()};
 
 #ifdef GALIB_DEBUG
-    printf("BlockTileEntities::readBlockTileNBT read block: %d %d %d\n",
+    printf("BlockTileEntities::ReadBlockTileNbt read block: %d %d %d\n",
            block_coordinate_.x, block_coordinate_.y, block_coordinate_.z);
 #endif
 
@@ -107,10 +107,10 @@ BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(
 
       // Get data, If Get successful, then insert data
       if (BoxTileEnities box_tile_enities;
-          readBoxesTilesNbt_(*p_boxes, box_tile_enities, tile_count)) {
+          ReadBoxesTilesNbt(*p_boxes, box_tile_enities, tile_count)) {
         if (material.has_color) {
           for (TileEntity& tile : box_tile_enities) {
-            tile.setColor(material.color, true);
+            tile.set_color(material.color, true);
           }
         }
         box_tile_enities_map.insert(container_pair(material, box_tile_enities));
@@ -125,7 +125,7 @@ BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(
 
 #ifdef GALIB_DEBUG
     printf(
-        "BlockTileEntities::readBlockTileNBT Boxes count: %zu, Tile count: "
+        "BlockTileEntities::ReadBlockTileNbt Boxes count: %zu, Tile count: "
         "%zu\n",
         boxes_count, tile_count);
 #endif
@@ -139,13 +139,13 @@ BlockTileEntities::size_type BlockTileEntities::readBlockTileNBT(
   }
 }
 
-const BlockCoordinate& BlockTileEntities::getBlockCoordinate() const {
+const BlockCoordinate& BlockTileEntities::block_coordinate() const {
   return block_coordinate_;
 }
 
-const GridType& BlockTileEntities::getGridType() const { return grid_; }
+const GridType& BlockTileEntities::grid() const { return grid_; }
 
-const std::string& BlockTileEntities::getLittleTilesID() const {
+const std::string& BlockTileEntities::little_tiles_id() const {
   return little_tiles_id_;
 }
 
@@ -157,7 +157,7 @@ BlockTileEntities::const_iterator BlockTileEntities::cend() const {
   return box_tile_entities_map_.cend();
 }
 
-BlockTileEntities::size_type BlockTileEntities::tileCount() const {
+BlockTileEntities::size_type BlockTileEntities::TileCount() const {
   size_type tile_count = 0;
   for (const_iterator it = box_tile_entities_map_.cbegin();
        it != box_tile_entities_map_.cend(); ++it) {
@@ -166,9 +166,9 @@ BlockTileEntities::size_type BlockTileEntities::tileCount() const {
   return tile_count;
 }
 
-bool BlockTileEntities::readBoxesTilesNbt_(
-    const tag_compound& kBoxesTilesNbt, BoxTileEnities& desc_box_tile_enities,
-    size_type& tile_count) {
+bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,
+                                          BoxTileEnities& desc_box_tile_enities,
+                                          size_type& tile_count) {
   if (!kBoxesTilesNbt.size()) {
     return false;
   }
@@ -211,16 +211,16 @@ bool BlockTileEntities::readBoxesTilesNbt_(
 
         if (int_array.size() < 6) {
           continue;
-        }                            // pos must have 6 num (two vertices)
+        }  // pos must have 6 num (two vertices)
         if (int_array.size() > 6) {  // if > 6 , then have offset and flipped
           AngleOffset angle_offset_data[8];
           Flipped flipped_data;
-          if (!setAngleOffsetStateData_(int_array, angle_offset_data,
-                                        &flipped_data)) {
+          if (!SetAngleOffsetStateData(int_array, angle_offset_data,
+                                       &flipped_data)) {
             continue;
           }
-          temp.setFlippedData(flipped_data);
-          temp.setOffsetData(angle_offset_data);
+          temp.set_flipped_data(flipped_data);
+          temp.set_offset_data(angle_offset_data);
         }
 
         LittleTilesCoord pos_1, pos_2;
@@ -230,7 +230,7 @@ bool BlockTileEntities::readBoxesTilesNbt_(
         pos_2.x = int_array[3];
         pos_2.y = int_array[4];
         pos_2.z = int_array[5];
-        temp.setPos(pos_1, pos_2);
+        temp.set_pos(pos_1, pos_2);
 
         box_tile_enity_array.push_back(temp);
         ++tile_count;
@@ -252,16 +252,16 @@ bool BlockTileEntities::readBoxesTilesNbt_(
   }
 #else
   catch (const GALIB_STD exception& e) {
-    printf("ChunkTileEntities::readBoxesTilesNbt_ error: %s\n", e.what());
+    printf("ChunkTileEntities::ReadBoxesTilesNbt error: %s\n", e.what());
     return false;
   }
 #endif
   return true;
 }
 
-bool BlockTileEntities::setAngleOffsetStateData_(
-    const tag_int_array& offset_nbt, AngleOffset* p_offset_data,
-    Flipped* p_flipped_data) {
+bool BlockTileEntities::SetAngleOffsetStateData(const tag_int_array& offset_nbt,
+                                                AngleOffset* p_offset_data,
+                                                Flipped* p_flipped_data) {
   // Check nbt size, if < 7, the angle change data is null
   if (offset_nbt.size() < 7) {
     return false;
@@ -290,7 +290,7 @@ bool BlockTileEntities::setAngleOffsetStateData_(
     p_offset_data->y_enable = state_binary & (0x2 << (angle_id * 3));
     p_offset_data->z_enable = state_binary & (0x4 << (angle_id * 3));
 
-    if (p_offset_data->hasAnyEnable()) {
+    if (p_offset_data->has_any_enable()) {
       if (p_offset_data->x_enable && offset_it != offset_it_end) {
         p_offset_data->x_offset = *(offset_it++);
       }
