@@ -119,6 +119,15 @@ bool BlockTextureTable::Lookup(const std::string& kBlockId,
 
   auto found = entries_.find(kBlockId);
   if (found == entries_.end()) {
+    // NBT 里的方块名可能不带 meta。带 meta 家族的方块（羊毛、染色玻璃…）
+    // 在表里只有 "<名字>:<meta>" 形式的键，而 blockstate 文件是按颜色命名的
+    // （white_stained_glass 等），所以这里补一次 ":0" 的尝试。
+    if (kBlockId.find(':') != std::string::npos &&
+        kBlockId.find(':', kBlockId.find(':') + 1) == std::string::npos) {
+      found = entries_.find(kBlockId + ":0");
+    }
+  }
+  if (found == entries_.end()) {
     // 表里没有带 meta 的键时，退回该方块的基础名
     found = entries_.find(StripMeta(kBlockId));
   }
