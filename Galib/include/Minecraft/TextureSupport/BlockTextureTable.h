@@ -40,9 +40,12 @@ inline constexpr int kFaceCount = 6;
 // 路径相对 assets/textures，且不含 .png 后缀，例如 "blocks/stone_diorite"。
 struct BlockFaceTextures {
   std::array<std::string, kFaceCount> paths{};
+  // 该面的 tintindex；-1 表示不染色（见 docs/texture-mapping.md）
+  std::array<int, kFaceCount> tints{};
 
   bool empty() const;
   const std::string& Path(FaceDirection direction) const;
+  int Tint(FaceDirection direction) const;
 };
 
 // 方块 -> 六面贴图 的映射表。

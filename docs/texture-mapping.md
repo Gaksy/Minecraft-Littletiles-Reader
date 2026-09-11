@@ -160,7 +160,7 @@ python3 tools/make_uv_test_model.py assets/1.12.2 out_file/uv_test
 
 ## 6. 实现计划（C++ 侧）
 
-> **进度**：第 1、2、3 步的"几何 + 贴图"部分已实现（见 6.1）；颜色烘焙（第 4 步）未做。
+> **进度**：第 1~3 步已实现（见 6.1），颜色与生物群系染色烘焙也已实现（见 6.2）。
 
 1. **资源解析表**：由 `tools/resolve_block_textures.py` 预处理成紧凑映射表
    （`block(+meta) → 六个面的贴图路径`），C++ 只读表，不引入 JSON 依赖；
@@ -191,6 +191,35 @@ python3 tools/make_uv_test_model.py assets/1.12.2 out_file/uv_test
 材质 6 个、复制贴图 6 张
 ```
 
-尚未实现：**颜色烘焙**。当前 MTL 的 `Kd` 写成白色，染色信息尚未用到；
-Blender 不会把 `Kd` 与 `map_Kd` 相乘，因此下一步要按 (贴图, 颜色) 生成染色 PNG
-（实测整个测试数据集只有 16 个组合，成本很低）。
+### 6.2 颜色与生物群系染色烘焙（已实现）
+
+因为 OBJ/MTL 的多数导入器（含 Blender）**不会**把 `Kd` 与 `map_Kd` 相乘，
+所以颜色必须乘进像素：材质键从"贴图"扩展为 **(贴图, 生物群系 tint, tile 颜色)**，
+每个组合烘焙成一张 PNG，命名形如 `blocks_purpur_block_cffffbe00`。
+
+新增两个模块（都只依赖 zlib，不引入第三方库）：
+
+| 组件 | 位置 | 说明 |
+|---|---|---|
+| PNG 读写 | `Minecraft/TextureSupport/PngImage.h/.cpp` | 读：8 位、非交错、颜色类型 0/2/3/4/6，统一转 RGBA；写：8 位 RGBA |
+| 染色烘焙 | `Minecraft/TextureSupport/TextureBaker.h/.cpp` | 按 `贴图 × tint × tile 颜色` 逐像素相乘；tile 颜色的 alpha 会同时调制透明度 |
+
+**tint 颜色用的是固定默认值**（草 `#91BD59`、树叶 `#79C05A`），不是从 `colormap` 采样：
+
+1. LittleTiles 的存档**不记录每个 tile 的生物群系**，参考实现（Java 模组）也是用一个固定坐标
+   去取默认生物群系色，本质相同；
+2. `textures/colormap/*.png` 是三角形布局（无效区是白色），不同版本的索引约定还不一致，
+   用常量更简单、更可预测。
+
+模型里哪些面带 `tintindex` 已由解析工具记录进映射表（`<face>_tint` 列），
+1.12.2 里只有 29 个模型需要染色：`grass`、`leaves`、`vine_*`、`waterlily`、
+`stem_*`、`redstone_*`、`tinted_cross`、`flower_pot_fern`。
+
+验证（都不依赖肉眼）：
+
+```
+PNG 解码   : 478 张 vanilla 贴图与 Python 参考解码器逐像素一致（0 处不一致）
+染色公式   : 4 组（仅 tint / 仅 tile 色 / 两者 / 都不）与 Python 公式逐像素一致
+端到端     : chunk(-136,49) 的材质数由 6 增到 8（purpur_block 的 3 种染色 +
+             bedrock 的染色被区分开），MTL 引用的 8 张贴图全部存在
+```

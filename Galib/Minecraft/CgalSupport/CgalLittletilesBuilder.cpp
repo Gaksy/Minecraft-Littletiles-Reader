@@ -27,6 +27,7 @@
 #include <utility>
 
 #include "Minecraft/TextureSupport/BlockTextureTable.h"
+#include "Minecraft/TextureSupport/TextureBaker.h"
 
 using std::cerr;
 using std::cout;
@@ -60,6 +61,7 @@ using galib::minecraft::texture_support::BlockTextureTable;
 using galib::minecraft::texture_support::ComputeFaceUv;
 using galib::minecraft::texture_support::FaceDirection;
 using galib::minecraft::texture_support::FaceDirectionFromNormal;
+using galib::minecraft::texture_support::TextureBaker;
 
 using CGAL::SM_Vertex_index;
 
@@ -152,11 +154,23 @@ struct ExportedFaceInfo {
   bool has_material{false};
 };
 
-// 贴图路径 -> 合法材质名：blocks/grass_side -> blocks_grass_side
-std::string MaterialNameFromTexturePath(const std::string& kTexturePath) {
+// 材质名 = 贴图 + 生物群系染色 + tile 颜色：
+//   blocks/grass_top + 0x91BD59 + 0xFFFFBE00 -> blocks_grass_top_t91bd59_cffffbe00
+std::string MakeMaterialName(const std::string& kTexturePath,
+                             const std::uint32_t kTintRgb,
+                             const std::uint32_t kTileColor) {
   std::string name = kTexturePath;
   std::replace(name.begin(), name.end(), '/', '_');
   std::replace(name.begin(), name.end(), ':', '_');
+  char suffix[32] = {};
+  if (kTintRgb != 0x00FFFFFFu) {
+    std::snprintf(suffix, sizeof(suffix), "_t%06x", kTintRgb);
+    name += suffix;
+  }
+  if (kTileColor != 0xFFFFFFFFu) {
+    std::snprintf(suffix, sizeof(suffix), "_c%08x", kTileColor);
+    name += suffix;
+  }
   return name;
 }
 
@@ -209,10 +223,16 @@ void galib::minecraft::cgal_support::MergeAndWriteToObj(
   const bool has_textures =
       !options.assets_root.empty() &&
       texture_table.LoadFromTsv(options.assets_root + "/block_textures.tsv");
+  // 染色烘焙器：解析生物群系 tint 并把颜色乘进贴图
+  const TextureBaker baker(options.assets_root);
 
   std::vector<std::string> material_names;  // 材质名（顺序即 usemtl 出现顺序）
   std::vector<std::string>
       material_textures;  // 与 material_names 一一对应的贴图路径
+  std::vector<std::uint32_t>
+      material_tints;  // 生物群系染色（0xFFFFFF 表示不染色）
+  std::vector<std::uint32_t>
+      material_tile_colors;  // tile 颜色（0xFFFFFFFF 表示无染色）
   std::unordered_map<std::string, std::size_t> material_index;
   std::vector<ExportedFaceInfo> face_infos;      // 与合并网格的面顺序一一对应
   std::vector<LtPoint3> vertex_local_positions;  // 与合并网格的顶点顺序一一对应
@@ -283,14 +303,30 @@ void galib::minecraft::cgal_support::MergeAndWriteToObj(
             if (texture_path.empty()) {
               ++missing_texture_faces;
             } else {
+              // 生物群系染色：只有模型标了 tintindex 的面才需要
+              std::uint32_t tint_rgb = 0x00FFFFFFu;
+              const int tint_index = face_textures.Tint(direction);
+              std::uint32_t tint_argb = 0;
+              if (tint_index >= 0 &&
+                  baker.ResolveTintColor(block_id, tint_index, &tint_argb)) {
+                tint_rgb = tint_argb & 0x00FFFFFFu;
+              }
+              // tile 自带染色（LittleTiles 的彩色 tile）
+              const std::uint32_t tile_color =
+                  it->has_tile_color()
+                      ? static_cast<std::uint32_t>(it->tile_color())
+                      : 0xFFFFFFFFu;
+
               const std::string name =
-                  MaterialNameFromTexturePath(texture_path);
+                  MakeMaterialName(texture_path, tint_rgb, tile_color);
               auto found = material_index.find(name);
               if (found == material_index.end()) {
                 found =
                     material_index.emplace(name, material_names.size()).first;
                 material_names.push_back(name);
                 material_textures.push_back(texture_path);
+                material_tints.push_back(tint_rgb);
+                material_tile_colors.push_back(tile_color);
               }
               info.material_index = found->second;
               info.direction = direction;
@@ -461,8 +497,9 @@ void galib::minecraft::cgal_support::MergeAndWriteToObj(
 
   out.close();
 
-  // 写 MTL，并把用到的贴图复制到 OBJ 同目录，保证输出可以整体搬走
-  std::size_t copied_texture_count = 0;
+  // 写 MTL：每个材质把 (贴图 × 生物群系染色 × tile 颜色) 烘焙成一张 PNG，
+  // 统一放到 OBJ 同目录，保证输出可以整体搬走。
+  std::size_t baked_texture_count = 0;
   if (write_materials) {
     const std::filesystem::path mtl_path =
         output_path.parent_path() / mtl_filename;
@@ -471,19 +508,40 @@ void galib::minecraft::cgal_support::MergeAndWriteToObj(
       mtl << "# 由 LittleTilesReader 生成\n";
       for (std::size_t i = 0; i < material_names.size(); ++i) {
         const std::string& texture_path = material_textures[i];
-        const std::filesystem::path source =
-            std::filesystem::path(options.assets_root) / "textures" /
-            (texture_path + ".png");
-        const std::string png_name =
-            std::filesystem::path(texture_path).filename().string() + ".png";
-        std::error_code copy_error;
-        if (std::filesystem::exists(source)) {
-          std::filesystem::copy_file(
-              source, output_path.parent_path() / png_name,
-              std::filesystem::copy_options::overwrite_existing, copy_error);
-          if (!copy_error) {
-            ++copied_texture_count;
+        const std::string png_name = material_names[i] + ".png";
+        const std::filesystem::path target =
+            output_path.parent_path() / png_name;
+
+        // 无染色时直接复制原贴图，避免多做一次无意义的编解码
+        const bool needs_bake = material_tints[i] != 0x00FFFFFFu ||
+                                material_tile_colors[i] != 0xFFFFFFFFu;
+        std::string bake_error;
+        bool texture_ready = false;
+        if (needs_bake) {
+          texture_ready =
+              baker.Bake(texture_path, material_tints[i],
+                         material_tile_colors[i], target.string(), &bake_error);
+        }
+        if (!texture_ready) {
+          const std::filesystem::path source =
+              std::filesystem::path(options.assets_root) / "textures" /
+              (texture_path + ".png");
+          std::error_code copy_error;
+          if (std::filesystem::exists(source)) {
+            std::filesystem::copy_file(
+                source, target,
+                std::filesystem::copy_options::overwrite_existing, copy_error);
+            texture_ready = !copy_error;
           }
+        }
+        if (texture_ready) {
+          ++baked_texture_count;
+        } else {
+          std::cerr << "警告: 贴图处理失败 " << texture_path;
+          if (!bake_error.empty()) {
+            std::cerr << " —— " << bake_error;
+          }
+          std::cerr << std::endl;
         }
         mtl << "\nnewmtl " << material_names[i] << "\n"
             << "Ka 1.000 1.000 1.000\n"
@@ -500,8 +558,8 @@ void galib::minecraft::cgal_support::MergeAndWriteToObj(
             << std::filesystem::weakly_canonical(output_path, path_error)
             << "\n";
   if (write_materials) {
-    std::cout << "  材质 " << material_names.size() << " 个，已复制贴图 "
-              << copied_texture_count << " 张";
+    std::cout << "  材质 " << material_names.size() << " 个，已写出贴图 "
+              << baked_texture_count << " 张";
     if (missing_texture_faces > 0) {
       std::cout << "（另有 " << missing_texture_faces << " 个面没解析到贴图）";
     }

@@ -16,6 +16,7 @@
 
 #include "Minecraft/TextureSupport/BlockTextureTable.h"
 
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -66,6 +67,10 @@ const std::string& BlockFaceTextures::Path(
   return paths[static_cast<std::size_t>(direction)];
 }
 
+int BlockFaceTextures::Tint(const FaceDirection direction) const {
+  return tints[static_cast<std::size_t>(direction)];
+}
+
 bool BlockTextureTable::LoadFromTsv(const std::string& kTsvPath) {
   entries_.clear();
   loaded_ = false;
@@ -89,6 +94,15 @@ bool BlockTextureTable::LoadFromTsv(const std::string& kTsvPath) {
       const std::string& value = fields[static_cast<std::size_t>(i) + 1];
       textures.paths[static_cast<std::size_t>(kColumnOrder[i])] =
           value == "-" ? "" : value;
+    }
+    // tintindex 列可选：旧版表只有 7 列，此时全部视为不染色
+    for (int i = 0; i < kFaceCount; ++i) {
+      const std::size_t column = static_cast<std::size_t>(i) + 1 + kFaceCount;
+      int tint = -1;
+      if (column < fields.size() && !fields[column].empty()) {
+        tint = std::atoi(fields[column].c_str());
+      }
+      textures.tints[static_cast<std::size_t>(kColumnOrder[i])] = tint;
     }
     entries_[fields[0]] = std::move(textures);
   }

@@ -11,6 +11,8 @@ add_library(galib STATIC
   Minecraft/CgalSupport/CgalLtSupport.cpp
   Minecraft/CgalSupport/CgalLittletilesBuilder.cpp
   Minecraft/TextureSupport/BlockTextureTable.cpp
+  Minecraft/TextureSupport/PngImage.cpp
+  Minecraft/TextureSupport/TextureBaker.cpp
   File/FileState.cpp
     File/PathFormat.cpp
     Exception/MinecraftException.cpp
