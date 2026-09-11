@@ -162,6 +162,11 @@ LITTLETILES_ASSETS=assets/pack_v14 ./LittleTilesReader     # 环境变量
 # 或者运行时在 "assets root (blank = auto-detect):" 一问里直接填路径（可留空）
 ```
 
+相对路径的解析顺序是**当前工作目录 → 可执行文件所在目录 → 可执行文件的上一级**：
+CLion 运行时工作目录是构建目录，直接填 `assets/pack_v14` 也能找到仓库根下的那一份。
+选中后会打印成绝对路径（`assets root: /…/assets/pack_v14`）——
+**这一行是判断"到底用了哪份素材"的唯一依据**，导出结果不对时先看它。
+
 实测（INCEPTION texture V1.4 + 1.12.2 存档）：
 
 | 项目 | 结果 |

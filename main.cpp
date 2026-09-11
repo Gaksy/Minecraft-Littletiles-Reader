@@ -63,31 +63,56 @@ bool askYesNo(const char* const kPQuestion, const bool kDefaultValue) {
   return kDefaultValue;
 }
 
-// 素材根目录：环境变量 LITTLETILES_ASSETS 优先；否则依次尝试
-// ./assets/1.12.2（从仓库根运行）与 ../assets/1.12.2（从构建目录运行）
-std::string DetectAssetsRoot() {
-  if (const char* const assets_env = std::getenv("LITTLETILES_ASSETS")) {
+// 可执行文件所在目录。CLion 跑程序时的工作目录是构建目录，
+// 相对路径必须能相对可执行文件（以及它的上一级 = 仓库根）解析，否则用户在
+// 仓库根下习惯写的 "assets/xxx" 会因为工作目录不同而找不到。
+std::filesystem::path ProgramDirectory(const char* const kProgramPath) {
+  if (kProgramPath == nullptr || *kProgramPath == '\0') {
+    return {};
+  }
+  std::error_code error;
+  const std::filesystem::path absolute =
+      std::filesystem::weakly_canonical(kProgramPath, error);
+  return error ? std::filesystem::path() : absolute.parent_path();
+}
+
+// 自动探测素材根：环境变量 LITTLETILES_ASSETS 优先，其次是
+// ./assets/1.12.2、../assets/1.12.2，再退到相对可执行文件的同样位置。
+std::string DetectAssetsRoot(const std::filesystem::path& kProgramDir) {
+  if (const char* const assets_env = std::getenv("LITTLETILES_ASSETS");
+      assets_env != nullptr && *assets_env != '\0') {
     return assets_env;
   }
-  if (std::filesystem::exists("assets/1.12.2/block_textures.tsv")) {
-    return "assets/1.12.2";
+
+  std::vector<std::filesystem::path> candidates = {"assets/1.12.2",
+                                                   "../assets/1.12.2"};
+  if (!kProgramDir.empty()) {
+    candidates.push_back(kProgramDir / "assets" / "1.12.2");
+    candidates.push_back(kProgramDir.parent_path() / "assets" / "1.12.2");
   }
-  if (std::filesystem::exists("../assets/1.12.2/block_textures.tsv")) {
-    return "../assets/1.12.2";
+  for (const std::filesystem::path& candidate : candidates) {
+    std::error_code error;
+    if (std::filesystem::exists(candidate / "block_textures.tsv", error)) {
+      const std::filesystem::path absolute =
+          std::filesystem::weakly_canonical(candidate, error);
+      return error ? candidate.string() : absolute.string();
+    }
   }
   return {};
 }
 
-// 素材目录：回车走自动探测；也可以直接填材质包生成的合并素材根
+// 素材目录：回车走自动探测；也可以填材质包生成的合并素材根
 // （见 tools/build_assets_from_pack.py，产物形如 assets/pack）。
-// 这里按整行读取，路径里有空格也不用加引号（从 Finder 复制来的引号会自动去掉）。
-std::string AskAssetsRoot() {
+// 相对路径依次按"当前工作目录 → 可执行文件目录 → 可执行文件上一级"解析，
+// 这样在 CLion（工作目录 = 构建目录）里填 assets/pack 也能找到。
+// 按整行读取，路径里有空格不用加引号（从 Finder 复制来的引号会自动去掉）。
+std::string AskAssetsRoot(const std::filesystem::path& kProgramDir) {
   printf("assets root (blank = auto-detect): ");
   fflush(stdout);
 
   char line[512];
   if (!fgets(line, sizeof(line), stdin)) {
-    return DetectAssetsRoot();  // 非交互（管道）时直接走自动探测
+    return DetectAssetsRoot(kProgramDir);  // 非交互（管道）时直接走自动探测
   }
   std::string path(line);
   const std::string kSpaces = " \t\r\n";
@@ -99,20 +124,39 @@ std::string AskAssetsRoot() {
     path = path.substr(1, path.size() - 2);
   }
   if (path.empty()) {
-    return DetectAssetsRoot();
+    return DetectAssetsRoot(kProgramDir);
   }
-  if (!std::filesystem::exists(path + "/block_textures.tsv")) {
-    printf("警告: %s 里没有 block_textures.tsv，改用自动探测的素材目录\n",
-           path.c_str());
-    return DetectAssetsRoot();
+
+  std::vector<std::filesystem::path> candidates = {path};
+  if (!kProgramDir.empty()) {
+    candidates.push_back(kProgramDir / path);
+    candidates.push_back(kProgramDir.parent_path() / path);
   }
-  return path;
+  for (const std::filesystem::path& candidate : candidates) {
+    std::error_code error;
+    if (!std::filesystem::exists(candidate / "block_textures.tsv", error)) {
+      continue;
+    }
+    const std::filesystem::path absolute =
+        std::filesystem::weakly_canonical(candidate, error);
+    return error ? candidate.string() : absolute.string();
+  }
+
+  printf("警告: 下面这些位置都没有 block_textures.tsv：\n");
+  for (const std::filesystem::path& candidate : candidates) {
+    printf("        %s\n", candidate.string().c_str());
+  }
+  printf("      （填绝对路径最稳；现在退回自动探测）\n");
+  return DetectAssetsRoot(kProgramDir);
 }
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
   printf("Hello, There is LittleTile Reader\n");
+
+  const std::filesystem::path program_dir =
+      ProgramDirectory(argc > 0 ? argv[0] : nullptr);
 
   printf("please key in region folder:");
   char region_folder[256];
@@ -156,17 +200,9 @@ int main() {
   const bool show_progress = askYesNo("Print progress and timing?", true);
   galib::SetProgressEnabled(show_progress);
 
-  std::string assets_root = AskAssetsRoot();
-  if (!assets_root.empty()) {
-    // 统一成绝对路径：后面的读取（block_ids.tsv / block_textures.tsv / 贴图）
-    // 都按这个字符串拼，相对路径一旦换了工作目录就会静默读不到。
-    std::error_code canonical_error;
-    const std::filesystem::path absolute =
-        std::filesystem::weakly_canonical(assets_root, canonical_error);
-    if (!canonical_error) {
-      assets_root = absolute.string();
-    }
-  }
+  // AskAssetsRoot 已经在找到时统一成绝对路径：后面的读取
+  // （block_ids.tsv / block_textures.tsv / 贴图）都按这个字符串拼。
+  const std::string assets_root = AskAssetsRoot(program_dir);
   printf("assets root: %s\n",
          assets_root.empty() ? "(未找到，只导出几何)" : assets_root.c_str());
 

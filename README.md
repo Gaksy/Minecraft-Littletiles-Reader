@@ -63,6 +63,9 @@ python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out assets
 Then point the reader at the result, either via `LITTLETILES_ASSETS=assets/pack`
 or by typing the path at the `assets root (blank = auto-detect):` prompt.
 The pack overrides only the textures it ships; the rest falls back to vanilla.
+Relative paths are resolved against the current directory, then the executable's
+directory and its parent (CLion runs with the build directory as its working
+directory), and the chosen root is printed as an absolute path.
 Details and limits: [`docs/texture-mapping.md`](docs/texture-mapping.md).
 
 ## Processing Workflow
@@ -219,7 +222,9 @@ python3 tools/build_assets_from_pack.py --pack "texture/INCEPTION texture V1.4.z
 
 合并出的目录就是标准素材根：材质包里有的贴图用它自己的，没有的回退原版。指定方式两种——
 环境变量 `LITTLETILES_ASSETS=assets/pack`，或运行时在 `assets root (blank = auto-detect):`
-那一问里直接填路径（可留空走自动探测）。细节与限制见
+那一问里直接填路径（可留空走自动探测）。相对路径依次按「当前工作目录 → 可执行文件目录 →
+可执行文件上一级」解析（CLion 的工作目录是构建目录，所以这样在哪儿都能填 `assets/pack`），
+选中后会打印成绝对路径，方便确认到底用了哪一份素材。细节与限制见
 [`docs/texture-mapping.md`](docs/texture-mapping.md)。
 
 ## 处理流程
