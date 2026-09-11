@@ -231,3 +231,21 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 # 导出示例
 ![image](https://github.com/user-attachments/assets/034008b4-f20e-424f-8a9d-377b32a4b70a)
 ![image](https://github.com/user-attachments/assets/23f98b62-a88a-4360-82e0-9f0e506f7876)
+
+# Engineering Documentation
+
+Detailed engineering notes (verified against the code, with `file:line` references) live in [`docs/`](docs/):
+
+- [`docs/architecture.md`](docs/architecture.md) — module layout, the real call chain, ownership/thread-safety status, build
+- [`docs/nbt-format.md`](docs/nbt-format.md) — `.mca` / chunk NBT / LittleTiles tile format, offset bit layout, coordinate system
+- [`docs/known-issues.md`](docs/known-issues.md) — verified defects, output determinism, test-data baselines, README/code mismatches
+- [`docs/reference-lt3d-importer.md`](docs/reference-lt3d-importer.md) — study of the third-party LT 3D Importer & Exporter mod (UV/texture strategies)
+
+# 工程文档
+
+详细的工程笔记放在 [`docs/`](docs/) 目录（结论均对照代码核实，附 `文件:行` 引用）：
+
+- [`docs/architecture.md`](docs/architecture.md) —— 模块划分、真实调用链、ownership 与线程安全现状、构建方式
+- [`docs/nbt-format.md`](docs/nbt-format.md) —— `.mca` / chunk NBT / LittleTiles tile 格式、角度偏移位域、坐标系统
+- [`docs/known-issues.md`](docs/known-issues.md) —— 已核实缺陷、输出确定性、测试基线与 README/代码不一致清单
+- [`docs/reference-lt3d-importer.md`](docs/reference-lt3d-importer.md) —— 第三方模组 LT 3D Importer & Exporter 的研究（UV/纹理策略）
