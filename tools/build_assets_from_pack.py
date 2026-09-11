@@ -18,6 +18,8 @@
   python3 tools/build_assets_from_pack.py --pack ~/packs/my.zip --out assets/mypack
   python3 tools/build_assets_from_pack.py --pack ./packs/vanilla_compatible --use-pack-models
 
+zip 与 rar 都能直接给：rar 会用系统自带的 bsdtar（或 brew 的 unar）解到临时目录。
+
 --use-pack-models 只在材质包自带 **1.12.2 命名** 的 blockstates/models 时才有意义
 （此时它连模型一起覆盖）。默认只用材质包的贴图。
 """
@@ -262,7 +264,7 @@ def build(pack_path, vanilla, out_dir, use_pack_models):
 def main():
     parser = argparse.ArgumentParser(description="材质包 -> reader 可用的 assets 根")
     parser.add_argument("--pack", required=True,
-                        help="材质包目录，或 .zip 文件（.rar 请先解压）")
+                        help="材质包目录，或 .zip / .rar 文件（rar 自动解压）")
     parser.add_argument("--vanilla", type=Path, default=DEFAULT_VANILLA,
                         help="原版 1.12.2 素材目录（默认 assets/1.12.2）")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT,
