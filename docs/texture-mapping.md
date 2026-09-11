@@ -80,6 +80,17 @@ minecraft:stained_hardened_clay:6 -> blocks/hardened_clay_stained_pink.png
 littletiles:ltcoloredblock        -> 失败（LT mod 自带素材，需另提供）
 ```
 
+### 3.3 解析模型时的两个关键规则
+
+1. **子模型一旦定义 `elements`，就完全覆盖父模型的 elements**（不是合并）；
+   只有 `textures` 是逐级合并的。
+2. **同一个面可能出现多次**（多层模型）。例如草方块 `block/grass` 有两个 element：
+   基础立方体（`down=#bottom`、`up=#top`、四周=`#side`）与叠加层（四周=`#overlay`，带 tintindex）。
+   每个面只取**第一层**（基础层），否则会拿到透明的 overlay，渲染结果明显不对。
+
+> 多层模型（草、以及 LT 里带 overlay 的情况）目前只导出基础层；
+> 真正还原需要按层输出多个重叠面并处理 alpha 混合，列为后续项。
+
 ## 4. 颜色（tile 自带染色）
 
 约 44% 的 tile 带 `color`（ARGB int，例如 `0xFFFFBE00`，alpha 恒为 0xFF）。
@@ -124,6 +135,28 @@ MC 的原生渲染是"贴图像素 × 该颜色"。两种落地方式：
 
 本项目的 `assets/` 目录**不进入版本库**（见 `.gitignore`），需要时按上面步骤重建。
 LT 自身方块（`littletiles:*`）的贴图在 LT mod jar 的 assets 里，需要另行提供。
+
+## 5.1 UV 验证模型（人工核对用）
+
+```sh
+python3 tools/resolve_block_textures.py assets/1.12.2 --table assets/1.12.2/block_textures.tsv
+python3 tools/make_uv_test_model.py assets/1.12.2 out_file/uv_test
+# -> out_file/uv_test/uv_test.obj + uv_test.mtl + 所需贴图（已复制到同目录）
+```
+
+样本刻意选"面与面差异明显"的方块，导入 Blender 后按 `.` 定位，逐项确认：
+
+| 样本 | 应该看到 |
+|---|---|
+| `grass` | 侧面**草在上、土在下**（v 方向反了会立刻看出来）；顶面是草、底面是土 |
+| `crafting_table` | 六面各用不同贴图（顶面图案不对称，可判断是否旋转/镜像） |
+| `furnace` | 开口应出现在 **-z 面**（north），且不能镜像 |
+| `pumpkin` | 脸在 -z 面，侧面是南瓜皮 |
+| `log:0` | 顶/底是年轮，侧面是树皮 |
+| 两个半高样本（x=10、x=12） | 上半块侧面显示**草**的部分，下半块显示**土**的部分 → 验证"按位置裁剪取样" |
+
+数值自检（不需要 Blender）：把生成的 UV 拿去采样 `grass_side.png`，
+上半块样本的 v 落在贴图上半（偏绿），下半块落在下半（偏棕），与预期一致。
 
 ## 6. 实现计划（C++ 侧）
 

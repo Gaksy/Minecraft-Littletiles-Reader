@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """把 Minecraft 1.12.2 的 block:meta 解析成六个面的贴图路径。
 
-用法: python3 resolve_block_textures.py <assets_root> [block_id ...]
+用法:
+  python3 resolve_block_textures.py <assets_root> [block_id ...]      # 打印若干方块的解析结果
+  python3 resolve_block_textures.py <assets_root> --table <out.tsv>   # 生成完整映射表给 C++ 读
+
 assets_root 需包含 blockstates/ models/ textures/（由客户端 jar 的 assets/minecraft 解出）。
+
+映射表格式（TSV，每行一个材质键）:
+  <block 或 block:meta>\t<down>\t<up>\t<north>\t<south>\t<west>\t<east>
+贴图路径相对 assets_root/textures，省略 .png 后缀。
 """
 import json, os, sys
 
@@ -55,6 +62,24 @@ class Resolver:
                 except IndexError: pass
         return self._load('blockstates', name)
 
+    def faces_of_blockstate(self, name):
+        """按 blockstate 文件名解析出六个面的贴图路径。"""
+        bs = self._load('blockstates', name)
+        if bs is None: return None, 'blockstate 缺失'
+        variants = bs.get('variants', {})
+        # 优先 normal，否则取第一个（带属性的方块只取第一个变体）
+        variant = variants.get('normal') or next(iter(variants.values()), None)
+        if variant is None: return None, 'variants 为空'
+        if isinstance(variant, list): variant = variant[0]
+        model_name = variant['model'].split(':')[-1]
+        if model_name.startswith('block/'): model_name = model_name[len('block/'):]
+        textures, faces = self.model(model_name)
+        result = {}
+        for face in FACES:
+            ref = faces.get(face)
+            result[face] = self.resolve_texture(ref, textures) if ref else None
+        return result, None
+
     def model(self, name, depth=0):
         """返回 (textures 合并表, faces 的 texture 引用表)"""
         if depth > 10: return {}, {}
@@ -68,9 +93,15 @@ class Resolver:
             if pname.startswith('block/'): pname = pname[len('block/'):]
             textures, faces = self.model(pname, depth + 1)
         textures = dict(textures); textures.update(data.get('textures', {}))
-        for element in data.get('elements', []):
-            for face, spec in element.get('faces', {}).items():
-                if 'texture' in spec: faces[face] = spec['texture']
+        # MC 的规则：子模型一旦定义 elements，就**完全覆盖**父模型的 elements（不是合并）。
+        # 同一个模型里同一个面可能出现多次（多层模型，例如草方块 = 底面层 + overlay 层），
+        # 这里每个面只取第一层，即基础层。
+        if 'elements' in data:
+            faces = {}
+            for element in data['elements']:
+                for face, spec in element.get('faces', {}).items():
+                    if 'texture' in spec and face not in faces:
+                        faces[face] = spec['texture']
         return textures, faces
 
     def resolve_texture(self, value, textures, depth=0):
@@ -96,8 +127,41 @@ class Resolver:
             result[face] = self.resolve_texture(ref, textures) if ref else None
         return result, None
 
+def list_blockstates(root):
+    directory = os.path.join(root, 'blockstates')
+    return sorted(f[:-5] for f in os.listdir(directory) if f.endswith('.json'))
+
+def dump_table(root, out_path):
+    """生成完整映射表: minecraft:<blockstate> 与 minecraft:<family>:<meta> 两类键。"""
+    r = Resolver(root)
+    keys = {}
+    for name in list_blockstates(root):
+        faces, _ = r.faces_of_blockstate(name)
+        if faces and faces['up']:
+            keys['minecraft:' + name] = faces
+    # 带元数据的方块族：正向枚举变体名，反推回 block:meta
+    for family, mapper in FAMILIES.items():
+        for meta in range(16):
+            try: variant = mapper(meta)
+            except IndexError: break
+            if not os.path.exists(os.path.join(root, 'blockstates', variant + '.json')): continue
+            faces, _ = r.faces_of_blockstate(variant)
+            if faces and faces['up']:
+                keys['minecraft:%s:%d' % (family, meta)] = faces
+
+    with open(out_path, 'w') as f:
+        f.write('# block(+meta)\tdown\tup\tnorth\tsouth\twest\teast\n')
+        for key in sorted(keys):
+            faces = keys[key]
+            f.write('%s\t%s\n' % (key, '\t'.join(faces[face] or '-' for face in FACES)))
+    return len(keys)
+
 def main():
     root = sys.argv[1]
+    if len(sys.argv) >= 4 and sys.argv[2] == '--table':
+        count = dump_table(root, sys.argv[3])
+        print('已生成映射表: %s（%d 个键）' % (sys.argv[3], count))
+        return
     r = Resolver(root)
     blocks = sys.argv[2:] or ['minecraft:quartz_ore']
     if not sys.argv[2:]:  # 默认跑测试数据里出现的方块
