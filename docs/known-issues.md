@@ -304,16 +304,16 @@ if (!neighbor.is_air() && !neighbor.little_tiles_host) { /* 剔除 */ }
 | 目录 | region 数 | 说明 |
 |---|---|---|
 | `test_region/` | 4 | 小样本（推荐 chunk **(0,0)**、半径 1） |
-| `test_region_medim/` | 11 | 中等样本（推荐 chunk **(-136,49)**、半径 0） |
+| `test_region_medim/` | 11 | 中等样本（推荐 chunk **(-136,49)**、半径 5，即 11×11，只用到 `r.-5.1.mca`） |
 | `test_region_large/` | 16 | 大样本（推荐 chunk **(-7,-26)**、半径 5，即 11×11） |
 
-基线数字（**Debug** 构建）：
+基线数字（**Debug** 构建；由 `python3 tools/benchmark.py` 复核，逐次记录见 `docs/benchmark.md`）：
 
 | 输入 | 结果 |
 |---|---|
-| `test_region` chunk (0,0) 半径 1 | 236 tiles → 4881 面 → 0.3 MB OBJ，约 0.2 s |
-| `test_region_medim` chunk (-136,49) | 8037 tiles → 47848 面 → 3.6 MB OBJ，约 1.1 s |
-| `test_region_large` 11×11（-7,-26 → -2,-21，含普通方块） | 324427 tiles + 104743 个普通方块面 → 2,036,139 面 → 178 MB OBJ，约 45 s（机器空闲时；含覆盖判定开销） |
+| `test_region` chunk (0,0) 半径 1 | 236 tiles + 1394 个普通方块 → 4881 面 / 12832 顶点 → 0.3 MB OBJ，约 0.1 s |
+| `test_region_medim` chunk (-136,49) 半径 5 | 55561 tiles + 124192 个普通方块 → 388744 面 / 699708 顶点 → 34 MB OBJ，约 9 s |
+| `test_region_large` 11×11（-7,-26 → -2,-21） | 324427 tiles + 1945017 个普通方块（104743 个面）→ 2,036,139 面 / 2,986,790 顶点 → 178 MB OBJ，约 50 s（含覆盖判定开销） |
 
 > 旧记录里的 "chunk (-136,49) 4456 tiles / 37658 顶点 / 57492 面" 是**染色去重修复与
 > 半空间裁剪之前**的数字：前者丢了 45% 的染色 tile，后者把面全拆成三角形。

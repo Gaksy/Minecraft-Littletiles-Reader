@@ -31,9 +31,12 @@ Enter the folder, then a chunk coordinate and a scan radius:
 
 | Folder | Chunk (x, z) | Recommended radius | Scan size | Baseline (Debug, plain blocks on, hidden faces culled) |
 |---|---|---|---|---|
-| `test_region/` | **0, 0** | **1** | 3×3 chunks | 236 tiles → 4,881 faces → 0.3 MB OBJ, ~0.2 s |
-| `test_region_medim/` | **-136, 49** | **0** | 1 chunk | 8,037 tiles → 47,848 faces → 3.6 MB OBJ, ~1.1 s |
-| `test_region_large/` | **-7, -26** | **5** | 11×11 chunks | 324,427 tiles + 1,945,017 plain blocks → 2,036,139 faces → 178 MB OBJ, ~45 s |
+| `test_region/` | **0, 0** | **1** | 3×3 chunks | 236 tiles → 4,881 faces → 0.3 MB OBJ, ~0.1 s |
+| `test_region_medim/` | **-136, 49** | **5** | 11×11 chunks | 55,561 tiles → 388,744 faces → 34 MB OBJ, ~9 s |
+| `test_region_large/` | **-7, -26** | **5** | 11×11 chunks | 324,427 tiles + 1,945,017 plain blocks → 2,036,139 faces → 178 MB OBJ, ~50 s |
+
+`python3 tools/benchmark.py` re-runs all three with these parameters and records
+the result; past runs are kept in [`docs/benchmark.md`](docs/benchmark.md).
 
 ```sh
 # region folder, chunk x, chunk z, radius, plain blocks, cull hidden faces,
@@ -173,9 +176,12 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 
 | 目录 | 区块坐标 (x, z) | 推荐范围 | 扫描规模 | 基线（Debug 构建，开启完整方块、剔除相邻面） |
 |---|---|---|---|---|
-| `test_region/` | **0, 0** | **1** | 3×3 区块 | 236 个 tile → 4881 面 → 0.3 MB OBJ，约 0.2 s |
-| `test_region_medim/` | **-136, 49** | **0** | 1 个区块 | 8037 个 tile → 47848 面 → 3.6 MB OBJ，约 1.1 s |
-| `test_region_large/` | **-7, -26** | **5** | 11×11 区块 | 324427 个 tile + 194 万普通方块 → 2036139 面 → 178 MB OBJ，约 45 s |
+| `test_region/` | **0, 0** | **1** | 3×3 区块 | 236 个 tile → 4881 面 → 0.3 MB OBJ，约 0.1 s |
+| `test_region_medim/` | **-136, 49** | **5** | 11×11 区块 | 55561 个 tile → 388744 面 → 34 MB OBJ，约 9 s |
+| `test_region_large/` | **-7, -26** | **5** | 11×11 区块 | 324427 个 tile + 194 万普通方块 → 2036139 面 → 178 MB OBJ，约 50 s |
+
+`python3 tools/benchmark.py` 会用上面这套参数把三个存档各跑一遍并记录结果，
+历史记录见 [`docs/benchmark.md`](docs/benchmark.md)。
 
 ```sh
 # 依次为：存档目录、区块 x、区块 z、半径、完整方块、剔除相邻面、居中、单位化、进度与耗时
@@ -286,6 +292,7 @@ Detailed engineering notes (verified against the code, with `file:line` referenc
 - [`docs/architecture.md`](docs/architecture.md) — module layout, the real call chain, ownership/thread-safety status, build
 - [`docs/nbt-format.md`](docs/nbt-format.md) — `.mca` / chunk NBT / LittleTiles tile format, offset bit layout, coordinate system
 - [`docs/known-issues.md`](docs/known-issues.md) — verified defects, output determinism, test-data baselines, README/code mismatches
+- [`docs/benchmark.md`](docs/benchmark.md) — recorded export baselines (`python3 tools/benchmark.py --write docs/benchmark.md`)
 - [`docs/reference-lt3d-importer.md`](docs/reference-lt3d-importer.md) — study of the third-party LT 3D Importer & Exporter mod (UV/texture strategies)
 
 # 工程文档
@@ -295,4 +302,5 @@ Detailed engineering notes (verified against the code, with `file:line` referenc
 - [`docs/architecture.md`](docs/architecture.md) —— 模块划分、真实调用链、ownership 与线程安全现状、构建方式
 - [`docs/nbt-format.md`](docs/nbt-format.md) —— `.mca` / chunk NBT / LittleTiles tile 格式、角度偏移位域、坐标系统
 - [`docs/known-issues.md`](docs/known-issues.md) —— 已核实缺陷、输出确定性、测试基线与 README/代码不一致清单
+- [`docs/benchmark.md`](docs/benchmark.md) —— 导出基线与实测数据（由 `tools/benchmark.py` 生成）
 - [`docs/reference-lt3d-importer.md`](docs/reference-lt3d-importer.md) —— 第三方模组 LT 3D Importer & Exporter 的研究（UV/纹理策略）
