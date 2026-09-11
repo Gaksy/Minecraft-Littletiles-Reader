@@ -16,9 +16,8 @@
 
 #include "Minecraft/CgalSupport/CgalWorldBlocks.h"
 
-#include <cstdint>
+#include <array>
 #include <map>
-#include <unordered_map>
 #include <utility>
 
 using galib::minecraft::BlockIdTable;
@@ -128,24 +127,8 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
   std::size_t emitted_faces = 0;
   std::size_t culled_faces = 0;
 #endif
-  // 每组一张"世界坐标 -> 顶点"表，用来在同一个方块内共享顶点。
-  // 坐标都是整数，打包成 64 位做键（x/z 各 21 位、y 22 位足够覆盖任意区域）。
-  // 注意：世界坐标可以是负数，必须先加偏置再打包。直接左移负数会在 64 位里溢出并撞键，
-  // 导致同一个面的多个角指向同一顶点，CGAL 会拒收该面——表现为"完整方块一个面都没有"。
-  constexpr std::int64_t kPositionBias = 1 << 20;
-  std::vector<std::unordered_map<std::uint64_t, SurfaceMeshType::Vertex_index>>
-      group_vertices;
-  const auto pack_position = [](const int kX, const int kY, const int kZ) {
-    return (static_cast<std::uint64_t>(static_cast<std::int64_t>(kX) +
-                                       kPositionBias)
-            << 42) |
-           (static_cast<std::uint64_t>(static_cast<std::int64_t>(kY) +
-                                       kPositionBias)
-            << 21) |
-           static_cast<std::uint64_t>(static_cast<std::int64_t>(kZ) +
-                                      kPositionBias);
-  };
-
+  // add_face 失败时 CGAL 不抛异常，只返回 null_face；必须自己统计，否则会静默丢面
+  std::size_t rejected_faces = 0;
   for (int y = 0; y < kWorldHeight; ++y) {
     for (int z = 0; z < size_z; ++z) {
       for (int x = 0; x < size_x; ++x) {
@@ -166,31 +149,39 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
           mesh.set_block_id(block_name);
           found = group_index.emplace(key, p_desc_meshes->size()).first;
           p_desc_meshes->push_back(std::move(mesh));
-          group_vertices.emplace_back();
         }
         LtSurfaceMesh& mesh = (*p_desc_meshes)[found->second];
         SurfaceMeshType& surface = mesh.surface_mesh();
-        std::unordered_map<std::uint64_t, SurfaceMeshType::Vertex_index>&
-            vertices = group_vertices[found->second];
 
         // 角点：世界坐标 = 世界原点 + 网格内坐标 + 0/1 偏移；本地坐标就是那个 0/1 偏移
         const int world_x = kWorldOriginX + x;
         const int world_z = kWorldOriginZ + z;
-        const auto vertex_of = [&surface, &mesh, &vertices, &pack_position](
-                                   const int kX, const int kY, const int kZ,
-                                   const int kLocalX, const int kLocalY,
-                                   const int kLocalZ) {
-          const std::uint64_t key = pack_position(kX, kY, kZ);
-          const auto found_vertex = vertices.find(key);
-          if (found_vertex != vertices.end()) {
-            return found_vertex->second;
-          }
-          const SurfaceMeshType::Vertex_index v =
-              surface.add_vertex(LtPoint3(kX, kY, kZ));
-          mesh.SetVertexLocalPosition(v, LtPoint3(kLocalX, kLocalY, kLocalZ));
-          vertices.emplace(key, v);
-          return v;
+        // 立方体的 8 个角只在"这一个方块"内共享，绝不跨方块焊接。
+        // CGAL 的 Euler::add_face 只接受"每个顶点都还在边界上、每条边都还不存在或为边界边"
+        // 的环；跨方块焊接顶点后，先写完的那个方块会把自己的顶点变成内部顶点，
+        // 于是相邻方块的这些面被静默拒绝（不抛异常、不返回失败），
+        // 表现为"完整方块只剩一两个面"。每个方块独立成一张闭合曲面就没有这个问题。
+        std::array<SurfaceMeshType::Vertex_index, 8> corners;
+        corners.fill(SurfaceMeshType::null_vertex());
+        const auto corner_index = [](const int kLocalX, const int kLocalY,
+                                     const int kLocalZ) {
+          return static_cast<std::size_t>(kLocalX + (kLocalY << 1) +
+                                          (kLocalZ << 2));
         };
+        const auto vertex_of =
+            [&surface, &mesh, &corners, &corner_index, world_x, world_z, y](
+                const int kLocalX, const int kLocalY, const int kLocalZ) {
+              SurfaceMeshType::Vertex_index& cached =
+                  corners[corner_index(kLocalX, kLocalY, kLocalZ)];
+              if (cached != SurfaceMeshType::null_vertex()) {
+                return cached;
+              }
+              cached = surface.add_vertex(
+                  LtPoint3(world_x + kLocalX, y + kLocalY, world_z + kLocalZ));
+              mesh.SetVertexLocalPosition(cached,
+                                          LtPoint3(kLocalX, kLocalY, kLocalZ));
+              return cached;
+            };
 
         for (const FaceSpec& face : kFaces) {
           if (kCullHiddenFaces) {
@@ -204,14 +195,14 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
               continue;
             }
           }
-          std::vector<SurfaceMeshType::Vertex_index> corners;
-          corners.reserve(4);
-          for (const auto& corner : face.corners) {
-            corners.push_back(vertex_of(world_x + corner[0], y + corner[1],
-                                        world_z + corner[2], corner[0],
-                                        corner[1], corner[2]));
+          std::vector<SurfaceMeshType::Vertex_index> face_corners;
+          face_corners.reserve(4);
+          for (const auto& offset : face.corners) {
+            face_corners.push_back(vertex_of(offset[0], offset[1], offset[2]));
           }
-          surface.add_face(corners);
+          if (surface.add_face(face_corners) == SurfaceMeshType::null_face()) {
+            ++rejected_faces;
+          }
 #ifdef GALIB_DEBUG
           ++emitted_faces;
 #endif
@@ -224,8 +215,10 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
   }
 
 #ifdef GALIB_DEBUG
-  printf("[worldblocks] 输出方块 %zu 个，面 %zu 个（邻居剔除 %zu 个面）\n",
-         emitted_blocks, emitted_faces, culled_faces);
+  printf(
+      "[worldblocks] 输出方块 %zu 个，面 %zu 个（邻居剔除 %zu 个，被 CGAL 拒绝 "
+      "%zu 个）\n",
+      emitted_blocks, emitted_faces, culled_faces, rejected_faces);
   {
     // 分组网格里"实际保存下来的面/顶点"——若远少于 emitted_faces，说明 add_face 被 CGAL 拒绝了
     std::size_t stored_faces = 0;
