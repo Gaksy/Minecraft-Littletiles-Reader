@@ -45,6 +45,41 @@ FAMILIES = {
 FACES = ['down', 'up', 'north', 'south', 'west', 'east']
 
 
+def LoadJsonLenient(text):
+    """读模型/blockstate 的 JSON，坏文件尽量抢救。
+
+    现实里的模组素材经常是坏的，实测两种：
+      * Kiro's Basic Blocks 的 blockstate 把属性写成 `"x"= 90`（应为 `:`）；
+      * 还是这个模组，6 个 one-way mirror 模型末尾多一个 `}`。
+    前者用 raw_decode 也救不回来，只能正则抠 `model` / `parent` / `textures`。
+    """
+    import re as _re
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    try:
+        return json.JSONDecoder().raw_decode(text.lstrip())[0]
+    except json.JSONDecodeError:
+        pass
+
+    salvaged = {}
+    parent = _re.search(r'"parent"\s*:\s*"([^"]+)"', text)
+    if parent:
+        salvaged['parent'] = parent.group(1)
+    block = _re.search(r'"textures"\s*:\s*\{(.*?)\}', text, _re.S)
+    if block:
+        textures = dict(_re.findall(r'"([^"]+)"\s*:\s*"([^"]+)"', block.group(1)))
+        if textures:
+            salvaged['textures'] = textures
+    models = _re.findall(r'"model"\s*:\s*"([^"]+)"', text)
+    if models:
+        salvaged['variants'] = {'normal': {'model': models[0]}}
+    if not salvaged:
+        raise ValueError('JSON 损坏且无法抢救: %s' % text[:80])
+    return salvaged
+
+
 class Resolver:
     """按 root 列表解析 blockstate/model/texture，先找到的优先。
 
@@ -65,8 +100,9 @@ class Resolver:
         for root in self.roots:
             path = os.path.join(root, sub, name + '.json')
             if os.path.exists(path):
-                with open(path) as handle:
-                    data = json.load(handle)
+                with open(path, encoding='utf-8', errors='replace') as handle:
+                    text = handle.read()
+                data = LoadJsonLenient(text)
                 break
         self.cache[key] = data
         return data
