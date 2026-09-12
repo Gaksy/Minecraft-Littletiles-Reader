@@ -6,6 +6,10 @@
 [Little Tiles](https://github.com/CreativeMD/LittleTiles) 模组的 tile 数据，
 重建为标准 **OBJ** 模型（OBJ + MTL + 贴图），可直接导入 Blender 等建模软件。
 
+> **关于后续开发**  
+> 由于现在 AI 已经足够强大，在本项目已有的架构与技术文档基础上，完全可以接手接下来的
+> 任务。因此后续的代码更新，大部分将由我与 AI 协作完成。
+
 ## 当前状态
 
 - 读取 region 存档（`.mca`）→ 区块 NBT → LittleTiles tile entity

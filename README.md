@@ -7,6 +7,11 @@ Parse **Minecraft** save files (Anvil `.mca`), read the tile data of the
 a standard **OBJ** model (OBJ + MTL + textures) that opens directly in Blender
 and other modelling tools.
 
+> **How development continues**  
+> AI assistants are now capable enough that, given this project's existing
+> architecture and engineering documentation, they can take over the remaining
+> work. Most future code updates will therefore be made by me together with AI.
+
 ## Current Status
 
 - Reads region archives (`.mca`) → chunk NBT → LittleTiles tile entities
