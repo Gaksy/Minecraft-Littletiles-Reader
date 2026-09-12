@@ -39,8 +39,8 @@
    且 `GetFileStat` 返回值未检查（`Anvil.cpp`）。
 8. **`GALIB_DEBUG` 被无条件 `#define`**（`GalibNamespaceDef.h`）：调试 `printf` 常驻；
    并把 `catch(...)` 换成更窄的 `catch(std::exception&)`，非 std 异常会穿透。
-   进度输出已可用运行时开关关掉（`galib::SetProgressEnabled()`，CLI 的"Print progress
-   and timing?"选项），但编译期仍无法整体裁掉这些打印；服务器化时建议把它变成
+   进度输出已可用运行时开关关掉（`galib::SetProgressEnabled()`，CLI 的"是否打印进度提示与耗时 /
+   Print progress and timing?"选项），但编译期仍无法整体裁掉这些打印；服务器化时建议把它变成
    CMake 选项或换成可注入的 logger。
 9. ~~**CLI 的"几何中心"选项永远无效**~~ —— 已修复：`scanf("%c")` 会读到前一个 `%d` 残留的换行符，
    已改为 `scanf(" %c", &choice)`；同时新增"归一化到单位尺寸"选项（见 2.6）。

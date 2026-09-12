@@ -22,6 +22,8 @@
 #include <cstring>
 #include <fstream>
 
+#include "Log/GalibText.h"
+
 namespace galib::minecraft::texture_support {
 
 namespace {
@@ -139,14 +141,14 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
 
   std::ifstream input(kPath, std::ios::binary);
   if (!input) {
-    return fail("无法打开文件");
+    return fail(Tr("无法打开文件", "cannot open file"));
   }
   const std::vector<unsigned char> data((std::istreambuf_iterator<char>(input)),
                                         std::istreambuf_iterator<char>());
   static const unsigned char kSignature[8] = {0x89, 'P',  'N',  'G',
                                               0x0D, 0x0A, 0x1A, 0x0A};
   if (data.size() < 8 || std::memcmp(data.data(), kSignature, 8) != 0) {
-    return fail("不是合法的 PNG");
+    return fail(Tr("不是合法的 PNG", "not a valid PNG"));
   }
 
   int width = 0;
@@ -186,17 +188,17 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   }
 
   if (width <= 0 || height <= 0) {
-    return fail("IHDR 缺失或尺寸非法");
+    return fail(Tr("IHDR 缺失或尺寸非法", "missing IHDR or invalid size"));
   }
   if (bit_depth != 8) {
-    return fail("只支持 8 位深度");
+    return fail(Tr("只支持 8 位深度", "only 8-bit depth is supported"));
   }
   if (interlace != 0) {
-    return fail("不支持交错 PNG");
+    return fail(Tr("不支持交错 PNG", "interlaced PNG is not supported"));
   }
   const int channels = ChannelsOfColorType(color_type);
   if (channels == 0) {
-    return fail("不支持的颜色类型");
+    return fail(Tr("不支持的颜色类型", "unsupported colour type"));
   }
 
   const std::size_t stride = static_cast<std::size_t>(width) * channels;
@@ -204,7 +206,7 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   uLongf raw_size = static_cast<uLongf>(raw.size());
   if (uncompress(raw.data(), &raw_size, compressed.data(),
                  static_cast<uLong>(compressed.size())) != Z_OK) {
-    return fail("zlib 解压失败");
+    return fail(Tr("zlib 解压失败", "zlib inflate failed"));
   }
   raw.resize(raw_size);
 
@@ -217,7 +219,7 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   std::size_t raw_offset = 0;
   for (int y = 0; y < height; ++y) {
     if (raw_offset + 1 + stride > raw.size()) {
-      return fail("像素数据不完整");
+      return fail(Tr("像素数据不完整", "incomplete pixel data"));
     }
     const int filter = raw[raw_offset++];
     std::memcpy(line.data(), raw.data() + raw_offset, stride);
@@ -269,7 +271,7 @@ bool PngImage::Save(const std::string& kPath,
                     std::string* const p_desc_error) const {
   if (!is_valid()) {
     if (p_desc_error) {
-      *p_desc_error = "图像为空";
+      *p_desc_error = Tr("图像为空", "image is empty");
     }
     return false;
   }
@@ -290,7 +292,7 @@ bool PngImage::Save(const std::string& kPath,
   if (compress2(compressed.data(), &compressed_size, raw.data(),
                 static_cast<uLong>(raw.size()), Z_BEST_COMPRESSION) != Z_OK) {
     if (p_desc_error) {
-      *p_desc_error = "zlib 压缩失败";
+      *p_desc_error = Tr("zlib 压缩失败", "zlib deflate failed");
     }
     return false;
   }
@@ -316,7 +318,7 @@ bool PngImage::Save(const std::string& kPath,
   std::ofstream out(kPath, std::ios::binary);
   if (!out) {
     if (p_desc_error) {
-      *p_desc_error = "无法写出文件";
+      *p_desc_error = Tr("无法写出文件", "cannot write file");
     }
     return false;
   }

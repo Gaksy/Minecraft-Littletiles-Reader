@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "Log/GalibLog.h"
+#include "Log/GalibText.h"
 
 using galib::minecraft::BlockIdTable;
 using galib::minecraft::ChunkBlocks;
@@ -117,8 +118,10 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
         ++hosts;
       }
     }
-    ProgressPrintf("[worldblocks] 网格 %dx%dx%d：非空气 %zu，LT 宿主 %zu\n",
-                   size_x, kWorldHeight, size_z, filled, hosts);
+    ProgressPrintf(
+        Tr("[worldblocks] 网格 %dx%dx%d：非空气 %zu，LT 宿主 %zu\n",
+           "[worldblocks] grid %dx%dx%d: %zu solid blocks, %zu LT hosts\n"),
+        size_x, kWorldHeight, size_z, filled, hosts);
   }
 #endif
 
@@ -232,8 +235,11 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
 
 #ifdef GALIB_DEBUG
   ProgressPrintf(
-      "[worldblocks] 输出方块 %zu 个，面 %zu 个（邻居剔除 %zu 个，被 CGAL 拒绝 "
-      "%zu 个）\n",
+      Tr("[worldblocks] 输出方块 %zu 个，面 %zu 个（邻居剔除 %zu 个，被 CGAL "
+         "拒绝 "
+         "%zu 个）\n",
+         "[worldblocks] emitted %zu blocks, %zu faces (culled %zu, rejected by "
+         "CGAL %zu)\n"),
       emitted_blocks, emitted_faces, culled_faces, rejected_faces);
   {
     // 分组网格里"实际保存下来的面/顶点"——若远少于 emitted_faces，说明 add_face 被 CGAL 拒绝了
@@ -244,7 +250,9 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
       stored_vertices += mesh.surface_mesh().number_of_vertices();
     }
     ProgressPrintf(
-        "[worldblocks] 分组网格实际保存：%zu 个网格，面 %zu，顶点 %zu\n",
+        Tr("[worldblocks] 分组网格实际保存：%zu 个网格，面 %zu，顶点 %zu\n",
+           "[worldblocks] stored in group meshes: %zu meshes, %zu faces, %zu "
+           "vertices\n"),
         p_desc_meshes->size(), stored_faces, stored_vertices);
   }
 #endif

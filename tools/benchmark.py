@@ -10,7 +10,8 @@
     python3 tools/benchmark.py --case test_region_large    # 只跑其中一个
 
 选定的导出参数（与 README 的示例命令一致）：
-    完整方块 y、剔除相邻面 y、居中 y、单位化 n、进度与耗时 y
+    语言 en-US、完整方块 y、剔除相邻面 y、居中 y、单位化 n、进度与耗时 y
+（基准固定用英文界面：输出全是 ASCII，解析更稳，也顺带回归英文文案。）
 """
 
 import argparse
@@ -36,8 +37,9 @@ CASES = [
     ("test_region_large", -7, -26, 5),
 ]
 
-# 交互式 CLI 的回答顺序：存档目录、x、z、半径、完整方块、剔面、居中、单位化、进度、
-# 素材目录（留空 = 自动探测；材质包导出用 --assets 指向合并后的素材根）
+# 交互式 CLI 回答顺序：先选语言，再是存档目录、x、z、半径、完整方块、剔面、居中、
+# 单位化、进度、素材目录（留空 = 自动探测；材质包导出用 --assets 指向合并素材根）
+CLI_LANGUAGE = "2"  # 2 = en-US：输出全是 ASCII，脚本解析更稳
 CLI_ANSWERS = "y\ny\ny\nn\ny\n\n"
 
 
@@ -95,7 +97,9 @@ def run_case(reader: Path, assets: Path, case, work_dir: Path) -> Result:
     run_dir.mkdir(parents=True, exist_ok=True)
     region = REPO_ROOT / name
 
-    stdin_text = f"{region}\n{chunk_x}\n{chunk_z}\n{radius}\n{CLI_ANSWERS}"
+    stdin_text = (
+        f"{CLI_LANGUAGE}\n{region}\n{chunk_x}\n{chunk_z}\n{radius}\n{CLI_ANSWERS}"
+    )
     env = dict(os.environ, LITTLETILES_ASSETS=str(assets))
     started = time.monotonic()
     completed = subprocess.run(
@@ -114,36 +118,36 @@ def run_case(reader: Path, assets: Path, case, work_dir: Path) -> Result:
         matched = re.search(pattern, output)
         return matched.group(group) if matched else default
 
-    result.chunks_found = int(find(r"找到 (\d+) 个"))
-    result.chunks_missing = int(find(r"缺失 (\d+) 个"))
-    result.tiles = int(find(r"LittleTiles tile 共 (\d+) 个"))
-    result.blocks = int(find(r"\[worldblocks\] 输出方块 (\d+) 个"))
-    result.block_faces = int(find(r"\[worldblocks\] 输出方块 \d+ 个，面 (\d+) 个"))
-    result.culled_faces = int(find(r"邻居剔除 (\d+) 个"))
-    result.rejected_faces = int(find(r"被 CGAL 拒绝 (\d+) 个"))
-    result.merged_vertices = int(find(r"合并后网格统计: 顶点数: (\d+)"))
-    result.merged_faces = int(find(r"面数: (\d+)"))
-    result.materials = int(find(r"材质 (\d+) 个"))
-    result.textures = int(find(r"已写出贴图 (\d+) 张"))
+    result.chunks_found = int(find(r"chunks: (\d+) found"))
+    result.chunks_missing = int(find(r"(\d+) missing"))
+    result.tiles = int(find(r"(\d+) LittleTiles tiles"))
+    result.blocks = int(find(r"\[worldblocks\] emitted (\d+) blocks"))
+    result.block_faces = int(find(r"emitted \d+ blocks, (\d+) faces"))
+    result.culled_faces = int(find(r"\(culled (\d+)"))
+    result.rejected_faces = int(find(r"rejected by CGAL (\d+)"))
+    result.merged_vertices = int(find(r"merged mesh: vertices: (\d+)"))
+    result.merged_faces = int(find(r"\nfaces: (\d+)"))
+    result.materials = int(find(r"materials (\d+)"))
+    result.textures = int(find(r"textures written (\d+)"))
     result.assets_root = find(r"assets root: (.*)", default="(未知)").strip()
-    result.seconds = float(find(r"总耗时: ([\d.]+) 秒"))
-    result.seconds_read = float(find(r"读取与建网格 ([\d.]+) 秒"))
-    result.seconds_blocks = float(find(r"普通方块网格 ([\d.]+) 秒"))
-    result.seconds_write = float(find(r"写出文件 ([\d.]+) 秒"))
+    result.seconds = float(find(r"total: ([\d.]+) s"))
+    result.seconds_read = float(find(r"read & mesh ([\d.]+) s"))
+    result.seconds_blocks = float(find(r"plain blocks ([\d.]+) s"))
+    result.seconds_write = float(find(r"write ([\d.]+) s"))
     result.wall_seconds = wall_seconds
 
     if completed.returncode != 0:
-        result.warnings.append(f"进程退出码 {completed.returncode}")
+        result.warnings.append(f"exit code {completed.returncode}")
     if result.merged_faces == 0:
-        result.warnings.append("没有解析到合并面数（输出格式变了？）")
+        result.warnings.append("no merged face count parsed (output format changed?)")
     if result.rejected_faces:
-        result.warnings.append(f"有 {result.rejected_faces} 个面被 CGAL 拒收")
+        result.warnings.append(f"{result.rejected_faces} faces rejected by CGAL")
 
-    obj_path = Path(find(r'合并的网格已导出到: "(.*)"', default=""))
+    obj_path = Path(find(r'exported merged mesh to: "(.*)"', default=""))
     if obj_path.is_file():
         result.obj_bytes = obj_path.stat().st_size
     else:
-        result.warnings.append("找不到导出的 OBJ")
+        result.warnings.append("exported OBJ not found")
     return result
 
 

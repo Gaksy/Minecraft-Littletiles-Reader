@@ -19,6 +19,7 @@ add_library(galib STATIC
   File/FileState.cpp
     File/PathFormat.cpp
     Log/GalibLog.cpp
+    Log/GalibText.cpp
     Exception/MinecraftException.cpp
     Exception/LittleTilesException.cpp
 )

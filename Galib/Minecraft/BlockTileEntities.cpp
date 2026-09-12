@@ -23,6 +23,7 @@
 #include "Exception/LittleTilesException.h"
 #include "GalibNamespaceDef.h"
 #include "Log/GalibLog.h"
+#include "Log/GalibText.h"
 #include "Minecraft/LittleTiles.h"
 #include "Minecraft/MinecraftCoord.h"
 #include "nbt_tags.h"
@@ -86,9 +87,10 @@ BlockTileEntities::size_type BlockTileEntities::ReadBlockTileNbt(
                          kBlockTilesNBT.at("z").as<tag_int>().get()};
 
 #ifdef GALIB_DEBUG
-    ProgressPrintf("BlockTileEntities::ReadBlockTileNbt read block: %d %d %d\n",
-                   block_coordinate_.x, block_coordinate_.y,
-                   block_coordinate_.z);
+    ProgressPrintf(
+        Tr("BlockTileEntities::ReadBlockTileNbt 解析方块: %d %d %d\n",
+           "BlockTileEntities::ReadBlockTileNbt block: %d %d %d\n"),
+        block_coordinate_.x, block_coordinate_.y, block_coordinate_.z);
 #endif
 
     for (auto it = tiles.begin(); it != tiles.cend(); ++it) {
@@ -130,8 +132,8 @@ BlockTileEntities::size_type BlockTileEntities::ReadBlockTileNbt(
 
 #ifdef GALIB_DEBUG
     ProgressPrintf(
-        "BlockTileEntities::ReadBlockTileNbt Boxes count: %zu, Tile count: "
-        "%zu\n",
+        Tr("BlockTileEntities::ReadBlockTileNbt 盒子 %zu 个，tile %zu 个\n",
+           "BlockTileEntities::ReadBlockTileNbt %zu boxes, %zu tiles\n"),
         boxes_count, tile_count);
 #endif
     if (p_boxes_count) {

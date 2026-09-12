@@ -1,3 +1,4 @@
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -7,6 +8,7 @@
 #include <vector>
 
 #include "Log/GalibLog.h"
+#include "Log/GalibText.h"
 #include "Minecraft/Anvil.h"
 #include "Minecraft/BlockIdTable.h"
 #include "Minecraft/CgalSupport/CgalLittletilesBuilder.h"
@@ -39,6 +41,26 @@ using Clock = std::chrono::steady_clock;
 double ElapsedSeconds(const Clock::time_point kStart,
                       const Clock::time_point kEnd) {
   return std::chrono::duration<double>(kEnd - kStart).count();
+}
+
+// 启动时选界面语言：回车默认简体中文，输入 en/2/English 则切英文。
+void AskLanguage() {
+  printf("Language / 语言  [1] zh-CN  [2] en-US : ");
+  fflush(stdout);
+
+  char line[64];
+  if (!fgets(line, sizeof(line), stdin)) {
+    return;  // 非交互（管道）时保持默认中文
+  }
+  std::string answer(line);
+  for (char& ch : answer) {
+    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+  }
+  const bool english = answer.find('e') != std::string::npos ||
+                       answer.find('2') != std::string::npos;
+  galib::SetLanguage(english ? galib::Language::kEnUs : galib::Language::kZhCn);
+  printf("%s\n",
+         galib::Tr("已选择语言：简体中文", "Selected language: English"));
 }
 
 // 读取一行 y/n 回答；直接回车（空行）使用推荐默认值。
@@ -107,7 +129,8 @@ std::string DetectAssetsRoot(const std::filesystem::path& kProgramDir) {
 // 这样在 CLion（工作目录 = 构建目录）里填 assets/pack 也能找到。
 // 按整行读取，路径里有空格不用加引号（从 Finder 复制来的引号会自动去掉）。
 std::string AskAssetsRoot(const std::filesystem::path& kProgramDir) {
-  printf("assets root (blank = auto-detect): ");
+  printf("%s", galib::Tr("素材目录（回车 = 自动探测）: ",
+                         "assets root (blank = auto-detect): "));
   fflush(stdout);
 
   char line[512];
@@ -142,36 +165,42 @@ std::string AskAssetsRoot(const std::filesystem::path& kProgramDir) {
     return error ? candidate.string() : absolute.string();
   }
 
-  printf("警告: 下面这些位置都没有 block_textures.tsv：\n");
+  printf("%s", galib::Tr("警告: 下面这些位置都没有 block_textures.tsv：\n",
+                         "warning: no block_textures.tsv in any of these:\n"));
   for (const std::filesystem::path& candidate : candidates) {
     printf("        %s\n", candidate.string().c_str());
   }
-  printf("      （填绝对路径最稳；现在退回自动探测）\n");
+  printf("%s", galib::Tr("      （填绝对路径最稳；现在退回自动探测）\n",
+                         "      (an absolute path is safest; falling back to "
+                         "auto-detect)\n"));
   return DetectAssetsRoot(kProgramDir);
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-  printf("Hello, There is LittleTile Reader\n");
+  printf("=== LittleTiles Reader ===\n");
+  AskLanguage();
 
   const std::filesystem::path program_dir =
       ProgramDirectory(argc > 0 ? argv[0] : nullptr);
 
-  printf("please key in region folder:");
+  printf("%s", galib::Tr("存档 region 目录: ", "region folder: "));
   char region_folder[256];
   scanf("%255s", region_folder);  // 明确上限，避免超长路径写越界
-  printf("region folder path is %s\n", region_folder);
+  printf(galib::Tr("存档目录: %s\n", "region folder path: %s\n"),
+         region_folder);
 
   ChunkCoordinate::NumericType chunk_x = 0;
   ChunkCoordinate::NumericType chunk_z = 0;
-  printf("chunk x: ");
+  printf("%s", galib::Tr("区块 x: ", "chunk x: "));
   scanf("%d", &chunk_x);
-  printf("chunk z: ");
+  printf("%s", galib::Tr("区块 z: ", "chunk z: "));
   scanf("%d", &chunk_z);
 
   int chunk_radius = 0;
-  printf("scan radius in chunks (0 = only this chunk): ");
+  printf("%s", galib::Tr("扫描半径（0 = 只处理这一个区块）: ",
+                         "scan radius in chunks (0 = only this chunk): "));
   scanf("%d", &chunk_radius);
   if (chunk_radius < 0) {
     chunk_radius = 0;
@@ -185,26 +214,39 @@ int main(int argc, char** argv) {
   }
 
   const bool include_world_blocks =
-      askYesNo("Also export plain (non-LittleTiles) blocks?", true);
+      askYesNo(galib::Tr("是否同时导出普通方块（非 LittleTiles）？",
+                         "Also export plain (non-LittleTiles) blocks?"),
+               true);
   const bool cull_hidden_faces =
       include_world_blocks
-          ? askYesNo("Skip faces hidden by neighbouring blocks?", true)
+          ? askYesNo(galib::Tr("是否剔除被相邻方块挡住的面？",
+                               "Skip faces hidden by neighbouring blocks?"),
+                     true)
           : false;
   // 居中：把包围盒中心移到原点（推荐，导入第三方软件后一按 Frame Selected 就能看到）
   const bool is_need_geometry_center =
-      askYesNo("Move the model center to the origin?", true);
+      askYesNo(galib::Tr("是否把模型中心移到原点？",
+                         "Move the model center to the origin?"),
+               true);
   // 单位缩放：会把最长边压成 1，丢失"1 单位 = 1 方块"的真实尺寸，默认不做
   const bool is_need_normalize_scale = askYesNo(
-      "Also scale the longest edge to 1 unit (changes the real size)?", false);
+      galib::Tr(
+          "是否再把最长边缩放到 1 个单位（会改变真实尺寸）？",
+          "Also scale the longest edge to 1 unit (changes the real size)?"),
+      false);
   // 进度提示与耗时统计一起开关：两者都是"看过程"的，脚本化/服务化时通常都不要。
-  const bool show_progress = askYesNo("Print progress and timing?", true);
+  const bool show_progress = askYesNo(
+      galib::Tr("是否打印进度提示与耗时？", "Print progress and timing?"),
+      true);
   galib::SetProgressEnabled(show_progress);
 
   // AskAssetsRoot 已经在找到时统一成绝对路径：后面的读取
   // （block_ids.tsv / block_textures.tsv / 贴图）都按这个字符串拼。
   const std::string assets_root = AskAssetsRoot(program_dir);
-  printf("assets root: %s\n",
-         assets_root.empty() ? "(未找到，只导出几何)" : assets_root.c_str());
+  printf(galib::Tr("素材目录: %s\n", "assets root: %s\n"),
+         assets_root.empty()
+             ? galib::Tr("(未找到，只导出几何)", "(not found, geometry only)")
+             : assets_root.c_str());
 
   // 计时从这里开始：前面是人工输入，不计入处理耗时。
   const Clock::time_point process_start = Clock::now();
@@ -237,8 +279,9 @@ int main(int argc, char** argv) {
       if (show_progress) {
         const int chunk_index =
             (offset_z + chunk_radius) * span + (offset_x + chunk_radius) + 1;
-        printf("[进度] 区块 (%d, %d) —— %d/%d\n", coord.x, coord.z, chunk_index,
-               span * span);
+        printf(galib::Tr("[进度] 区块 (%d, %d) —— %d/%d\n",
+                         "[progress] chunk (%d, %d) - %d/%d\n"),
+               coord.x, coord.z, chunk_index, span * span);
       }
       AnvilReader::ChunkDataReference reference{};
       bool has_chunk = true;
@@ -289,13 +332,16 @@ int main(int argc, char** argv) {
       }
     }
   }
-  printf("chunk 数: 找到 %d 个，缺失 %d 个；LittleTiles tile 共 %zu 个\n",
+  printf(galib::Tr("区块: 找到 %d 个，缺失 %d 个；LittleTiles tile 共 %zu 个\n",
+                   "chunks: %d found, %d missing; %zu LittleTiles tiles\n"),
          found_chunks, missing_chunks, total_tiles);
   const Clock::time_point read_end = Clock::now();
 
   // 普通方块 -> 完整立方体网格（按方块类型分组合并）
   if (include_world_blocks && assets_root.empty()) {
-    printf("警告: 未找到素材目录，跳过普通方块导出\n");
+    printf("%s",
+           galib::Tr("警告: 未找到素材目录，跳过普通方块导出\n",
+                     "warning: no assets root, skipping plain block export\n"));
   } else if (include_world_blocks) {
     BlockIdTable block_id_table;
     if (block_id_table.LoadFromTsv(assets_root + "/block_ids.tsv")) {
@@ -309,7 +355,9 @@ int main(int argc, char** argv) {
         obj_builder.AddMesh(mesh);
       }
     } else {
-      printf("警告: 读不到 %s/block_ids.tsv，跳过普通方块导出\n",
+      printf(galib::Tr("警告: 读不到 %s/block_ids.tsv，跳过普通方块导出\n",
+                       "warning: cannot read %s/block_ids.tsv, skipping plain "
+                       "block export\n"),
              assets_root.c_str());
     }
   }
@@ -333,8 +381,11 @@ int main(int argc, char** argv) {
   // 总耗时包含写出文件的时间（大范围导出里写 OBJ 往往占相当一部分）
   if (show_progress) {
     printf(
-        "总耗时: %.1f 秒（读取与建网格 %.1f 秒，普通方块网格 %.1f 秒，写出文件 "
-        "%.1f 秒）\n",
+        galib::Tr(
+            "总耗时: %.1f 秒（读取与建网格 %.1f 秒，普通方块网格 %.1f 秒，写出"
+            "文件 %.1f 秒）\n",
+            "total: %.1f s (read & mesh %.1f s, plain blocks %.1f s, write "
+            "%.1f s)\n"),
         ElapsedSeconds(process_start, write_end),
         ElapsedSeconds(process_start, read_end),
         ElapsedSeconds(read_end, build_end),

@@ -39,14 +39,17 @@ Enter the folder, then a chunk coordinate and a scan radius:
 the result; past runs are kept in [`docs/benchmark.md`](docs/benchmark.md).
 
 ```sh
-# region folder, chunk x, chunk z, radius, plain blocks, cull hidden faces,
-# center the model, normalize scale, print progress and timing
-printf "test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
+# language (1 = zh-CN, 2 = en-US), region folder, chunk x, chunk z, radius,
+# plain blocks, cull hidden faces, center the model, normalize scale,
+# print progress and timing
+printf "2\ntest_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
 ```
 
-The last question controls both the progress output (`[进度] 区块 (x, z) —— i/n`,
-plus the per-chunk/per-block detail from the library) and the final
-total-time line. Answer `n` for clean, script-friendly output.
+The first question picks the interface language (blank = zh-CN); every prompt and
+message is bilingual. The last question controls both the progress output
+(`[progress] chunk (x, z) - i/n`, plus the per-chunk/per-block detail from the
+library) and the final total-time line. Answer `n` for clean, script-friendly
+output.
 
 The result is written to `out_file/` relative to the current working
 directory (OBJ + MTL + a `<obj name>_textures/` folder).
@@ -201,11 +204,13 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 历史记录见 [`docs/benchmark.md`](docs/benchmark.md)。
 
 ```sh
-# 依次为：存档目录、区块 x、区块 z、半径、完整方块、剔除相邻面、居中、单位化、进度与耗时
-printf "test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
+# 依次为：语言（1 = 中文，2 = English）、存档目录、区块 x、区块 z、半径、
+# 完整方块、剔除相邻面、居中、单位化、进度与耗时
+printf "1\ntest_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
 ```
 
-最后一项同时控制**进度提示**（每处理一个区块打印 `[进度] 区块 (x, z) —— i/n`，
+**第一个问题选界面语言**（直接回车 = 简体中文）：所有提示、进度、结果行都有中英两版，
+切一次语言全程生效。最后一项同时控制**进度提示**（每处理一个区块打印 `[进度] 区块 (x, z) —— i/n`，
 以及库里逐区块、逐方块的详细信息）和结尾的**总耗时**一行。
 想要干净的、方便脚本处理的输出就答 `n`。
 

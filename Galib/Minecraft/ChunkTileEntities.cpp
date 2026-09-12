@@ -18,6 +18,7 @@
 #include "Exception/MinecraftException.h"
 #include "GalibNamespaceDef.h"
 #include "Log/GalibLog.h"
+#include "Log/GalibText.h"
 #include "Minecraft/LittleTiles.h"
 #include "Minecraft/MinecraftCoord.h"
 
@@ -99,7 +100,8 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
   size_type boxes_count = 0;
 
 #ifdef GALIB_DEBUG
-  ProgressPrintf("ChunkTileEntities::ReadChunk read chunk: %d %d\n",
+  ProgressPrintf(Tr("ChunkTileEntities::ReadChunk 读取区块: %d %d\n",
+                    "ChunkTileEntities::ReadChunk chunk: %d %d\n"),
                  chunk_coordinate_.x, chunk_coordinate_.z);
 #endif
 
@@ -119,7 +121,10 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
     }
 #else
     catch (const std::exception& e) {
-      printf("ChunkTileEntities::ReadChunk error: %s\n", e.what());
+      printf("%s%s\n",
+             Tr("ChunkTileEntities::ReadChunk 出错: ",
+                "ChunkTileEntities::ReadChunk error: "),
+             e.what());
     }
 #endif
   }
@@ -128,9 +133,9 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
   block_tile_entities_.swap(block_tile_entities);
 
 #ifdef GALIB_DEBUG
-  ProgressPrintf(
-      "ChunkTileEntities::ReadChunk Tile count: %zu, Boxes count: %zu\n",
-      tile_count, boxes_count);
+  ProgressPrintf(Tr("ChunkTileEntities::ReadChunk tile %zu 个，盒子 %zu 个\n",
+                    "ChunkTileEntities::ReadChunk %zu tiles, %zu boxes\n"),
+                 tile_count, boxes_count);
 #endif
 
   if (p_boxes_count) {
