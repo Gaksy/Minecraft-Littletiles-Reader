@@ -13,6 +13,9 @@
 ## 当前状态
 
 - 读取 region 存档（`.mca`）→ 区块 NBT → LittleTiles tile entity
+- 读取 LittleTiles 结构文件（SNBT `.txt`/`.struct`）——见
+  [`docs/snbt-format.md`](docs/snbt-format.md)；第一个问题直接填文件路径即可，
+  不用填 region 目录
 - 提供裸 NBT 入口（`ChunkTileEntities::ReadChunkNbt`），不经过 mca 文件也能解析
 - 重建 tile 几何，含 LittleTiles 的逐角角度偏移与越界 tile（按方块盒裁剪）
 - 普通方块（非 LittleTiles）导出为完整立方体，可选剔除被邻居挡住的面
@@ -189,6 +192,7 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 
 - [`docs/architecture.md`](docs/architecture.md) —— 模块划分、真实调用链、ownership 与线程安全现状、构建方式
 - [`docs/nbt-format.md`](docs/nbt-format.md) —— `.mca` / chunk NBT / LittleTiles tile 格式、角度偏移位域、坐标系统
+- [`docs/snbt-format.md`](docs/snbt-format.md) —— LittleTiles 结构 SNBT（两种方言）、盒子编码、子结构、模组贴图
 - [`docs/known-issues.md`](docs/known-issues.md) —— 已核实缺陷、输出确定性、测试基线与 README/代码不一致清单
 - [`docs/texture-mapping.md`](docs/texture-mapping.md) —— UV 约定、tint 烘焙、材质包叠加
 - [`docs/benchmark.md`](docs/benchmark.md) —— 导出基线与实测数据（由 `tools/benchmark.py` 生成）

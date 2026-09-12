@@ -15,6 +15,9 @@ and other modelling tools.
 ## Current Status
 
 - Reads region archives (`.mca`) → chunk NBT → LittleTiles tile entities
+- Reads LittleTiles structure files (SNBT `.txt`/`.struct`) — see
+  [`docs/snbt-format.md`](docs/snbt-format.md); just answer the first prompt with
+  the file path instead of a region folder
 - Raw NBT entry point (`ChunkTileEntities::ReadChunkNbt`), so data that never
   went through an mca file can be parsed as well
 - Rebuilds tile geometry, including LittleTiles' per-corner angle offsets and
@@ -211,6 +214,7 @@ referencing symbols rather than line numbers):
 
 - [`docs/architecture.md`](docs/architecture.md) — module layout, the real call chain, ownership/thread-safety status, build
 - [`docs/nbt-format.md`](docs/nbt-format.md) — `.mca` / chunk NBT / LittleTiles tile format, offset bit layout, coordinate system
+- [`docs/snbt-format.md`](docs/snbt-format.md) — LittleTiles structure SNBT (both dialects), box encoding, children, mod textures
 - [`docs/known-issues.md`](docs/known-issues.md) — verified defects, output determinism, test-data baselines, README/code mismatches
 - [`docs/texture-mapping.md`](docs/texture-mapping.md) — UV conventions, tint baking, resource pack overlay
 - [`docs/benchmark.md`](docs/benchmark.md) — recorded export baselines (`python3 tools/benchmark.py --write docs/benchmark.md`)
