@@ -324,9 +324,15 @@ if (!neighbor.is_air() && !neighbor.little_tiles_host) { /* 剔除 */ }
 
 ## 5. README 与代码不一致之处
 
-| # | README 的说法 | 代码实际 |
+README 现分为两份内容相同的文档：[`README.md`](../README.md)（English）与
+[`README.zh-CN.md`](../README.zh-CN.md)（简体中文），改动其中之一时请同步另一份。
+
+下表是**历史记录**：这些不一致已在重写 README 时修正（"当前状态"改为实际实现、
+依赖表与语言版本更新、已知限制单列一节），保留在此是为了说明当初的偏差。
+
+| # | 原先 README 的说法 | 代码实际 |
 |---|---|---|
-| 1 | "V2 已实现：每个 tile 导出为 OFF，再用 Python 把 OFF 转 OBJ" | C++ 的 OFF 写出是空函数；现在直接合并写 OBJ。该描述是 V1 流程 |
-| 2 | 示例 SNBT 使用 `bBox` / `tile` / `min` / `size` / `count` 键 | 解析器读的是 `content.tiles[].block` + `boxes`/`box`，**没有**这些键。该 SNBT 喂给 Reader 会失败（它只服务于 MATLAB 辅助脚本） |
-| 3 | 依赖表写 CGAL 5.6；语言写 C++14 | 实测 CGAL 6.2.1 可用；代码实际需要 C++17 |
-| 4 | 处理流程止于"OBJ 构建器" | 未提及 1.12 专有的 `Level` 硬编码、无 `DataVersion` 校验、只支持 zlib 压缩类型 |
+| 1 | "V2 已实现：每个 tile 导出为 OFF，再用 Python 把 OFF 转 OBJ" | C++ 的 OFF 写出是空函数；现在直接合并写 OBJ。该描述是 V1 流程 —— **已修正** |
+| 2 | 示例 SNBT 使用 `bBox` / `tile` / `min` / `size` / `count` 键 | 解析器读的是 `content.tiles[].block` + `boxes`/`box`，**没有**这些键。该 SNBT 喂给 Reader 会失败，它只服务于 MATLAB 辅助脚本 —— README 现已把它放在"Matlab 支持"一节下，不再暗示它是 Reader 的输入 |
+| 3 | 依赖表写 CGAL 5.6；语言写 C++14 | 实测 CGAL 6.2.1；代码实际需要 C++17 —— **已修正** |
+| 4 | 处理流程止于"OBJ 构建器" | 未提及 1.12 专有的 `Level` 硬编码、无 `DataVersion` 校验、只支持 zlib 压缩类型 —— README 新增"已知限制"一节说明 |
