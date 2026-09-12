@@ -10,6 +10,7 @@ add_library(galib STATIC
     Minecraft/LittleTilesEntity.cpp
   Minecraft/LittleTiles.cpp
   Minecraft/SnbtParser.cpp
+  Minecraft/LtStructure.cpp
   Minecraft/CgalSupport/CgalTypeDef.cpp
   Minecraft/CgalSupport/CgalLtSupport.cpp
   Minecraft/CgalSupport/CgalLittletilesBuilder.cpp

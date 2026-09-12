@@ -380,6 +380,65 @@ bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,
   return true;
 }
 
+bool galib::minecraft::littletiles::DecodeBoxAngleData(
+    const std::vector<std::int32_t>& kBoxArray, AngleOffset kOffsets[8],
+    Flipped* const p_desc_flipped) {
+  // 规则见 LittleBox.create：长度 6 是普通盒子；下标 6 为负才是带角度偏移的
+  // transformable box；长度为 7 或 11 且下标 6 非负的是旧 slice 格式（按普通盒
+  // 子处理）。旧实现只判断"长度 > 6"，遇到旧 slice 会把后面的数据当偏移解出
+  // 垃圾几何。
+  if (kBoxArray.size() <= 6 || kBoxArray[6] >= 0) {
+    return false;
+  }
+
+  const std::uint32_t state_binary = static_cast<std::uint32_t>(kBoxArray[6]);
+  std::vector<OffsetType> angle_offset_array;
+  angle_offset_array.reserve((kBoxArray.size() - 7) * 2);
+  for (std::size_t index = 7; index < kBoxArray.size(); ++index) {
+    const std::uint32_t packed = static_cast<std::uint32_t>(kBoxArray[index]);
+    angle_offset_array.push_back(
+        static_cast<OffsetType>((packed & 0xFFFF0000u) >> 16));  // 高 16 位
+    angle_offset_array.push_back(
+        static_cast<OffsetType>(packed & 0x0000FFFFu));  // 低 16 位
+  }
+
+  AngleOffset* p_offset = kOffsets;
+  auto offset_it = angle_offset_array.cbegin();
+  const auto offset_end = angle_offset_array.cend();
+  for (std::size_t angle_id = 0; angle_id < 8; ++angle_id) {
+    p_offset->x_enable = (state_binary & (0x1u << (angle_id * 3))) != 0;
+    p_offset->y_enable = (state_binary & (0x2u << (angle_id * 3))) != 0;
+    p_offset->z_enable = (state_binary & (0x4u << (angle_id * 3))) != 0;
+    p_offset->x_offset = 0;
+    p_offset->y_offset = 0;
+    p_offset->z_offset = 0;
+    if (p_offset->has_any_enable()) {
+      if (p_offset->x_enable && offset_it != offset_end) {
+        p_offset->x_offset = *(offset_it++);
+      }
+      if (p_offset->y_enable && offset_it != offset_end) {
+        p_offset->y_offset = *(offset_it++);
+      }
+      if (p_offset->z_enable && offset_it != offset_end) {
+        p_offset->z_offset = *(offset_it++);
+      }
+    }
+    ++p_offset;
+  }
+
+  // flip 位：24~29。官方 getData() 里指示位是 `Integer.MIN_VALUE | 翻转位`，
+  // 顺序与 Facing 序数一致（down/up/north/south/west/east）。
+  if (p_desc_flipped != nullptr) {
+    p_desc_flipped->down = (state_binary & (0x1u << 24)) != 0;
+    p_desc_flipped->up = (state_binary & (0x2u << 24)) != 0;
+    p_desc_flipped->north = (state_binary & (0x4u << 24)) != 0;
+    p_desc_flipped->south = (state_binary & (0x1u << 27)) != 0;
+    p_desc_flipped->west = (state_binary & (0x2u << 27)) != 0;
+    p_desc_flipped->east = (state_binary & (0x4u << 27)) != 0;
+  }
+  return true;
+}
+
 bool BlockTileEntities::SetAngleOffsetStateData(const tag_int_array& offset_nbt,
                                                 AngleOffset* p_offset_data,
                                                 Flipped* p_flipped_data) {
@@ -388,50 +447,11 @@ bool BlockTileEntities::SetAngleOffsetStateData(const tag_int_array& offset_nbt,
     return false;
   }
 
-  // Get angle change data state iterator and create change data buffer
-  const auto it = offset_nbt.cbegin() + 6;
-  const uint32_t state_binary = *it;
-  vector<OffsetType> angle_offset_array;
-
-  // Get Angle offset data array
-  if (it + 1 != offset_nbt.cend()) {
-    for (auto offset_it = it + 1; offset_it != offset_nbt.cend(); ++offset_it) {
-      angle_offset_array.push_back(static_cast<OffsetType>(
-          (*offset_it & 0xFFFF0000) >> 16));  // Get 16bit
-      angle_offset_array.push_back(
-          static_cast<OffsetType>(*offset_it & 0x0000FFFF));  // Get 16bit
-    }
+  // 与结构 SNBT 路径共用同一份解码实现
+  std::vector<std::int32_t> box_array;
+  box_array.reserve(offset_nbt.size());
+  for (const auto& value : offset_nbt) {
+    box_array.push_back(value);
   }
-
-  // Get Angle offset state and set offset value
-  auto offset_it = angle_offset_array.cbegin();
-  const auto offset_it_end = angle_offset_array.cend();
-  for (size_t angle_id = 0; angle_id < 8; ++angle_id) {
-    p_offset_data->x_enable = state_binary & (0x1 << (angle_id * 3));
-    p_offset_data->y_enable = state_binary & (0x2 << (angle_id * 3));
-    p_offset_data->z_enable = state_binary & (0x4 << (angle_id * 3));
-
-    if (p_offset_data->has_any_enable()) {
-      if (p_offset_data->x_enable && offset_it != offset_it_end) {
-        p_offset_data->x_offset = *(offset_it++);
-      }
-      if (p_offset_data->y_enable && offset_it != offset_it_end) {
-        p_offset_data->y_offset = *(offset_it++);
-      }
-      if (p_offset_data->z_enable && offset_it != offset_it_end) {
-        p_offset_data->z_offset = *(offset_it++);
-      }
-    }
-    p_offset_data++;
-  }
-
-  // Get Flipped
-  p_flipped_data->down = state_binary & (0x1 << (8 * 3));
-  p_flipped_data->up = state_binary & (0x2 << (8 * 3));
-  p_flipped_data->north = state_binary & (0x4 << (8 * 3));
-  p_flipped_data->south = state_binary & (0x1 << (9 * 3));
-  p_flipped_data->west = state_binary & (0x2 << (9 * 3));
-  p_flipped_data->east = state_binary & (0x4 << (9 * 3));
-
-  return true;
+  return DecodeBoxAngleData(box_array, p_offset_data, p_flipped_data);
 }

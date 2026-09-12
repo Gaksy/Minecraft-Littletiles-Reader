@@ -654,3 +654,49 @@ void galib::minecraft::cgal_support::WriteToOff(
     std::cout << "Written mesh " << i << " to " << mesh_filename << std::endl;
   }
 }
+
+std::size_t galib::minecraft::cgal_support::AddStructureToObjBuilder(
+    const littletiles::LtStructure& kStructure,
+    ObjMeshBuilder* const p_desc_builder) {
+  if (p_desc_builder == nullptr) {
+    return 0;
+  }
+  const double grid = static_cast<double>(kStructure.grid());
+  const double origin_x = static_cast<double>(kStructure.min().x);
+  const double origin_y = static_cast<double>(kStructure.min().y);
+  const double origin_z = static_cast<double>(kStructure.min().z);
+  std::size_t mesh_count = 0;
+
+  for (const littletiles::LtStructure::Group& group : kStructure.groups()) {
+    for (const littletiles::TileEntity& tile : group.boxes) {
+      LtSurfaceMesh tile_mesh;
+      // 与存档路径一致的裁剪策略：偏移后超出自身盒子时才裁
+      if (tile.is_offset_off_boundary()) {
+        if (!ClipTileEntityToBox(tile_mesh, tile)) {
+          continue;
+        }
+      } else {
+        CreateMeshFromTileEntity(tile_mesh, tile);
+      }
+      tile_mesh.set_block_id(group.block_id);
+      tile_mesh.set_tile_color(group.color, group.has_color);
+
+      // grid → 方块单位，并平移到结构原点；同时记录"所在单元内的相对坐标"（UV 用）。
+      // 结构里的网格会横跨多个方块单元，不能用网格级方块坐标反推，必须逐顶点记。
+      SurfaceMeshType& mesh = tile_mesh.surface_mesh();
+      for (const SurfaceMeshType::vertex_index& vertex : mesh.vertices()) {
+        const LtPoint3 point = mesh.point(vertex);
+        const double x = (point.x() - origin_x) / grid;
+        const double y = (point.y() - origin_y) / grid;
+        const double z = (point.z() - origin_z) / grid;
+        mesh.point(vertex) = LtPoint3(x, y, z);
+        tile_mesh.SetVertexLocalPosition(
+            vertex,
+            LtPoint3(x - std::floor(x), y - std::floor(y), z - std::floor(z)));
+      }
+      p_desc_builder->AddMesh(tile_mesh);
+      ++mesh_count;
+    }
+  }
+  return mesh_count;
+}

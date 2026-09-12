@@ -23,6 +23,7 @@
 #include "GalibNamespaceDef.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTiles.h"
+#include "Minecraft/LtStructure.h"
 
 namespace galib::minecraft::cgal_support {
 class ChunkMesh {
@@ -107,6 +108,18 @@ class ObjMeshBuilder {
 
 void WriteToOff(const std::vector<LtSurfaceMesh>& meshes,
                 const char* p_filename);
+
+// 把一份 LittleTiles 结构（SNBT 结构文件）转成网格并交给 OBJ 构建器。
+//
+// 与存档路径走同一条几何链路（半空间裁剪 → 网格 → UV），差别只有坐标：
+// 结构用的是跨方块的结构空间 grid 坐标，这里做两件事——
+//   1. 按 grid 缩放到方块单位，并减去结构原点 min；
+//   2. 逐顶点记录"所在方块单元内的相对坐标"，供 UV 按位置裁剪取样
+//      （一个网格会横跨多个单元，不能像存档路径那样用网格级方块坐标反推）。
+// 子结构（children）已由 LtStructure 展开。返回并入的网格数。
+std::size_t AddStructureToObjBuilder(
+    const galib::minecraft::littletiles::LtStructure& kStructure,
+    ObjMeshBuilder* p_desc_builder);
 
 }  // namespace galib::minecraft::cgal_support
 

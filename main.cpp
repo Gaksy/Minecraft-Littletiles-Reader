@@ -15,11 +15,13 @@
 #include "Minecraft/CgalSupport/CgalWorldBlocks.h"
 #include "Minecraft/ChunkBlocks.h"
 #include "Minecraft/LittleTiles.h"
+#include "Minecraft/LtStructure.h"
 
 using galib::minecraft::AnvilReader;
 using galib::minecraft::BlockIdTable;
 using galib::minecraft::ChunkBlocks;
 using galib::minecraft::ChunkCoordinate;
+using galib::minecraft::cgal_support::AddStructureToObjBuilder;
 using galib::minecraft::cgal_support::BuildWorldBlockMeshes;
 using galib::minecraft::cgal_support::ChunkMesh;
 using galib::minecraft::cgal_support::LtSurfaceMesh;
@@ -27,6 +29,7 @@ using galib::minecraft::cgal_support::MergeAndWriteToObj;
 using galib::minecraft::cgal_support::ObjExportOptions;
 using galib::minecraft::cgal_support::ObjMeshBuilder;
 using galib::minecraft::littletiles::ChunkTileEntities;
+using galib::minecraft::littletiles::LtStructure;
 
 using std::string;
 using std::to_string;
@@ -185,25 +188,36 @@ int main(int argc, char** argv) {
   const std::filesystem::path program_dir =
       ProgramDirectory(argc > 0 ? argv[0] : nullptr);
 
-  printf("%s", galib::Tr("存档 region 目录: ", "region folder: "));
+  printf(
+      "%s",
+      galib::Tr(
+          "存档 region 目录，或 LittleTiles 结构文件（.txt/.struct）: ",
+          "region folder, or a LittleTiles structure file (.txt/.struct): "));
   char region_folder[256];
   scanf("%255s", region_folder);  // 明确上限，避免超长路径写越界
   printf(galib::Tr("存档目录: %s\n", "region folder path: %s\n"),
          region_folder);
 
+  // 给的是文件（.txt/.struct）就走 LittleTiles 结构模式：结构自带坐标，
+  // 不需要区块坐标与扫描半径，也谈不上"周围的普通方块"。
+  std::error_code path_error_code;
+  const bool is_structure_file =
+      std::filesystem::is_regular_file(region_folder, path_error_code);
+
   ChunkCoordinate::NumericType chunk_x = 0;
   ChunkCoordinate::NumericType chunk_z = 0;
-  printf("%s", galib::Tr("区块 x: ", "chunk x: "));
-  scanf("%d", &chunk_x);
-  printf("%s", galib::Tr("区块 z: ", "chunk z: "));
-  scanf("%d", &chunk_z);
-
   int chunk_radius = 0;
-  printf("%s", galib::Tr("扫描半径（0 = 只处理这一个区块）: ",
-                         "scan radius in chunks (0 = only this chunk): "));
-  scanf("%d", &chunk_radius);
-  if (chunk_radius < 0) {
-    chunk_radius = 0;
+  if (!is_structure_file) {
+    printf("%s", galib::Tr("区块 x: ", "chunk x: "));
+    scanf("%d", &chunk_x);
+    printf("%s", galib::Tr("区块 z: ", "chunk z: "));
+    scanf("%d", &chunk_z);
+    printf("%s", galib::Tr("扫描半径（0 = 只处理这一个区块）: ",
+                           "scan radius in chunks (0 = only this chunk): "));
+    scanf("%d", &chunk_radius);
+    if (chunk_radius < 0) {
+      chunk_radius = 0;
+    }
   }
 
   // 丢掉上一个 scanf 残留的换行符，后面的选项按整行读取
@@ -214,9 +228,11 @@ int main(int argc, char** argv) {
   }
 
   const bool include_world_blocks =
-      askYesNo(galib::Tr("是否同时导出普通方块（非 LittleTiles）？",
-                         "Also export plain (non-LittleTiles) blocks?"),
-               true);
+      is_structure_file
+          ? false
+          : askYesNo(galib::Tr("是否同时导出普通方块（非 LittleTiles）？",
+                               "Also export plain (non-LittleTiles) blocks?"),
+                     true);
   const bool cull_hidden_faces =
       include_world_blocks
           ? askYesNo(galib::Tr("是否剔除被相邻方块挡住的面？",
@@ -255,6 +271,46 @@ int main(int argc, char** argv) {
   export_options.geom_center = is_need_geometry_center;
   export_options.normalize_scale = is_need_normalize_scale;
   export_options.assets_root = assets_root;
+
+  // ---- LittleTiles 结构（SNBT）模式 ----
+  if (is_structure_file) {
+    const LtStructure structure = LtStructure::FromSnbtFile(region_folder);
+    printf(
+        galib::Tr(
+            "结构: %s，grid=%d，盒子 %zu 个，材质分组 %zu 个，子结构 %d 个\n",
+            "structure: %s, grid=%d, %zu boxes, %zu material groups, %d "
+            "child structures\n"),
+        structure.name().empty() ? "(未命名)" : structure.name().c_str(),
+        structure.grid(), structure.BoxCount(), structure.groups().size(),
+        structure.child_group_count());
+
+    ObjMeshBuilder structure_builder(export_options);
+    const std::size_t mesh_count =
+        AddStructureToObjBuilder(structure, &structure_builder);
+
+    // 输出文件名：优先用结构名（去掉不适合当文件名的字符），否则用文件主名
+    std::string out_name =
+        structure.name().empty()
+            ? std::filesystem::path(region_folder).stem().string()
+            : structure.name();
+    for (char& ch : out_name) {
+      const bool is_ok = std::isalnum(static_cast<unsigned char>(ch)) != 0 ||
+                         ch == '_' || ch == '-';
+      if (!is_ok) {
+        ch = '_';
+      }
+    }
+    const std::string obj_path =
+        std::string("../out_file/") + out_name + ".obj";
+    structure_builder.WriteToFile(obj_path.c_str());
+
+    if (show_progress) {
+      printf(galib::Tr("结构导出完成: %zu 个网格，总耗时 %.1f 秒\n",
+                       "structure export done: %zu meshes, %.1f s\n"),
+             mesh_count, ElapsedSeconds(process_start, Clock::now()));
+    }
+    return EXIT_SUCCESS;
+  }
 
   AnvilReader anvil_reader;
   anvil_reader.SetRegionFolder(region_folder);

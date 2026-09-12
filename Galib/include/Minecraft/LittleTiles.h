@@ -144,6 +144,17 @@ class TileEntity {
 
 using BoxTileEnities = std::vector<TileEntity>;
 
+// 解析 LittleTiles 的盒子数组（存档里的 `box`/`boxes`、结构 SNBT 里的同一个编码）：
+// 前 6 个是 (x1,y1,z1,x2,y2,z2)，第 7 个（下标 6）是角度状态位，其后是打包的 16 位偏移。
+//
+// 规则来自官方源码 `LittleBox.create`：
+//   * 长度 == 6                         → 普通 AABB
+//   * 数组[6] < 0                       → 带角度偏移（本函数解出 8 个角的偏移与 flip 位）
+//   * 长度 == 7 或 11 且 数组[6] >= 0   → 旧 slice 格式，按普通 AABB 处理
+// 返回 false 表示这个数组没有角度数据（按普通 AABB 处理）。
+bool DecodeBoxAngleData(const std::vector<std::int32_t>& kBoxArray,
+                        AngleOffset kOffsets[8], Flipped* p_desc_flipped);
+
 class BlockTileEntities {
  public:
   using const_iterator = std::map<TileMaterial, BoxTileEnities>::const_iterator;
