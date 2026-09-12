@@ -18,6 +18,9 @@ cmake-build-debug-visual-studio/
 
 # AI 助手上下文（本地知识库，不随仓库分发）
 /.ai/
+
+# SNBT 结构样本（多为他人分享的作品，不随仓库分发）
+/test_snbt/
 #
 # We don't want to ignore the following even if they are dot-files
 #
