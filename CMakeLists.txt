@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.28)
 
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 # 依赖来源选择，优先级从高到低：
 #   1. 由命令行 / IDE 显式传入的 CMAKE_TOOLCHAIN_FILE
 #   2. 设置了 VCPKG_ROOT 环境变量时，所有平台统一使用 vcpkg
@@ -66,7 +70,10 @@ add_subdirectory(Galib)
 add_executable(${CMAKE_PROJECT_NAME} main.cpp)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE galib)
 
-# 添加依赖项，仅在 Windows 平台
-#if(WIN32)
-#    add_dependencies(LittleTilesReader CopyNBTDLL)
-#endif()
+if(WIN32)
+    add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:nbt++>
+            $<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>
+        COMMENT "Copying libnbt++ runtime DLL next to LittleTilesReader")
+endif()
