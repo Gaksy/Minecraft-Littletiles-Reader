@@ -22,6 +22,8 @@
 #include <array>
 #include <cmath>
 #include <map>
+#include <set>
+#include <tuple>
 #include <vector>
 
 #include "GalibNamespaceDef.h"
@@ -459,57 +461,604 @@ void appendQuadFace(ClipPolyhedron& desc_polyhedron, ClipPolygon kPoints,
 }
 }  // namespace
 
+// ---------------------------------------------------------------------------
+// 忠实复刻 LittleTiles 1.12 LittleTransformableBox.requestCache()：
+// 盒子形状 = 6 个轴对齐盒面分别被"倾斜平面"切割（而非凸多面体交集）。
+// - 阶段一：从 8 个变换角点求出每个面的倾斜平面与倾斜条带，
+//           倾斜条带再被 6 个轴平面临界裁剪（保留背侧）。
+// - 阶段二：每个轴的盒(轴对齐)四边形被各倾斜平面裁剪；convex 面取交集，
+//           非 convex 面用 VectorFan 2D 投影做并集(cut2d/cutAxisStrip2)。
+// ---------------------------------------------------------------------------
+namespace {
+constexpr int kDown = 0;
+constexpr int kUp = 1;
+constexpr int kNorth = 2;
+constexpr int kSouth = 3;
+constexpr int kWest = 4;
+constexpr int kEast = 5;
+constexpr int kAxisX = 0;
+constexpr int kAxisY = 1;
+constexpr int kAxisZ = 2;
+
+// 角点 ID 顺序 = AngleID 序：0 EUN 1 EUS 2 EDN 3 EDS 4 WUN 5 WUS 6 WDN 7 WDS
+// 每面的 4 个角点（1.12 BoxFace 顺序，勾选三角形与轴条带都用同一顺序）
+constexpr int kFaceCorners[6][4] = {
+    /*DOWN*/ {7, 6, 2, 3},   // WDS WDN EDN EDS
+    /*UP*/   {4, 5, 1, 0},   // WUN WUS EUS EUN
+    /*NORTH*/{0, 2, 6, 4},   // EUN EDN WDN WUN
+    /*SOUTH*/{5, 7, 3, 1},   // WUS WDS EDS EUS
+    /*WEST*/ {4, 6, 7, 5},   // WUN WDN WDS WUS
+    /*EAST*/ {1, 3, 2, 0},   // EUS EDS EDN EUN
+};
+// 各面的主轴
+constexpr int kFaceAxis[6] = {kAxisY, kAxisY, kAxisZ, kAxisZ, kAxisX, kAxisX};
+// 各面的外向法线
+constexpr ClipVec3 kFaceDir[6] = {{0, -1, 0}, {0, 1, 0},   {0, 0, -1},
+                                  {0, 0, 1},  {-1, 0, 0}, {1, 0, 0}};
+
+constexpr double kVfEps = 1e-4;  // VectorFan.EPSILON
+
+double vfComponent(const ClipVec3& p, int axis) {
+  return axis == kAxisX ? p.x : (axis == kAxisY ? p.y : p.z);
+}
+void vfSetComponent(ClipVec3& p, int axis, double v) {
+  if (axis == kAxisX) p.x = v;
+  else if (axis == kAxisY) p.y = v;
+  else p.z = v;
+}
+bool vfVeq(const ClipVec3& a, const ClipVec3& b, double eps) {
+  return std::fabs(a.x - b.x) + std::fabs(a.y - b.y) +
+             std::fabs(a.z - b.z) <
+         eps;
+}
+ClipVec3 vfNorm(const ClipVec3& v) {
+  double len = std::sqrt(clipSquaredLength(v));
+  if (len < 1e-12) return {0.0, 0.0, 0.0};
+  return {v.x / len, v.y / len, v.z / len};
+}
+// isFront 语义：1=前侧(dot>eps)，-1=背侧(dot<-eps)，0=平面(|dot|<=eps)
+int vfSide(const ClipVec3& p, const ClipVec3& o, const ClipVec3& n) {
+  double r = clipDot(clipSub(p, o), n);
+  if (std::fabs(r) < kVfEps) return 0;
+  return r > 0.0 ? 1 : -1;
+}
+
+// 用平面(o,n)做 Sutherland-Hodgman 裁剪：保留严格背侧，丢弃前侧与恰好落在平面上的点
+// (Python cut 的 keep = (isFront is False)，平面上 isFront 返回 None === 不保留)
+ClipPolygon vfCut(const ClipPolygon& poly, const ClipVec3& o,
+                  const ClipVec3& n) {
+  if (poly.size() < 3) return {};
+  auto keep = [&](const ClipVec3& p) { return vfSide(p, o, n) < 0; };
+  ClipPolygon out;
+  const std::size_t count = poly.size();
+  ClipVec3 prev = poly.back();
+  bool pi = keep(prev);
+  for (const ClipVec3& cur : poly) {
+    const bool ci = keep(cur);
+    if (ci != pi) {
+      const ClipVec3 dv = clipSub(cur, prev);
+      const double den = clipDot(n, dv);
+      if (std::fabs(den) > 1e-12) {
+        const double t = clipDot(clipSub(o, prev), n) / den;
+        out.push_back({prev.x + t * dv.x, prev.y + t * dv.y,
+                       prev.z + t * dv.z});
+      }
+    }
+    if (ci) out.push_back(cur);
+    prev = cur;
+    pi = ci;
+  }
+  // 去重
+  ClipPolygon res;
+  for (const ClipVec3& p : out) {
+    if (res.empty() || !vfVeq(res.back(), p, 1e-9)) res.push_back(p);
+  }
+  if (res.size() >= 3 && vfVeq(res.front(), res.back(), 1e-9)) res.pop_back();
+  if (res.size() < 3) return {};
+  return res;
+}
+
+// tri 三个角点是否在主轴方向上与盒角点平齐（即无倾斜）
+bool vfCheckEqual(const int tri[3], int axis,
+                  const std::array<ClipVec3, 8>& corners,
+                  const std::array<ClipVec3, 8>& base) {
+  for (int j = 0; j < 3; ++j) {
+    const int c = tri[j];
+    if (std::fabs(vfComponent(corners[c], axis) -
+                  vfComponent(base[c], axis)) > kVfEps)
+      return false;
+  }
+  return true;
+}
+
+ClipVec3 vfTriNormal(const int tri[3],
+                     const std::array<ClipVec3, 8>& corners) {
+  return clipCross(clipSub(corners[tri[1]], corners[tri[0]]),
+                   clipSub(corners[tri[2]], corners[tri[0]]));
+}
+
+// 生成三角形角点（Flipped 决定取哪个）
+void vfTriangle(const int fc[4], bool inv, bool first, int tri[3]) {
+  if (first) {
+    tri[0] = fc[0]; tri[1] = fc[1]; tri[2] = inv ? fc[3] : fc[2];
+  } else {
+    tri[0] = fc[0]; tri[1] = fc[2]; tri[2] = fc[3];
+    if (inv) { tri[0] = fc[1]; }
+  }
+}
+
+ClipPolygon vfCreateStrip(const int* clist, int n,
+                          const std::array<ClipVec3, 8>& corners) {
+  ClipPolygon out;
+  for (int k = 0; k < n; ++k) {
+    bool dup = false;
+    for (const ClipVec3& p : out) {
+      if (vfVeq(corners[clist[k]], p, kVfEps)) { dup = true; break; }
+    }
+    if (!dup) out.push_back(corners[clist[k]]);
+  }
+  if (static_cast<int>(out.size()) < n) {
+    return out.size() >= 3 ? out : ClipPolygon{};
+  }
+  return out;
+}
+
+struct VfPlane {
+  ClipVec3 origin;
+  ClipVec3 normal;
+  bool valid = false;
+};
+
+// 面 facing 的轴平面对（origin 取该面第一个角点在主轴上的盒坐标）
+VfPlane vfAxisPlane(int facing, const std::array<ClipVec3, 8>& base) {
+  ClipVec3 origin{0.0, 0.0, 0.0};
+  vfSetComponent(
+      origin, kFaceAxis[facing],
+      vfComponent(base[kFaceCorners[facing][0]], kFaceAxis[facing]));
+  return {origin, kFaceDir[facing], true};
+}
+
+// ---- VectorFan 2D 投影裁剪 ----
+int vfGetOne(int axis) { return axis == kAxisX ? kAxisY : (axis == kAxisY ? kAxisZ : kAxisX); }
+int vfGetTwo(int axis) { return axis == kAxisX ? kAxisZ : (axis == kAxisY ? kAxisX : kAxisY); }
+int vfGetThird(int one, int two) {
+  return (one != kAxisX && two != kAxisX) ? kAxisX
+         : (one != kAxisY && two != kAxisY) ? kAxisY
+                                            : kAxisZ;
+}
+
+struct VfRay2d {
+  int one, two;
+  double o1, o2, d1, d2;
+  VfRay2d(int one_, int two_, const ClipVec3& before, const ClipVec3& vec)
+      : one(one_), two(two_) {
+    o1 = vfComponent(before, one);
+    o2 = vfComponent(before, two);
+    d1 = vfComponent(vec, one) - o1;
+    d2 = vfComponent(vec, two) - o2;
+  }
+  double getOrigin(int a) const { return a == one ? o1 : o2; }
+  double getDirection(int a) const { return a == one ? d1 : d2; }
+  double getT(int a, double value) const {
+    return a == one ? (value - o1) / d1 : (value - o2) / d2;
+  }
+  bool isCoordinateOnLine(double onev, double twov) const {
+    if (d1 == 0.0) return (std::fabs(o1 - onev) < kVfEps);
+    if (d2 == 0.0) return (std::fabs(o2 - twov) < kVfEps);
+    const double other = o2 + d2 * (onev - o1) / d1;
+    return std::fabs(other - twov) < kVfEps;
+  }
+  // 1=true(右侧) 0=线上 -1=false(左侧)
+  int isCoordinateToTheRight(double onev, double twov) const {
+    const double r = d1 * (twov - o2) - d2 * (onev - o1);
+    if (r > -kVfEps && r < kVfEps) return 0;
+    return r < 0.0 ? 1 : -1;
+  }
+  ClipVec3 intersect(const ClipVec3& start, const ClipVec3& end,
+                     int thirdAxis, double thirdValue, bool& ok) const {
+    ok = false;
+    const double lo1 = vfComponent(start, one), lo2 = vfComponent(start, two);
+    const double ld1 = vfComponent(end, one) - lo1;
+    const double ld2 = vfComponent(end, two) - lo2;
+    const double den = ld1 * d2 - d1 * ld2;
+    if (den > -kVfEps && den < kVfEps) return {};
+    const double t = ((lo2 - o2) * ld1 + o1 * ld2 - lo1 * ld2) / den;
+    ClipVec3 p{thirdValue, thirdValue, thirdValue};
+    vfSetComponent(p, one, o1 + t * d1);
+    vfSetComponent(p, two, o2 + t * d2);
+    ok = true;
+    return p;
+  }
+  // 返回交点参数 t；raises=true 表示两射线平行且共线（对应 Python 抛 Parallel）。
+  // 仅共线时 raises 置真；平行但不相交的平行线 raises=false 且返回 -1（与 Python 一致）。
+  double intersectWhen(const VfRay2d& line, bool& raises) const {
+    const double den = d2 * line.d1 - d1 * line.d2;
+    if (den > -kVfEps && den < kVfEps) {
+      raises = isCoordinateOnLine(line.o1, line.o2);
+      return -1.0;
+    }
+    raises = false;
+    return ((line.o2 - o2) * line.d1 + o1 * line.d2 - line.o1 * line.d2) / den;
+  }
+};
+
+bool vfFanEquals(const ClipPolygon& p1, const ClipPolygon& p2) {
+  if (p1.size() != p2.size()) return false;
+  const std::size_t n = p1.size();
+  for (std::size_t start = 0; start < n; ++start) {
+    const ClipVec3& f0 = p1[start];
+    bool match = std::fabs(f0.x - p2[0].x) < kVfEps &&
+                 std::fabs(f0.y - p2[0].y) < kVfEps &&
+                 std::fabs(f0.z - p2[0].z) < kVfEps;
+    if (match) {
+      bool ok = true;
+      for (std::size_t k = 1; k < n; ++k) {
+        const ClipVec3& a = p1[(start + k) % n];
+        const ClipVec3& b = p2[k];
+        if (!(std::fabs(a.x - b.x) < kVfEps && std::fabs(a.y - b.y) < kVfEps &&
+              std::fabs(a.z - b.z) < kVfEps)) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return true;
+    }
+  }
+  return false;
+}
+
+bool vfIsInside2d(const ClipPolygon& fan, const ClipPolygon& other, int one,
+                  int two, bool inverse) {
+  const std::size_t n = fan.size();
+  for (const ClipVec3& p : other) {
+    const double px = vfComponent(p, one), py = vfComponent(p, two);
+    bool inside = false;
+    std::size_t index = 0;
+    while (index + 2 < n) {
+      const double f1 = vfComponent(fan[0], one), f2 = vfComponent(fan[0], two);
+      const double s1 = vfComponent(fan[index + 1], one),
+                   s2 = vfComponent(fan[index + 1], two);
+      const double t1 = vfComponent(fan[index + 2], one),
+                   t2 = vfComponent(fan[index + 2], two);
+      auto rightOf = [&](double a1, double a2, double b1, double b2) -> int {
+        const double r = (b1 - a1) * (py - a2) - (b2 - a2) * (px - a1);
+        if (r > -kVfEps && r < kVfEps) return 0;
+        return r < 0.0 ? 1 : -1;
+      };
+      int r = rightOf(f1, f2, s1, s2);
+      if (r == 0 || (r == -1) == inverse) {
+        r = rightOf(s1, s2, t1, t2);
+        if (r == 0 || (r == -1) == inverse) {
+          r = rightOf(t1, t2, f1, f2);
+          if (r == 0 || (r == -1) == inverse) {
+            inside = true;
+            break;
+          }
+        }
+      }
+      ++index;
+    }
+    if (!inside) return false;
+  }
+  return true;
+}
+
+bool vfIntersect2d(const ClipPolygon& fan, const ClipPolygon& other, int one,
+                   int two, bool inverse) {
+  if (vfFanEquals(fan, other)) return true;
+  int parallel = 0;
+  const std::size_t n = fan.size(), m = other.size();
+  for (std::size_t i = 1; i <= n; ++i) {
+    const ClipVec3& b1 = fan[i - 1];
+    const ClipVec3& v1 = fan[i % n];
+    VfRay2d r1(one, two, b1, v1);
+    for (std::size_t i2 = 1; i2 <= m; ++i2) {
+      const ClipVec3& b2 = other[i2 - 1];
+      const ClipVec3& v2 = other[i2 % m];
+      VfRay2d r2(one, two, b2, v2);
+      bool par1 = false, par2 = false;
+      const double t = r1.intersectWhen(r2, par1);
+      const double ot = r2.intersectWhen(r1, par2);
+      if (par1 || par2) {
+        const double st = r1.getT(one, r2.o1);
+        const double et = r1.getT(one, r2.o1 + r2.d1);
+        if ((st > kVfEps && st < 1 - kVfEps) ||
+            (et > kVfEps && et < 1 - kVfEps)) {
+          ++parallel;
+          if (parallel > 1) return true;
+        }
+      } else if (t > kVfEps && t < 1 - kVfEps && ot > kVfEps &&
+                 ot < 1 - kVfEps) {
+        return true;
+      }
+    }
+  }
+  if (vfIsInside2d(fan, other, one, two, inverse) ||
+      vfIsInside2d(other, fan, one, two, inverse)) {
+    return true;
+  }
+  return false;
+}
+
+typedef std::vector<ClipPolygon> Clippolygon_done;
+
+// 单条边对 fan 的 2D 裁剪；done 收集被丢弃侧的面片（可能多个）
+ClipPolygon vfCut2dSingle(ClipPolygon fan, const VfRay2d& ray, int one, int two,
+                          bool inverse, Clippolygon_done* done) {
+  const std::size_t n = fan.size();
+  std::vector<int> cutted(n);
+  for (std::size_t j = 0; j < n; ++j) {
+    int c = ray.isCoordinateToTheRight(vfComponent(fan[j], one),
+                                       vfComponent(fan[j], two));
+    if (inverse && c != 0) c = -c;
+    cutted[j] = c;
+  }
+  bool all_same = true;
+  int all_value = 0;  // 0=未定(等效 Python None)，1=右侧，-1=左侧
+  bool all_value_set = (cutted[0] != 0);
+  if (all_value_set) all_value = cutted[0];
+  for (std::size_t j = 1; j < n; ++j) {
+    if (!all_same) break;
+    const int c = cutted[j];
+    if (all_value_set) {
+      // Python: elif allValue!=c and c is not None: allSame=False
+      if (c != 0 && c != all_value) all_same = false;
+    } else {
+      // Python: if allValue is None: allValue=c  (取第一个非平面侧作为基准)
+      if (c != 0) { all_value = c; all_value_set = true; }
+    }
+  }
+  if (all_same) {
+    if (!all_value_set) return {};  // 全部落在裁剪线上，退化
+    if (all_value == 1) return fan;  // 全在保留侧
+    if (done) done->push_back(fan);  // 全在被丢弃侧
+    return {};
+  }
+  const int third = vfGetThird(one, two);
+  const double tv = vfComponent(fan[0], third);
+  ClipPolygon left, right;
+  int before_c = cutted[n - 1];
+  ClipVec3 before_v = fan[n - 1];
+  for (std::size_t j = 0; j < n; ++j) {
+    const ClipVec3& v = fan[j];
+    const int c = cutted[j];
+    if (c == 1) {
+      if (before_c == -1) {
+        bool ok = false;
+        const ClipVec3 iv = ray.intersect(v, before_v, third, tv, ok);
+        if (ok) { left.push_back(iv); right.push_back(iv); }
+      }
+      right.push_back(v);
+    } else if (c == -1) {
+      if (before_c == 1) {
+        bool ok = false;
+        const ClipVec3 iv = ray.intersect(v, before_v, third, tv, ok);
+        if (ok) { left.push_back(iv); right.push_back(iv); }
+      }
+      left.push_back(v);
+    } else {
+      left.push_back(v);
+      right.push_back(v);
+    }
+    before_c = c;
+    before_v = v;
+  }
+  if (left.size() >= 3 && done) done->push_back(left);
+  if (right.size() < 3) return {};
+  return right;
+}
+
+// cutter 多边形对 fan 的 2D 裁剪；返回 done 面片列表（takeInner 时含内侧余料）
+ClipPolygon vfCut2d(const ClipPolygon& fan, const ClipPolygon& cutter, int one,
+                    int two, bool inverse, bool takeInner,
+                    Clippolygon_done* done) {
+  ClipPolygon to_cut = fan;
+  done->clear();
+  const std::size_t nc = cutter.size();
+  for (std::size_t i = 1; i <= nc; ++i) {
+    const bool last = (i == nc);
+    const ClipVec3& vc = last ? cutter[0] : cutter[i];
+    const ClipVec3& bc = cutter[i - 1];
+    VfRay2d ray(one, two, bc, vc);
+    to_cut = vfCut2dSingle(to_cut, ray, one, two, inverse,
+                           takeInner ? nullptr : done);
+    if (to_cut.empty()) return {};
+  }
+  if (takeInner) done->push_back(to_cut);
+  return to_cut;
+}
+
+// 非 convex 面的双平面裁剪（两个半空间区域的并集），返回多个结果多边形
+std::vector<ClipPolygon> vfCutAxisStrip2(int facing, const ClipPolygon& strip,
+                                         const VfPlane& pa, const VfPlane& pb) {
+  const int axis = kFaceAxis[facing];
+  const int one = vfGetOne(axis), two = vfGetTwo(axis);
+  const bool inverse = (facing == kUp || facing == kSouth || facing == kEast);
+  const ClipPolygon s1 =
+      pa.valid ? vfCut(strip, pa.origin, pa.normal) : ClipPolygon{};
+  const ClipPolygon s2 =
+      pb.valid ? vfCut(strip, pb.origin, pb.normal) : ClipPolygon{};
+  std::vector<ClipPolygon> result;
+  if (!s1.empty() && !s2.empty() && vfIntersect2d(s1, s2, one, two, inverse)) {
+    Clippolygon_done fans;
+    (void)vfCut2d(s1, s2, one, two, inverse, false, &fans);
+    result.push_back(s2);
+    result.insert(result.end(), fans.begin(), fans.end());
+    return result;
+  }
+  if (!s1.empty()) result.push_back(s1);
+  if (!s2.empty()) result.push_back(s2);
+  return result;
+}
+
+}
+
 bool galib::minecraft::cgal_support::ClipTileEntityToBox(
     LtSurfaceMesh& desc_mesh, const TileEntity& kTileEntity,
     const bool kApplyOffset) {
-  // 8 个角点（grid 单位）
-  const ClipVec3 eun =
-      clipToVec3(kTileEntity.GetVertices(AngleID::EUN, kApplyOffset));
-  const ClipVec3 eus =
-      clipToVec3(kTileEntity.GetVertices(AngleID::EUS, kApplyOffset));
-  const ClipVec3 edn =
-      clipToVec3(kTileEntity.GetVertices(AngleID::EDN, kApplyOffset));
-  const ClipVec3 eds =
-      clipToVec3(kTileEntity.GetVertices(AngleID::EDS, kApplyOffset));
-  const ClipVec3 wun =
-      clipToVec3(kTileEntity.GetVertices(AngleID::WUN, kApplyOffset));
-  const ClipVec3 wus =
-      clipToVec3(kTileEntity.GetVertices(AngleID::WUS, kApplyOffset));
-  const ClipVec3 wdn =
-      clipToVec3(kTileEntity.GetVertices(AngleID::WDN, kApplyOffset));
-  const ClipVec3 wds =
-      clipToVec3(kTileEntity.GetVertices(AngleID::WDS, kApplyOffset));
+  // 8 个角点：tilted = 加偏移，base = 盒(轴对齐)角点
+  std::array<ClipVec3, 8> corners{};
+  std::array<ClipVec3, 8> base{};
+  const AngleID angle_ids[8] = {AngleID::EUN, AngleID::EUS, AngleID::EDN,
+                                AngleID::EDS, AngleID::WUN, AngleID::WUS,
+                                AngleID::WDN, AngleID::WDS};
+  for (int i = 0; i < 8; ++i) {
+    corners[i] = clipToVec3(kTileEntity.GetVertices(angle_ids[i], kApplyOffset));
+    base[i] = clipToVec3(kTileEntity.GetVertices(angle_ids[i], false));
+  }
 
-  // 凸六面体的 6 个面（环绕顺序与 CreateMeshFromTileEntity 一致）
   const Flipped& flipped = kTileEntity.flipped_data();
-  ClipPolyhedron polyhedron;
-  polyhedron.reserve(12);
-  appendQuadFace(polyhedron, {eds, edn, eun, eus}, flipped.east);
-  appendQuadFace(polyhedron, {wdn, wds, wus, wun}, flipped.west);
-  appendQuadFace(polyhedron, {wds, eds, eus, wus}, flipped.south);
-  appendQuadFace(polyhedron, {edn, wdn, wun, eun}, flipped.north);
-  appendQuadFace(polyhedron, {wus, eus, eun, wun}, flipped.up);
-  appendQuadFace(polyhedron, {wdn, edn, eds, wds}, flipped.down);
+  const bool flipped_arr[6] = {flipped.down, flipped.up, flipped.north,
+                               flipped.south, flipped.west, flipped.east};
 
-  // 裁剪体 = 未偏移的盒子（与原先布尔求交使用的 AABB 相同）
-  const ClipVec3 box_a =
-      clipToVec3(kTileEntity.GetVertices(AngleID::WDN, false));
-  const ClipVec3 box_b =
-      clipToVec3(kTileEntity.GetVertices(AngleID::EUS, false));
-  const ClipVec3 box_min{std::min(box_a.x, box_b.x), std::min(box_a.y, box_b.y),
-                         std::min(box_a.z, box_b.z)};
-  const ClipVec3 box_max{std::max(box_a.x, box_b.x), std::max(box_a.y, box_b.y),
-                         std::max(box_a.z, box_b.z)};
+  // 阶段一：每个面的倾斜平面 + 倾斜条带
+  VfPlane tilted_planes[6][2];  // [face][a/b]
+  ClipPolygon tilted_strips[6][2];
+  bool convex[6];
+  VfPlane axis_planes[6];
+  for (int f = 0; f < 6; ++f) axis_planes[f] = vfAxisPlane(f, base);
 
-  polyhedron = clipPolyhedronByPlane(polyhedron, {1.0, 0.0, 0.0}, box_min.x);
-  polyhedron = clipPolyhedronByPlane(polyhedron, {-1.0, 0.0, 0.0}, -box_max.x);
-  polyhedron = clipPolyhedronByPlane(polyhedron, {0.0, 1.0, 0.0}, box_min.y);
-  polyhedron = clipPolyhedronByPlane(polyhedron, {0.0, -1.0, 0.0}, -box_max.y);
-  polyhedron = clipPolyhedronByPlane(polyhedron, {0.0, 0.0, 1.0}, box_min.z);
-  polyhedron = clipPolyhedronByPlane(polyhedron, {0.0, 0.0, -1.0}, -box_max.z);
+  for (int f = 0; f < 6; ++f) {
+    const bool inv = flipped_arr[f];
+    int tri1[3], tri2[3];
+    vfTriangle(kFaceCorners[f], inv, true, tri1);
+    vfTriangle(kFaceCorners[f], inv, false, tri2);
+    const ClipVec3 n1 = vfTriNormal(tri1, corners);
+    const ClipVec3 n2 = vfTriNormal(tri2, corners);
+    const bool s1 = vfCheckEqual(tri1, kFaceAxis[f], corners, base);
+    const bool s2 = vfCheckEqual(tri2, kFaceAxis[f], corners, base);
+    if (s1 && s2) {
+      tilted_planes[f][0].valid = false;
+      tilted_planes[f][1].valid = false;
+      convex[f] = true;
+      continue;
+    }
+    const ClipVec3 n1n = vfNorm(n1), n2n = vfNorm(n2);
+    const bool n1zero = vfVeq(n1n, {0.0, 0.0, 0.0}, kVfEps);
+    const bool n2zero = vfVeq(n2n, {0.0, 0.0, 0.0}, kVfEps);
+    ClipPolygon strip1, strip2;
+    const bool parallel = vfVeq(n1n, n2n, kVfEps);
+    if (parallel) {
+      if (!s1 && !n1zero) {
+        strip1 = vfCreateStrip(kFaceCorners[f], 4, corners);
+        if (!strip1.empty())
+          tilted_planes[f][0] = {corners[tri1[0]], n1n, true};
+      }
+    } else {
+      if (!s1 && !n1zero) {
+        strip1 = vfCreateStrip(tri1, 3, corners);
+        if (!strip1.empty())
+          tilted_planes[f][0] = {corners[tri1[0]], n1n, true};
+      }
+      if (!s2 && !n2zero) {
+        strip2 = vfCreateStrip(tri2, 3, corners);
+        if (!strip2.empty())
+          tilted_planes[f][1] = {corners[tri2[0]], n2n, true};
+      }
+    }
+    // convex：strip2 是否在 plane1 前侧
+    bool is_convex = true;
+    if (!strip1.empty() && !strip2.empty() && tilted_planes[f][0].valid) {
+      for (const ClipVec3& v : strip2) {
+        if (vfSide(v, tilted_planes[f][0].origin,
+                   tilted_planes[f][0].normal) == 1) {
+          is_convex = false;
+          break;
+        }
+      }
+    }
+    // 两条带都被 6 个轴平面裁剪（保留背侧）
+    if (!strip1.empty()) {
+      for (int jf = 0; jf < 6; ++jf) {
+        strip1 = vfCut(strip1, axis_planes[jf].origin, axis_planes[jf].normal);
+        if (strip1.empty()) break;
+      }
+    }
+    if (!strip2.empty()) {
+      for (int jf = 0; jf < 6; ++jf) {
+        strip2 = vfCut(strip2, axis_planes[jf].origin, axis_planes[jf].normal);
+        if (strip2.empty()) break;
+      }
+    }
+    tilted_strips[f][0] = strip1;
+    tilted_strips[f][1] = strip2;
+    convex[f] = is_convex;
+  }
 
-  if (polyhedron.empty()) {
-    return false;
+  // 阶段二：每个面的盒(轴对齐)四边形被各倾斜平面裁剪
+  std::vector<ClipPolygon> axis_strips[6];
+  for (int f = 0; f < 6; ++f) {
+    ClipPolygon quad;
+    for (int c = 0; c < 4; ++c) quad.push_back(base[kFaceCorners[f][c]]);
+    std::size_t distinct = 0;
+    for (std::size_t k = 0; k < quad.size(); ++k) {
+      bool dup = false;
+      for (std::size_t m = 0; m < k; ++m) {
+        if (vfVeq(quad[m], quad[k], kVfEps)) { dup = true; break; }
+      }
+      if (!dup) ++distinct;
+    }
+    if (distinct < 3) {
+      axis_strips[f].clear();
+      continue;
+    }
+    std::vector<ClipPolygon> polys;
+    polys.push_back(quad);
+    for (int j = 0; j < 6; ++j) {
+      const VfPlane& pa = tilted_planes[j][0];
+      const VfPlane& pb = tilted_planes[j][1];
+      if (!pa.valid && !pb.valid) continue;
+      std::vector<ClipPolygon> newp;
+      if (convex[j]) {
+        for (ClipPolygon poly : polys) {
+          if (pa.valid) {
+            poly = vfCut(poly, pa.origin, pa.normal);
+            if (poly.empty()) continue;
+          }
+          if (pb.valid) {
+            poly = vfCut(poly, pb.origin, pb.normal);
+            if (poly.empty()) continue;
+          }
+          newp.push_back(poly);
+        }
+      } else {
+        for (const ClipPolygon& poly : polys) {
+          const std::vector<ClipPolygon> r = vfCutAxisStrip2(f, poly, pa, pb);
+          for (const ClipPolygon& piece : r) newp.push_back(piece);
+        }
+      }
+      polys.swap(newp);
+      if (polys.empty()) break;
+    }
+    axis_strips[f] = polys;
+  }
+
+  // 汇总：去重后得到所有输出面
+  auto round_key = [](const ClipVec3& p) {
+    long long key[3];
+    for (int a = 0; a < 3; ++a) {
+      key[a] = static_cast<long long>(std::llround(vfComponent(p, a) * 1e6));
+    }
+    return std::make_tuple(key[0], key[1], key[2]);
+  };
+  std::vector<ClipPolygon> faces;
+  {
+    std::set<std::set<std::tuple<long long, long long, long long>>> seen;
+    auto add_face = [&](const ClipPolygon& poly) {
+      if (poly.size() < 3) return;
+      std::set<std::tuple<long long, long long, long long>> pts;
+      for (const ClipVec3& p : poly) pts.insert(round_key(p));
+      if (pts.size() < 3) return;
+      if (seen.count(pts)) return;
+      seen.insert(pts);
+      faces.push_back(poly);
+    };
+    for (int f = 0; f < 6; ++f) {
+      for (const ClipPolygon& s : tilted_strips[f]) add_face(s);
+    }
+    for (int f = 0; f < 6; ++f) {
+      for (const ClipPolygon& s : axis_strips[f]) add_face(s);
+    }
   }
 
   SurfaceMeshType& mesh = desc_mesh.surface_mesh();
@@ -518,7 +1067,7 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
   const double weld_scale = 1e6;  // grid 单位下 1e-6 的量化精度足够区分真实顶点
   std::size_t fallback_face_count = 0;
 
-  for (const ClipPolygon& face : polyhedron) {
+  for (const ClipPolygon& face : faces) {
     if (face.size() < 3) {
       continue;
     }
