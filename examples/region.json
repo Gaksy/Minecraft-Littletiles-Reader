@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "mode": "region",
+  "input": {
+    "world": {
+      "root": "../minecraft-littletiles-reader-data/data/regions/test_region",
+      "dimension": "overworld"
+    },
+    "chunks": { "mode": "center", "x": 0, "z": 0, "radius": 1 }
+  },
+  "assets": {
+    "package": "../minecraft-littletiles-reader-data/data/assets/pack_v14"
+  },
+  "output": {
+    "dir": "outputs/job_region",
+    "name": "test_region_3x3"
+  },
+  "options": {
+    "plain_blocks": true,
+    "cull_hidden_faces": true,
+    "center": true,
+    "normalize_scale": false
+  }
+}

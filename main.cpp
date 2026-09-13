@@ -4,9 +4,13 @@
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <fstream>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 
+#include <boost/json.hpp>
 #include "Log/GalibLog.h"
 #include "Log/GalibText.h"
 #include "Minecraft/Anvil.h"
@@ -16,11 +20,16 @@
 #include "Minecraft/ChunkBlocks.h"
 #include "Minecraft/LittleTiles.h"
 #include "Minecraft/LtStructure.h"
+#include "Minecraft/SaveFolder.h"
+#include "Minecraft/TextureSupport/AssetsPackage.h"
 
 using galib::minecraft::AnvilReader;
 using galib::minecraft::BlockIdTable;
 using galib::minecraft::ChunkBlocks;
 using galib::minecraft::ChunkCoordinate;
+using galib::minecraft::Dimension;
+using galib::minecraft::ParseDimension;
+using galib::minecraft::ResolveRegionFolder;
 using galib::minecraft::cgal_support::AddStructureToObjBuilder;
 using galib::minecraft::cgal_support::BuildWorldBlockMeshes;
 using galib::minecraft::cgal_support::ChunkMesh;
@@ -30,24 +39,25 @@ using galib::minecraft::cgal_support::ObjExportOptions;
 using galib::minecraft::cgal_support::ObjMeshBuilder;
 using galib::minecraft::littletiles::ChunkTileEntities;
 using galib::minecraft::littletiles::LtStructure;
+using galib::minecraft::texture_support::AssetsPackage;
 
 using std::string;
 using std::to_string;
-
-#define OUT_OBJ_FILE_NAME "../outputs/chunk/marge_obj_from_chunk_"
 
 namespace {
 
 using Clock = std::chrono::steady_clock;
 
-// 两个时间点之间的秒数，保留 1 位小数（用于耗时输出）
+// Seconds between two time points (used for the timing output, printed to 1 decimal
+// place)
 double ElapsedSeconds(const Clock::time_point kStart,
                       const Clock::time_point kEnd) {
   return std::chrono::duration<double>(kEnd - kStart).count();
 }
 
-// 读取一行 y/n 回答；直接回车（空行）使用推荐默认值。
-// 注意：调用前必须先清掉上一个 scanf 残留的换行符，否则会立刻读到空行。
+// Read a one-line y/n answer; a bare Enter (empty line) uses the recommended default.
+// Note: the newline left behind by the previous scanf must be cleared before calling
+// this, otherwise it immediately reads an empty line.
 bool askYesNo(const char* const kPQuestion, const bool kDefaultValue) {
   printf("%s (y/n) [%c]: ", kPQuestion, kDefaultValue ? 'y' : 'n');
   fflush(stdout);
@@ -68,9 +78,11 @@ bool askYesNo(const char* const kPQuestion, const bool kDefaultValue) {
   return kDefaultValue;
 }
 
-// 可执行文件所在目录。CLion 跑程序时的工作目录是构建目录，
-// 相对路径必须能相对可执行文件（以及它的上一级 = 仓库根）解析，否则用户在
-// 仓库根下习惯写的 "data/assets/xxx" 会因为工作目录不同而找不到。
+// Directory containing the executable. When CLion runs the program its working
+// directory is the build directory, so relative paths must also resolve against the
+// executable (and its parent, i.e. the repository root); otherwise the
+// "data/assets/xxx" users habitually write from the repository root cannot be found
+// because the working directory differs.
 std::filesystem::path ProgramDirectory(const char* const kProgramPath) {
   if (kProgramPath == nullptr || *kProgramPath == '\0') {
     return {};
@@ -81,19 +93,28 @@ std::filesystem::path ProgramDirectory(const char* const kProgramPath) {
   return error ? std::filesystem::path() : absolute.parent_path();
 }
 
-// 自动探测素材根：环境变量 LITTLETILES_ASSETS 优先，其次是
-// ./data/assets/1.12.2、../data/assets/1.12.2，再退到相对可执行文件的同样位置。
+// Auto-detect the assets root: the LITTLETILES_ASSETS environment variable takes
+// priority, followed by ./data/assets/1.12.2 and ../data/assets/1.12.2, and finally
+// the same locations relative to the executable.
 std::string DetectAssetsRoot(const std::filesystem::path& kProgramDir) {
   if (const char* const assets_env = std::getenv("LITTLETILES_ASSETS");
       assets_env != nullptr && *assets_env != '\0') {
     return assets_env;
   }
 
-  std::vector<std::filesystem::path> candidates = {"data/assets/1.12.2",
-                                                   "../data/assets/1.12.2"};
-  if (!kProgramDir.empty()) {
-    candidates.push_back(kProgramDir / "data" / "assets" / "1.12.2");
-    candidates.push_back(kProgramDir.parent_path() / "data" / "assets" / "1.12.2");
+  // pack_snbt is preferred: it is the vanilla+mod merged package produced by
+  // add_mod_textures.py (mod blocks used in structures such as littletiles /
+  // kirosblocks only have textures inside it). It is a superset of vanilla, so plain
+  // vanilla 1.12.2 is used only when pack_snbt is absent.
+  const std::vector<std::string> pack_names = {"pack_snbt", "1.12.2"};
+  std::vector<std::filesystem::path> candidates;
+  for (const std::string& pack : pack_names) {
+    candidates.push_back("data/assets/" + pack);
+    candidates.push_back("../data/assets/" + pack);
+    if (!kProgramDir.empty()) {
+      candidates.push_back(kProgramDir / "data" / "assets" / pack);
+      candidates.push_back(kProgramDir.parent_path() / "data" / "assets" / pack);
+    }
   }
   for (const std::filesystem::path& candidate : candidates) {
     std::error_code error;
@@ -106,19 +127,21 @@ std::string DetectAssetsRoot(const std::filesystem::path& kProgramDir) {
   return {};
 }
 
-// 素材目录：回车走自动探测；也可以填材质包生成的合并素材根
-// （见 tools/build_assets_from_pack.py，产物形如 data/assets/pack）。
-// 相对路径依次按"当前工作目录 → 可执行文件目录 → 可执行文件上一级"解析，
-// 这样在 CLion（工作目录 = 构建目录）里填 data/assets/pack 也能找到。
-// 按整行读取，路径里有空格不用加引号（从 Finder 复制来的引号会自动去掉）。
+// Assets directory: press Enter to auto-detect, or type the merged assets root
+// produced from a resource pack (generated by the generator side's
+// tools/build_assets_from_pack.py, which is not distributed with the library).
+// A relative path is resolved in order as "current working directory -> executable
+// directory -> executable's parent", so typing data/assets/pack inside CLion (working
+// directory = build directory) still finds it.
+// The whole line is read, so paths with spaces need no quotes (quotes copied from
+// Finder are stripped automatically).
 std::string AskAssetsRoot(const std::filesystem::path& kProgramDir) {
-  printf("%s", galib::Tr("素材目录（回车 = 自动探测）: ",
-                         "assets root (blank = auto-detect): "));
+  printf("%s", galib::Tr("assets root (blank = auto-detect): "));
   fflush(stdout);
 
   char line[512];
   if (!fgets(line, sizeof(line), stdin)) {
-    return DetectAssetsRoot(kProgramDir);  // 非交互（管道）时直接走自动探测
+    return DetectAssetsRoot(kProgramDir);  // non-interactive (piped) input goes straight to auto-detect
   }
   std::string path(line);
   const std::string kSpaces = " \t\r\n";
@@ -148,130 +171,604 @@ std::string AskAssetsRoot(const std::filesystem::path& kProgramDir) {
     return error ? candidate.string() : absolute.string();
   }
 
-  printf("%s", galib::Tr("警告: 下面这些位置都没有 block_textures.tsv：\n",
-                         "warning: no block_textures.tsv in any of these:\n"));
+  printf("%s", galib::Tr("warning: no block_textures.tsv in any of these:\n"));
   for (const std::filesystem::path& candidate : candidates) {
     printf("        %s\n", candidate.string().c_str());
   }
-  printf("%s", galib::Tr("      （填绝对路径最稳；现在退回自动探测）\n",
-                         "      (an absolute path is safest; falling back to "
+  printf("%s", galib::Tr("      (an absolute path is safest; falling back to "
                          "auto-detect)\n"));
   return DetectAssetsRoot(kProgramDir);
 }
 
 }  // namespace
 
-int main(int argc, char** argv) {
-  printf("=== LittleTiles Reader ===\n");
+namespace {
+
+// The CLI body. Kept separate from main() so that failures can be turned into a
+// readable line and a non-zero exit code instead of an unhandled exception.
+// ---------------------------------------------------------------------------
+// Command line and job file
+// ---------------------------------------------------------------------------
+
+// The chunk rectangle to export. Radius mode produces a square; range mode allows
+// an arbitrary rectangle (the UI offers both).
+struct ChunkRange {
+  int min_x{0};
+  int min_z{0};
+  int count_x{1};
+  int count_z{1};
+  int Count() const { return count_x * count_z; }
+};
+
+// Everything the export needs, filled either by the interactive prompts or by a
+// job file. Keeping one struct means both paths run the exact same export code.
+struct Job {
+  bool from_json{false};
+  bool is_snbt{false};
+  std::string input_path;      // SNBT file, or the resolved region folder
+  std::string world_root;      // region mode: the save folder (for logs / events)
+  std::string dimension{"overworld"};
+  ChunkRange range;
+  bool include_world_blocks{true};
+  bool cull_hidden_faces{true};
+  bool center{true};
+  bool normalize_scale{false};
+  bool show_progress{true};
+  std::string assets_root;
+  std::string output_dir;      // empty = the historical relative defaults
+  std::string output_name;     // empty = derive from the input
+};
+
+struct CommandLine {
+  std::string job_path;        // --job <file.json> : non-interactive
+  bool json_progress{false};   // --progress json
+  bool help{false};
+};
+
+CommandLine ParseCommandLine(const int kArgc, char** const kArgv) {
+  CommandLine parsed;
+  for (int i = 1; i < kArgc; ++i) {
+    const std::string argument = kArgv[i] == nullptr ? "" : kArgv[i];
+    if (argument == "--job" && i + 1 < kArgc) {
+      parsed.job_path = kArgv[++i];
+    } else if (argument.rfind("--job=", 0) == 0) {
+      parsed.job_path = argument.substr(6);
+    } else if (argument == "--progress" && i + 1 < kArgc) {
+      parsed.json_progress = std::string(kArgv[++i]) == "json";
+    } else if (argument.rfind("--progress=", 0) == 0) {
+      parsed.json_progress = argument.substr(11) == "json";
+    } else if (argument == "--help" || argument == "-h") {
+      parsed.help = true;
+    }
+  }
+  return parsed;
+}
+
+// ---- structured progress (NDJSON) -----------------------------------------
+//
+// One JSON object per line on stdout, so a host can drive a progress bar without
+// parsing human text. The library's own chatter is silenced in this mode
+// (galib::SetProgressEnabled(false)) and the host emits the coarse events.
+
+std::string JsonEscape(const std::string& kText) {
+  std::string out;
+  for (const char ch : kText) {
+    switch (ch) {
+      case '"':
+        out += "\\\"";
+        break;
+      case '\\':
+        out += "\\\\";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default:
+        if (static_cast<unsigned char>(ch) < 0x20) {
+          char buffer[8] = {};
+          std::snprintf(buffer, sizeof(buffer), "\\u%04x", ch);
+          out += buffer;
+        } else {
+          out.push_back(ch);
+        }
+    }
+  }
+  return out;
+}
+
+std::string JsonField(const std::string& kKey, const std::string& kValue) {
+  return "\"" + kKey + "\":\"" + JsonEscape(kValue) + "\"";
+}
+
+std::string JsonField(const std::string& kKey, const long long kValue) {
+  return "\"" + kKey + "\":" + std::to_string(kValue);
+}
+
+std::string JsonField(const std::string& kKey, const double kValue) {
+  char buffer[32] = {};
+  std::snprintf(buffer, sizeof(buffer), "%.3f", kValue);
+  return "\"" + kKey + "\":" + buffer;
+}
+
+std::string JsonField(const std::string& kKey, const bool kValue) {
+  return "\"" + kKey + "\":" + (kValue ? "true" : "false");
+}
+
+// String literals must not fall through to the bool overload above: a const char*
+// converts to bool by a *standard* conversion, which outranks the user-defined
+// conversion to std::string. Without this overload "some text" would emit `true`.
+std::string JsonField(const std::string& kKey, const char* const kValue) {
+  return JsonField(kKey, std::string(kValue));
+}
+
+// Emits one event; does nothing unless JSON progress was requested.
+void EmitEvent(const bool kJson, const char* const kName,
+               const std::vector<std::string>& kFields) {
+  if (!kJson) {
+    return;
+  }
+  std::string line = "{\"event\":\"";
+  line += kName;
+  line += "\"";
+  for (const std::string& field : kFields) {
+    line += ",";
+    line += field;
+  }
+  line += "}\n";
+  std::fputs(line.c_str(), stdout);
+  std::fflush(stdout);
+}
+
+// ---- loading a job file ----------------------------------------------------
+
+bool ReadFileToString(const std::string& kPath, std::string* p_desc_out,
+                      std::string* p_desc_error) {
+  std::ifstream input(kPath, std::ios::binary);
+  if (!input) {
+    if (p_desc_error) {
+      *p_desc_error = "cannot open job file: " + kPath;
+    }
+    return false;
+  }
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  *p_desc_out = buffer.str();
+  return true;
+}
+
+// Typed accessors over a JSON object: a missing key or a wrong type yields the
+// fallback instead of throwing, so a hand-written job file produces a readable
+// error rather than an exception.
+const boost::json::object* ObjectAt(const boost::json::object& kObject,
+                                    const char* const kKey) {
+  const auto found = kObject.find(kKey);
+  return found == kObject.end() ? nullptr : found->value().if_object();
+}
+
+std::string StringAt(const boost::json::object& kObject, const char* const kKey,
+                     const std::string& kFallback = {}) {
+  const auto found = kObject.find(kKey);
+  if (found == kObject.end() || !found->value().is_string()) {
+    return kFallback;
+  }
+  return std::string(found->value().as_string());
+}
+
+int IntAt(const boost::json::object& kObject, const char* const kKey,
+          const int kFallback = 0) {
+  const auto found = kObject.find(kKey);
+  if (found == kObject.end()) {
+    return kFallback;
+  }
+  const boost::json::value& value = found->value();
+  if (value.is_int64()) {
+    return static_cast<int>(value.as_int64());
+  }
+  if (value.is_uint64()) {
+    return static_cast<int>(value.as_uint64());
+  }
+  if (value.is_double()) {
+    return static_cast<int>(value.as_double());
+  }
+  return kFallback;
+}
+
+bool BoolAt(const boost::json::object& kObject, const char* const kKey,
+            const bool kFallback) {
+  const auto found = kObject.find(kKey);
+  if (found == kObject.end() || !found->value().is_bool()) {
+    return kFallback;
+  }
+  return found->value().as_bool();
+}
+
+// Turns input.chunks into a rectangle. Supported modes:
+//   single  { x, z }                     -> 1 chunk
+//   range   { x1, z1, x2, z2 }           -> arbitrary rectangle, both ends included
+//   center  { x, z, radius }             -> (2r+1) x (2r+1) square
+bool ParseChunkRange(const boost::json::object& kChunks, ChunkRange* p_desc_out,
+                     std::string* p_desc_error) {
+  const std::string mode = StringAt(kChunks, "mode", "center");
+  ChunkRange range;
+  if (mode == "single") {
+    range.min_x = IntAt(kChunks, "x");
+    range.min_z = IntAt(kChunks, "z");
+  } else if (mode == "range") {
+    const int x1 = IntAt(kChunks, "x1");
+    const int z1 = IntAt(kChunks, "z1");
+    const int x2 = IntAt(kChunks, "x2");
+    const int z2 = IntAt(kChunks, "z2");
+    range.min_x = x1 < x2 ? x1 : x2;
+    range.min_z = z1 < z2 ? z1 : z2;
+    range.count_x = (x1 < x2 ? x2 - x1 : x1 - x2) + 1;
+    range.count_z = (z1 < z2 ? z2 - z1 : z1 - z2) + 1;
+  } else if (mode == "center") {
+    const int raw_radius = IntAt(kChunks, "radius");
+    const int radius = raw_radius < 0 ? 0 : raw_radius;
+    range.min_x = IntAt(kChunks, "x") - radius;
+    range.min_z = IntAt(kChunks, "z") - radius;
+    range.count_x = radius * 2 + 1;
+    range.count_z = radius * 2 + 1;
+  } else {
+    if (p_desc_error) {
+      *p_desc_error = "unknown chunks.mode: " + mode;
+    }
+    return false;
+  }
+  *p_desc_out = range;
+  return true;
+}
+
+bool LoadJob(const std::string& kPath, Job* p_desc_out, std::string* p_desc_error) {
+  std::string text;
+  if (!ReadFileToString(kPath, &text, p_desc_error)) {
+    return false;
+  }
+  // Boost.JSON reports failures through boost::system::error_code (it does not
+  // throw in this overload), so a malformed job file becomes a readable message.
+  boost::system::error_code parse_error;
+  const boost::json::value document = boost::json::parse(text, parse_error);
+  if (parse_error) {
+    if (p_desc_error) {
+      *p_desc_error = parse_error.message();
+    }
+    return false;
+  }
+  const boost::json::object* const root = document.if_object();
+  if (root == nullptr) {
+    if (p_desc_error) {
+      *p_desc_error = "the job file must contain a JSON object";
+    }
+    return false;
+  }
+
+  Job job;
+  job.from_json = true;
+  const std::string mode = StringAt(*root, "mode", "region");
+
+  const boost::json::object* const input = ObjectAt(*root, "input");
+  if (input == nullptr) {
+    if (p_desc_error) {
+      *p_desc_error = "job has no \"input\" object";
+    }
+    return false;
+  }
+
+  if (mode == "snbt") {
+    const boost::json::object* const snbt = ObjectAt(*input, "snbt");
+    const std::string path = snbt == nullptr ? "" : StringAt(*snbt, "path");
+    if (path.empty()) {
+      if (p_desc_error) {
+        *p_desc_error = "snbt mode needs input.snbt.path";
+      }
+      return false;
+    }
+    job.is_snbt = true;
+    job.input_path = path;
+  } else if (mode == "region") {
+    const boost::json::object* const world = ObjectAt(*input, "world");
+    const std::string root_dir = world == nullptr ? "" : StringAt(*world, "root");
+    if (root_dir.empty()) {
+      if (p_desc_error) {
+        *p_desc_error = "region mode needs input.world.root";
+      }
+      return false;
+    }
+    job.world_root = root_dir;
+    job.dimension = StringAt(*world, "dimension", "overworld");
+
+    // Escape hatch: point straight at a region folder (test data has no level.dat).
+    const std::string region_override = StringAt(*world, "region_dir");
+    if (!region_override.empty()) {
+      job.input_path = region_override;
+    } else {
+      const std::optional<Dimension> dimension = ParseDimension(job.dimension);
+      if (!dimension) {
+        if (p_desc_error) {
+          *p_desc_error = "unknown dimension: " + job.dimension;
+        }
+        return false;
+      }
+      const auto resolved =
+          ResolveRegionFolder(job.world_root, *dimension, p_desc_error);
+      if (!resolved) {
+        return false;
+      }
+      job.input_path = resolved->region_folder;
+    }
+
+    const boost::json::object* const chunks = ObjectAt(*input, "chunks");
+    if (chunks == nullptr) {
+      if (p_desc_error) {
+        *p_desc_error = "region mode needs input.chunks";
+      }
+      return false;
+    }
+    if (!ParseChunkRange(*chunks, &job.range, p_desc_error)) {
+      return false;
+    }
+  } else {
+    if (p_desc_error) {
+      *p_desc_error = "unknown mode: " + mode;
+    }
+    return false;
+  }
+
+  if (const boost::json::object* const assets = ObjectAt(*root, "assets")) {
+    job.assets_root = StringAt(*assets, "package");
+  }
+  if (const boost::json::object* const output = ObjectAt(*root, "output")) {
+    job.output_dir = StringAt(*output, "dir");
+    job.output_name = StringAt(*output, "name");
+  }
+  if (const boost::json::object* const options = ObjectAt(*root, "options")) {
+    job.include_world_blocks = BoolAt(*options, "plain_blocks", !job.is_snbt);
+    job.cull_hidden_faces = BoolAt(*options, "cull_hidden_faces", true);
+    job.center = BoolAt(*options, "center", true);
+    job.normalize_scale = BoolAt(*options, "normalize_scale", false);
+  }
+  if (job.is_snbt) {
+    job.include_world_blocks = false;
+    job.cull_hidden_faces = false;
+  }
+  *p_desc_out = job;
+  return true;
+}
+
+int RunTilesReader(int argc, char** argv) {
+  const CommandLine command_line = ParseCommandLine(argc, argv);
+  if (command_line.help) {
+    std::printf(
+        "usage: LittleTilesReader [--job <file.json>] [--progress json]\n"
+        "\n"
+        "  no --job : interactive prompts (the original behaviour)\n"
+        "  --job    : run a job file once and exit, without asking anything\n"
+        "  --progress json : emit one JSON event per line on stdout\n");
+    return EXIT_SUCCESS;
+  }
+
+  Job job;
+  if (!command_line.job_path.empty()) {
+    std::string job_error;
+    if (!LoadJob(command_line.job_path, &job, &job_error)) {
+      std::fprintf(stderr, "error: bad job file: %s\n", job_error.c_str());
+      return EXIT_FAILURE;
+    }
+  }
+  const bool json_progress = command_line.json_progress;
+  // In JSON mode stdout carries nothing but the event stream: a host that pipes
+  // this into a parser must not have to filter human text out of it.
+  const bool text_output = !json_progress;
+  const bool interactive = !job.from_json;
 
   const std::filesystem::path program_dir =
       ProgramDirectory(argc > 0 ? argv[0] : nullptr);
 
-  printf(
-      "%s",
-      galib::Tr(
-          "存档 region 目录，或 LittleTiles 结构文件（.txt/.struct）: ",
-          "region folder, or a LittleTiles structure file (.txt/.struct): "));
-  char region_folder[256];
-  scanf("%255s", region_folder);  // 明确上限，避免超长路径写越界
-  printf(galib::Tr("存档目录: %s\n", "region folder path: %s\n"),
-         region_folder);
+  if (interactive && text_output) {
+    printf("=== LittleTiles Reader ===\n");
+  }
 
-  // 给的是文件（.txt/.struct）就走 LittleTiles 结构模式：结构自带坐标，
-  // 不需要区块坐标与扫描半径，也谈不上"周围的普通方块"。
+  std::string region_folder = job.input_path;
+  if (interactive) {
+    printf(
+        "%s",
+        galib::Tr(
+            "region folder, or a LittleTiles structure file (.txt/.struct): "));
+    char region_folder_buffer[256];
+    scanf("%255s",
+          region_folder_buffer);  // explicit limit to avoid overflowing
+    region_folder = region_folder_buffer;
+    printf(galib::Tr("region folder path: %s\n"), region_folder.c_str());
+  }
+
+  // If a file (.txt/.struct) is given, use LittleTiles structure mode: a structure
+  // carries its own coordinates, so no chunk coordinate or scan radius is needed, and
+  // "surrounding plain blocks" do not apply.
   std::error_code path_error_code;
   const bool is_structure_file =
-      std::filesystem::is_regular_file(region_folder, path_error_code);
+      job.from_json
+          ? job.is_snbt
+          : std::filesystem::is_regular_file(region_folder, path_error_code);
 
   ChunkCoordinate::NumericType chunk_x = 0;
   ChunkCoordinate::NumericType chunk_z = 0;
   int chunk_radius = 0;
-  if (!is_structure_file) {
-    printf("%s", galib::Tr("区块 x: ", "chunk x: "));
+  ChunkRange range = job.range;
+  if (!is_structure_file && interactive) {
+    printf("%s", galib::Tr("chunk x: "));
     scanf("%d", &chunk_x);
-    printf("%s", galib::Tr("区块 z: ", "chunk z: "));
+    printf("%s", galib::Tr("chunk z: "));
     scanf("%d", &chunk_z);
-    printf("%s", galib::Tr("扫描半径（0 = 只处理这一个区块）: ",
-                           "scan radius in chunks (0 = only this chunk): "));
+    printf("%s", galib::Tr("scan radius in chunks (0 = only this chunk): "));
     scanf("%d", &chunk_radius);
     if (chunk_radius < 0) {
       chunk_radius = 0;
     }
+    range.min_x = static_cast<int>(chunk_x) - chunk_radius;
+    range.min_z = static_cast<int>(chunk_z) - chunk_radius;
+    range.count_x = chunk_radius * 2 + 1;
+    range.count_z = chunk_radius * 2 + 1;
   }
 
-  // 丢掉上一个 scanf 残留的换行符，后面的选项按整行读取
-  {
+  if (interactive) {
+    // Discard the newline left behind by the previous scanf; the following options
+    // are read line by line
     int remaining = 0;
     while ((remaining = getchar()) != '\n' && remaining != EOF) {
     }
   }
 
   const bool include_world_blocks =
-      is_structure_file
-          ? false
-          : askYesNo(galib::Tr("是否同时导出普通方块（非 LittleTiles）？",
-                               "Also export plain (non-LittleTiles) blocks?"),
-                     true);
+      interactive
+          ? (is_structure_file
+                 ? false
+                 : askYesNo(
+                       galib::Tr("Also export plain (non-LittleTiles) blocks?"),
+                       true))
+          : job.include_world_blocks;
   const bool cull_hidden_faces =
-      include_world_blocks
-          ? askYesNo(galib::Tr("是否剔除被相邻方块挡住的面？",
-                               "Skip faces hidden by neighbouring blocks?"),
-                     true)
-          : false;
-  // 居中：把包围盒中心移到原点（推荐，导入第三方软件后一按 Frame Selected 就能看到）
+      interactive
+          ? (include_world_blocks
+                 ? askYesNo(
+                       galib::Tr("Skip faces hidden by neighbouring blocks?"),
+                       true)
+                 : false)
+          : job.cull_hidden_faces;
+  // Centring: move the bounding-box centre to the origin (recommended; after importing
+  // into third-party software, Frame Selected shows it immediately)
   const bool is_need_geometry_center =
-      askYesNo(galib::Tr("是否把模型中心移到原点？",
-                         "Move the model center to the origin?"),
-               true);
-  // 单位缩放：会把最长边压成 1，丢失"1 单位 = 1 方块"的真实尺寸，默认不做
-  const bool is_need_normalize_scale = askYesNo(
-      galib::Tr(
-          "是否再把最长边缩放到 1 个单位（会改变真实尺寸）？",
-          "Also scale the longest edge to 1 unit (changes the real size)?"),
-      false);
-  // 进度提示与耗时统计一起开关：两者都是"看过程"的，脚本化/服务化时通常都不要。
-  const bool show_progress = askYesNo(
-      galib::Tr("是否打印进度提示与耗时？", "Print progress and timing?"),
-      true);
-  galib::SetProgressEnabled(show_progress);
+      interactive ? askYesNo(galib::Tr("Move the model center to the origin?"),
+                             true)
+                  : job.center;
+  // Unit scaling: compresses the longest edge to 1, losing the real "1 unit = 1 block"
+  // size, so it is off by default
+  const bool is_need_normalize_scale =
+      interactive
+          ? askYesNo(
+                galib::Tr(
+                    "Also scale the longest edge to 1 unit (changes the real size)?"),
+                false)
+          : job.normalize_scale;
+  // Progress output and timing statistics share one switch: both are "watch the
+  // process" features that are usually unwanted when scripting / running as a service.
+  const bool show_progress =
+      interactive ? askYesNo(galib::Tr("Print progress and timing?"), true)
+                  : job.show_progress;
+  // In JSON mode the library's human-readable chatter would corrupt the event
+  // stream, so only the host's events go to stdout.
+  galib::SetProgressEnabled(show_progress && !json_progress);
 
-  // AskAssetsRoot 已经在找到时统一成绝对路径：后面的读取
-  // （block_ids.tsv / block_textures.tsv / 贴图）都按这个字符串拼。
-  const std::string assets_root = AskAssetsRoot(program_dir);
-  printf(galib::Tr("素材目录: %s\n", "assets root: %s\n"),
-         assets_root.empty()
-             ? galib::Tr("(未找到，只导出几何)", "(not found, geometry only)")
-             : assets_root.c_str());
+  // AskAssetsRoot already normalizes to an absolute path when it finds one: the later
+  // reads (block_ids.tsv / block_textures.tsv / textures) all build on this string.
+  std::string assets_root = job.assets_root;
+  if (interactive) {
+    assets_root = AskAssetsRoot(program_dir);
+    printf(galib::Tr("assets root: %s\n"),
+           assets_root.empty() ? galib::Tr("(not found, geometry only)")
+                               : assets_root.c_str());
+  }
 
-  // 计时从这里开始：前面是人工输入，不计入处理耗时。
+  // Run a lint pass through the library's facade to tell the user what this assets
+  // package actually yielded: how many blocks are in the table, how many textures are
+  // referenced, and how many cannot be found on disk. A failed open is also explained
+  // here, instead of being discovered only after the export finishes with no materials.
+  if (!assets_root.empty()) {
+    std::string package_error;
+    const std::optional<AssetsPackage> package =
+        AssetsPackage::Open(assets_root, &package_error);
+    if (!package) {
+      if (json_progress) {
+        EmitEvent(true, "warning", {JsonField("message", package_error)});
+      } else {
+        printf(galib::Tr("warning: assets package unusable (%s), geometry only\n"),
+               package_error.c_str());
+      }
+    } else {
+      const galib::minecraft::texture_support::AssetsPackageInfo& info =
+          package->info();
+      if (json_progress) {
+        EmitEvent(true, "assets",
+                  {JsonField("format_version",
+                             static_cast<long long>(info.format_version)),
+                   JsonField("blocks", static_cast<long long>(info.block_count)),
+                   JsonField("textures",
+                             static_cast<long long>(info.texture_ref_count)),
+                   JsonField("missing",
+                             static_cast<long long>(info.missing_texture_count))});
+      } else {
+        printf(galib::Tr("assets package: format_version %d, %zu blocks, %zu "
+                         "textures referenced\n"),
+               info.format_version, info.block_count, info.texture_ref_count);
+        if (info.missing_texture_count > 0) {
+          printf(galib::Tr("warning: %zu textures are missing, e.g.:\n"),
+                 info.missing_texture_count);
+          for (const std::string& path : info.missing_texture_examples) {
+            printf("        %s.png\n", path.c_str());
+          }
+        }
+      }
+    }
+  }
+
+  EmitEvent(json_progress, "start",
+            {JsonField("mode", std::string(is_structure_file ? "snbt"
+                                                             : "region")),
+             JsonField("chunks",
+                       static_cast<long long>(is_structure_file ? 0
+                                                                : range.Count())),
+             JsonField("world", job.world_root),
+             JsonField("dimension", job.dimension), JsonField("assets", assets_root)});
+
+  // Timing starts here: everything before this is human input and is not counted as
+  // processing time.
   const Clock::time_point process_start = Clock::now();
 
   ObjExportOptions export_options;
   export_options.geom_center = is_need_geometry_center;
   export_options.normalize_scale = is_need_normalize_scale;
   export_options.assets_root = assets_root;
+  // JSON mode owns stdout: the builder must not write its summary into the stream.
+  export_options.quiet = json_progress;
+  // The host can specify the texture output directory (a server / UI uses this to keep
+  // each task's products apart); when unset, it goes next to the OBJ in
+  // <obj name>_textures/.
+  if (const char* const material_dir = std::getenv("LITTLETILES_MATERIAL_DIR");
+      material_dir != nullptr && *material_dir != '\0') {
+    export_options.material_output_dir = material_dir;
+  }
 
-  // ---- LittleTiles 结构（SNBT）模式 ----
+  // ---- LittleTiles structure (SNBT) mode ----
   if (is_structure_file) {
+    EmitEvent(json_progress, "stage", {JsonField("name", "parse")});
     const LtStructure structure = LtStructure::FromSnbtFile(region_folder);
-    printf(
-        galib::Tr(
-            "结构: %s，grid=%d，盒子 %zu 个，材质分组 %zu 个，子结构 %d 个\n",
-            "structure: %s, grid=%d, %zu boxes, %zu material groups, %d "
-            "child structures\n"),
-        structure.name().empty() ? "(未命名)" : structure.name().c_str(),
-        structure.grid(), structure.BoxCount(), structure.groups().size(),
-        structure.child_group_count());
+    if (!json_progress) {
+      printf(
+          galib::Tr("structure: %s, grid=%d, %zu boxes, %zu material groups, %d "
+                    "child structures\n"),
+          structure.name().empty() ? "(unnamed)" : structure.name().c_str(),
+          structure.grid(), structure.BoxCount(), structure.groups().size(),
+          structure.child_group_count());
+    }
 
+    EmitEvent(json_progress, "stage", {JsonField("name", "mesh")});
     ObjMeshBuilder structure_builder(export_options);
     const std::size_t mesh_count =
         AddStructureToObjBuilder(structure, &structure_builder);
 
-    // 输出文件名：优先用结构名（去掉不适合当文件名的字符），否则用文件主名
+    // Output file name: prefer the structure name (after removing characters unsuitable
+    // for file names), otherwise the file stem
     std::string out_name =
-        structure.name().empty()
-            ? std::filesystem::path(region_folder).stem().string()
-            : structure.name();
+        !job.output_name.empty()
+            ? job.output_name
+            : (structure.name().empty()
+                   ? std::filesystem::path(region_folder).stem().string()
+                   : structure.name());
     for (char& ch : out_name) {
       const bool is_ok = std::isalnum(static_cast<unsigned char>(ch)) != 0 ||
                          ch == '_' || ch == '-';
@@ -280,50 +777,81 @@ int main(int argc, char** argv) {
       }
     }
     const std::string obj_path =
-        std::string("../outputs/snbt/") + out_name + ".obj";
-    structure_builder.WriteToFile(obj_path.c_str());
+        job.output_dir.empty()
+            ? std::string("../outputs/snbt/") + out_name + ".obj"
+            : (std::filesystem::path(job.output_dir) / (out_name + ".obj"))
+                  .generic_string();
+    EmitEvent(json_progress, "stage", {JsonField("name", "write")});
+    const bool structure_written = structure_builder.WriteToFile(obj_path.c_str());
 
-    if (show_progress) {
-      printf(galib::Tr("结构导出完成: %zu 个网格，总耗时 %.1f 秒\n",
-                       "structure export done: %zu meshes, %.1f s\n"),
-             mesh_count, ElapsedSeconds(process_start, Clock::now()));
+    const double seconds = ElapsedSeconds(process_start, Clock::now());
+    if (!structure_written) {
+      // A failed write must not look like success: the host sees the reason and a
+      // non-zero exit code.
+      const std::string reason = structure_builder.stats().error;
+      EmitEvent(json_progress, "error",
+                {JsonField("message",
+                           reason.empty() ? std::string("failed to write OBJ")
+                                          : reason)});
+      if (text_output) {
+        std::fprintf(stderr, "error: %s\n",
+                     reason.empty() ? "failed to write OBJ" : reason.c_str());
+      }
+      return EXIT_FAILURE;
+    }
+    if (json_progress) {
+      EmitEvent(true, "done",
+                {JsonField("obj", obj_path),
+                 JsonField("meshes", static_cast<long long>(mesh_count)),
+                 JsonField("seconds", seconds)});
+    }
+    if (show_progress && text_output) {
+      printf(galib::Tr("structure export done: %zu meshes, %.1f s\n"),
+             mesh_count, seconds);
     }
     return EXIT_SUCCESS;
   }
 
   AnvilReader anvil_reader;
-  anvil_reader.SetRegionFolder(region_folder);
+  anvil_reader.SetRegionFolder(region_folder.c_str());
 
-  // 增量累加：每个区块处理完就把网格并入结果并释放，
-  // 否则几百个区块的网格会同时驻留导致内存爆掉。
+  // Incremental accumulation: as soon as a chunk is processed its meshes are merged
+  // into the result and released; otherwise the meshes of hundreds of chunks would stay
+  // resident at once and blow up memory.
   ObjMeshBuilder obj_builder(export_options);
 
-  const int span = chunk_radius * 2 + 1;
+  const int span_x = range.count_x;
+  const int span_z = range.count_z;
   std::vector<ChunkBlocks> world_blocks;
   if (include_world_blocks) {
-    world_blocks.resize(static_cast<std::size_t>(span) * span);
+    world_blocks.resize(static_cast<std::size_t>(span_x) * span_z);
   }
 
-  // 逐区块读取：LittleTiles 的 tile +（可选）普通方块
+  // Read chunk by chunk: LittleTiles tiles + (optional) plain blocks
   std::size_t total_tiles = 0;
   int found_chunks = 0;
   int missing_chunks = 0;
-  for (int offset_z = -chunk_radius; offset_z <= chunk_radius; ++offset_z) {
-    for (int offset_x = -chunk_radius; offset_x <= chunk_radius; ++offset_x) {
-      const ChunkCoordinate coord{chunk_x + offset_x, chunk_z + offset_z};
-      if (show_progress) {
-        const int chunk_index =
-            (offset_z + chunk_radius) * span + (offset_x + chunk_radius) + 1;
-        printf(galib::Tr("[进度] 区块 (%d, %d) —— %d/%d\n",
-                         "[progress] chunk (%d, %d) - %d/%d\n"),
-               coord.x, coord.z, chunk_index, span * span);
+  int chunk_index = 0;
+  for (int offset_z = 0; offset_z < span_z; ++offset_z) {
+    for (int offset_x = 0; offset_x < span_x; ++offset_x) {
+      const ChunkCoordinate coord{range.min_x + offset_x,
+                                  range.min_z + offset_z};
+      ++chunk_index;
+      if (show_progress && text_output) {
+        printf(galib::Tr("[progress] chunk (%d, %d) - %d/%d\n"),
+               coord.x, coord.z, chunk_index, span_x * span_z);
       }
+      EmitEvent(json_progress, "chunk",
+                {JsonField("index", static_cast<long long>(chunk_index)),
+                 JsonField("total", static_cast<long long>(span_x * span_z)),
+                 JsonField("x", static_cast<long long>(coord.x)),
+                 JsonField("z", static_cast<long long>(coord.z))});
       AnvilReader::ChunkDataReference reference{};
       bool has_chunk = true;
       try {
         reference = anvil_reader.GetChunkDataReference(coord);
       } catch (const std::exception&) {
-        has_chunk = false;  // 区块不存在，或所在 region 文件缺失
+        has_chunk = false;  // the chunk does not exist, or its region file is missing
       }
       if (!has_chunk) {
         ++missing_chunks;
@@ -331,7 +859,7 @@ int main(int argc, char** argv) {
       }
       ++found_chunks;
 
-      // LittleTiles 的 tile
+      // LittleTiles tiles
       ChunkTileEntities chunk_tiles;
       bool has_tiles = true;
       try {
@@ -343,83 +871,130 @@ int main(int argc, char** argv) {
           obj_builder.AddMesh(mesh);
         }
       } catch (const std::exception&) {
-        // 该区块没有 LittleTiles 数据
+        // this chunk has no LittleTiles data
         has_tiles = false;
       }
 
-      // 普通方块
+      // Plain blocks
       if (include_world_blocks && reference.p_chunk_level) {
         ChunkBlocks& blocks =
-            world_blocks[static_cast<std::size_t>(offset_z + chunk_radius) *
-                             span +
-                         (offset_x + chunk_radius)];
+            world_blocks[static_cast<std::size_t>(offset_z) * span_x + offset_x];
         blocks.ReadFromChunkLevel(*reference.p_chunk_level);
         if (reference.p_chunk_level->has_key("TileEntities")) {
           blocks.MarkLittleTilesHosts(
               reference.p_chunk_level->at("TileEntities").as<nbt::tag_list>(),
               coord);
         }
-        // 哪些面被 tile 整面铺满——完整方块的邻居剔除要靠它，
-        // 否则花盆这种只占一小块的 LT 结构会把下面方块的面剔掉。
+        // Which faces are fully covered by tiles - neighbour culling of full blocks
+        // depends on it; otherwise an LT structure that occupies only a small part (such
+        // as a flower pot) would cull the faces of the block below it.
         if (has_tiles) {
           blocks.MarkLittleTilesCoverage(chunk_tiles);
         }
       }
     }
   }
-  printf(galib::Tr("区块: 找到 %d 个，缺失 %d 个；LittleTiles tile 共 %zu 个\n",
-                   "chunks: %d found, %d missing; %zu LittleTiles tiles\n"),
-         found_chunks, missing_chunks, total_tiles);
+  if (text_output) {
+    printf(galib::Tr("chunks: %d found, %d missing; %zu LittleTiles tiles\n"),
+           found_chunks, missing_chunks, total_tiles);
+  }
   const Clock::time_point read_end = Clock::now();
 
-  // 普通方块 -> 完整立方体网格（按方块类型分组合并）
+  // Plain blocks -> full cube meshes (grouped and merged by block type)
   if (include_world_blocks && assets_root.empty()) {
     printf("%s",
-           galib::Tr("警告: 未找到素材目录，跳过普通方块导出\n",
-                     "warning: no assets root, skipping plain block export\n"));
+           galib::Tr("warning: no assets root, skipping plain block export\n"));
   } else if (include_world_blocks) {
     BlockIdTable block_id_table;
     if (block_id_table.LoadFromTsv(assets_root + "/block_ids.tsv")) {
       std::vector<LtSurfaceMesh> world_meshes;
-      // 世界原点：区域左下角方块坐标（chunk * 16）
-      BuildWorldBlockMeshes((chunk_x - chunk_radius) * 16,
-                            (chunk_z - chunk_radius) * 16, world_blocks, span,
-                            span, block_id_table, cull_hidden_faces,
+      // World origin: the block coordinate of the region's lower-left corner (chunk * 16)
+      BuildWorldBlockMeshes(range.min_x * 16, range.min_z * 16, world_blocks,
+                            span_x, span_z, block_id_table, cull_hidden_faces,
                             &world_meshes);
       for (const LtSurfaceMesh& mesh : world_meshes) {
         obj_builder.AddMesh(mesh);
       }
     } else {
-      printf(galib::Tr("警告: 读不到 %s/block_ids.tsv，跳过普通方块导出\n",
-                       "warning: cannot read %s/block_ids.tsv, skipping plain "
+      printf(galib::Tr("warning: cannot read %s/block_ids.tsv, skipping plain "
                        "block export\n"),
              assets_root.c_str());
     }
   }
 
-  string obj_file_path = OUT_OBJ_FILE_NAME;
-  obj_file_path.append(to_string(chunk_x));
-  obj_file_path.append("_");
-  obj_file_path.append(to_string(chunk_z));
-  if (chunk_radius > 0) {
-    obj_file_path.append("_to_");
-    obj_file_path.append(to_string(chunk_x + chunk_radius));
-    obj_file_path.append("_");
-    obj_file_path.append(to_string(chunk_z + chunk_radius));
+  // Output path: a host may pin both the folder and the name (a UI does, to keep
+  // one export per run); without them the historical relative layout is kept.
+  std::string obj_stem = job.output_name;
+  if (obj_stem.empty()) {
+    // A square selection keeps the historical "centre + radius" naming: that is the
+    // only shape the old CLI could produce, and every existing baseline and document
+    // refers to those names. A real rectangle (a new capability) is named by its
+    // corners instead, since it has no centre-and-radius equivalent.
+    const bool is_square = range.count_x == range.count_z &&
+                           range.count_x % 2 == 1;
+    if (is_square) {
+      const int radius = range.count_x / 2;
+      const int center_x = range.min_x + radius;
+      const int center_z = range.min_z + radius;
+      obj_stem = "marge_obj_from_chunk_" + to_string(center_x) + "_" +
+                 to_string(center_z);
+      if (radius > 0) {
+        obj_stem += "_to_" + to_string(center_x + radius) + "_" +
+                    to_string(center_z + radius);
+      }
+    } else {
+      obj_stem = "marge_obj_from_chunk_" + to_string(range.min_x) + "_" +
+                 to_string(range.min_z) + "_to_" +
+                 to_string(range.min_x + range.count_x - 1) + "_" +
+                 to_string(range.min_z + range.count_z - 1);
+    }
   }
-  obj_file_path.append(".obj");
+  const std::string obj_file_path =
+      job.output_dir.empty()
+          ? std::string("../outputs/chunk/") + obj_stem + ".obj"
+          : (std::filesystem::path(job.output_dir) / (obj_stem + ".obj"))
+                .generic_string();
 
   const Clock::time_point build_end = Clock::now();
-  obj_builder.WriteToFile(obj_file_path.c_str());
+  const bool written = obj_builder.WriteToFile(obj_file_path.c_str());
   const Clock::time_point write_end = Clock::now();
 
-  // 总耗时包含写出文件的时间（大范围导出里写 OBJ 往往占相当一部分）
-  if (show_progress) {
+  if (!written) {
+    const std::string reason = obj_builder.stats().error;
+    EmitEvent(json_progress, "error",
+              {JsonField("message", reason.empty() ? std::string("failed to write OBJ")
+                                                   : reason)});
+    if (text_output) {
+      std::fprintf(stderr, "error: %s\n",
+                   reason.empty() ? "failed to write OBJ" : reason.c_str());
+    }
+    return EXIT_FAILURE;
+  }
+
+  if (json_progress) {
+    const ObjMeshBuilder::Stats stats = obj_builder.stats();
+    EmitEvent(true, "done",
+              {JsonField("obj", obj_file_path),
+               JsonField("ok", written),
+               JsonField("chunks_found", static_cast<long long>(found_chunks)),
+               JsonField("chunks_missing", static_cast<long long>(missing_chunks)),
+               JsonField("tiles", static_cast<long long>(total_tiles)),
+               JsonField("vertices", static_cast<long long>(stats.vertices)),
+               JsonField("faces", static_cast<long long>(stats.faces)),
+               JsonField("materials", static_cast<long long>(stats.materials)),
+               JsonField("textures_written",
+                         static_cast<long long>(stats.textures_written)),
+               JsonField("missing_texture_faces",
+                         static_cast<long long>(stats.missing_texture_faces)),
+               JsonField("seconds",
+                         ElapsedSeconds(process_start, write_end))});
+  }
+
+  // The total time includes writing the file (in large-area exports, writing the OBJ
+  // often takes a considerable share)
+  if (show_progress && text_output) {
     printf(
-        galib::Tr(
-            "总耗时: %.1f 秒（读取与建网格 %.1f 秒，普通方块网格 %.1f 秒，写出"
-            "文件 %.1f 秒）\n",
-            "total: %.1f s (read & mesh %.1f s, plain blocks %.1f s, write "
+        galib::Tr("total: %.1f s (read & mesh %.1f s, plain blocks %.1f s, write "
             "%.1f s)\n"),
         ElapsedSeconds(process_start, write_end),
         ElapsedSeconds(process_start, read_end),
@@ -427,4 +1002,21 @@ int main(int argc, char** argv) {
         ElapsedSeconds(build_end, write_end));
   }
   return EXIT_SUCCESS;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  try {
+    return RunTilesReader(argc, argv);
+  } catch (const std::exception& error) {
+    // The library reports failures by throwing; the CLI host is the boundary that
+    // turns them into an exit code plus one line. Without this, a malformed input
+    // reaches std::terminate and (in Debug builds) blocks on the CRT report dialog.
+    std::fprintf(stderr, "error: %s\n", error.what());
+    return EXIT_FAILURE;
+  } catch (...) {
+    std::fprintf(stderr, "error: unknown failure\n");
+    return EXIT_FAILURE;
+  }
 }

@@ -1,23 +1,26 @@
-# Galib 核心库：解析 + 几何构建，不包含任何 CLI / 文件输出入口。
-# 目前使用静态库，后续若要给 Web 服务以动态库形式调用，可在此切换为 SHARED。
+# Galib core library: parsing + geometry building, with no CLI / file output
+# entry point. It is currently a static library; switch to SHARED here if a web
+# service later needs to consume it as a dynamic library.
 add_library(galib STATIC
   Minecraft/Anvil.cpp
   Minecraft/BlockIdTable.cpp
   Minecraft/ChunkBlocks.cpp
   Minecraft/MinecraftCoord.cpp
-    Minecraft/ChunkTileEntities.cpp
-    Minecraft/BlockTileEntities.cpp
-    Minecraft/LittleTilesEntity.cpp
+  Minecraft/ChunkTileEntities.cpp
+  Minecraft/BlockTileEntities.cpp
+  Minecraft/LittleTilesEntity.cpp
   Minecraft/LittleTiles.cpp
+  Minecraft/SaveFolder.cpp
   Minecraft/SnbtParser.cpp
   Minecraft/LtStructure.cpp
   Minecraft/CgalSupport/CgalTypeDef.cpp
   Minecraft/CgalSupport/CgalLtSupport.cpp
   Minecraft/CgalSupport/CgalLittletilesBuilder.cpp
   Minecraft/CgalSupport/CgalWorldBlocks.cpp
+  Minecraft/TextureSupport/AssetsPackage.cpp
   Minecraft/TextureSupport/BlockTextureTable.cpp
+  Minecraft/TextureSupport/MaterialManager.cpp
   Minecraft/TextureSupport/PngImage.cpp
-  Minecraft/TextureSupport/TextureBaker.cpp
   File/FileState.cpp
     File/PathFormat.cpp
     Log/GalibLog.cpp
@@ -28,8 +31,9 @@ add_library(galib STATIC
 
 target_include_directories(galib PUBLIC include)
 
-# 依赖以 PUBLIC 暴露，调用方（CLI / 将来的 Web 服务）只需链接 galib
-target_link_libraries(galib PUBLIC Boost::iostreams ZLIB::ZLIB nbt++)
+# Dependencies are exposed as PUBLIC, so consumers (the CLI / a future web
+# service) only need to link against galib
+target_link_libraries(galib PUBLIC Boost::iostreams Boost::json ZLIB::ZLIB nbt++)
 
 if(TARGET CGAL::CGAL)
     target_link_libraries(galib PUBLIC CGAL::CGAL)

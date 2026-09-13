@@ -4,10 +4,10 @@ if(POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)
 endif()
 
-# 依赖来源选择，优先级从高到低：
-#   1. 由命令行 / IDE 显式传入的 CMAKE_TOOLCHAIN_FILE
-#   2. 设置了 VCPKG_ROOT 环境变量时，所有平台统一使用 vcpkg
-#   3. macOS 回退到 Homebrew
+# Dependency source selection, highest priority first:
+#   1. CMAKE_TOOLCHAIN_FILE passed explicitly from the command line / IDE
+#   2. When the VCPKG_ROOT environment variable is set, use vcpkg on all platforms
+#   3. macOS falls back to Homebrew
 if(CMAKE_TOOLCHAIN_FILE)
     message(STATUS "Using user-specified toolchain: ${CMAKE_TOOLCHAIN_FILE}")
 elseif(DEFINED ENV{VCPKG_ROOT})
@@ -18,7 +18,7 @@ elseif(DEFINED ENV{VCPKG_ROOT})
     endif()
     message(STATUS "CMAKE_TOOLCHAIN_FILE is ${CMAKE_TOOLCHAIN_FILE}")
 elseif(APPLE)
-    # 获取 Homebrew 安装前缀
+    # Get the Homebrew installation prefix
     execute_process(
         COMMAND brew --prefix
         OUTPUT_VARIABLE HOMEBREW_PREFIX
@@ -36,37 +36,38 @@ elseif(WIN32)
 endif()
 
 project(LittleTilesReader)
-# 代码实际使用 C++17 特性（if-init、嵌套命名空间定义、std::filesystem），
-# 且 CGAL 6.x 也要求 C++17；此前声明为 14 与代码不符。
+# The code actually uses C++17 features (if-init, nested namespace definitions,
+# std::filesystem), and CGAL 6.x also requires C++17; the previous declaration of
+# 14 did not match the code.
 set(CMAKE_CXX_STANDARD 17)
 
-# 查找所需的库
+# Locate the required libraries
 add_subdirectory(3rdparty)
-find_package(Boost REQUIRED COMPONENTS iostreams)
+find_package(Boost REQUIRED COMPONENTS iostreams json)
 find_package(ZLIB REQUIRED)
 find_package(CGAL REQUIRED)
 
-# 检查 zlib 是否找到
+# Check whether zlib was found
 if (${ZLIB_FOUND})
     message(STATUS "Found zlib: ${ZLIB_LIBRARIES}, Version: ${ZLIB_VERSION}")
 else()
     message(FATAL_ERROR "zlib is not found")
 endif()
 
-# 检查 CGAL 是否找到
+# Check whether CGAL was found
 if (${CGAL_FOUND})
     message(STATUS "Found CGAL: ${CGAL_LIBRARIES}, Version: ${CGAL_VERSION}")
 else()
     message(FATAL_ERROR "CGAL is not found")
 endif()
 
-# 禁用 CGAL 对 CMake 构建类型的警告
+# Disable CGAL's warning about the CMake build type
 set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
 
-# 定义核心库目标
+# Define the core library target
 add_subdirectory(Galib)
 
-# 定义可执行目标：CLI 只是 core library 的一个消费者
+# Define the executable target: the CLI is just one consumer of the core library
 add_executable(${CMAKE_PROJECT_NAME} main.cpp)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE galib)
 

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "mode": "snbt",
+  "input": {
+    "snbt": {
+      "path": "../minecraft-littletiles-reader-data/data/snbt/test_snbt/CoronaSign.txt"
+    }
+  },
+  "assets": {
+    "package": "../minecraft-littletiles-reader-data/data/assets/pack_snbt"
+  },
+  "output": {
+    "dir": "outputs/job_snbt",
+    "name": "Corona_Sign"
+  },
+  "options": { "center": true, "normalize_scale": false }
+}
