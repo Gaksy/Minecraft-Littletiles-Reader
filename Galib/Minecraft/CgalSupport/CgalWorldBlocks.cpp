@@ -143,10 +143,17 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
         if (state.is_air() || state.little_tiles_host()) {
           continue;
         }
-        const std::string block_name =
+        // The id table only turns a numeric id into a block name so the texture
+        // table can be consulted. Geometry does not need it, so an unresolvable id
+        // still gets its cube: it ends up untextured, which is exactly the "white
+        // model" a host wants when it has no assets package. Skipping here used to
+        // make a missing block_ids.tsv look like "the plain-block option does
+        // nothing".
+        std::string block_name =
             kBlockIdTable.BlockName(state.block_id, state.meta);
         if (block_name.empty()) {
-          continue;  // this id is not in the table
+          block_name = "unknown_id_" + std::to_string(state.block_id) + "_" +
+                       std::to_string(state.meta);
         }
 
         const auto key = std::make_pair(state.block_id, state.meta);

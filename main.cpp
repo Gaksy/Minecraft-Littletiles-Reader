@@ -901,24 +901,34 @@ int RunTilesReader(int argc, char** argv) {
   const Clock::time_point read_end = Clock::now();
 
   // Plain blocks -> full cube meshes (grouped and merged by block type)
-  if (include_world_blocks && assets_root.empty()) {
-    printf("%s",
-           galib::Tr("warning: no assets root, skipping plain block export\n"));
-  } else if (include_world_blocks) {
+  if (include_world_blocks) {
+    // block_ids.tsv maps the numeric ids stored in the save to block names, which
+    // is how the texture table gets consulted. Without it the cubes are still
+    // emitted - untextured, i.e. a white model - rather than dropped: skipping
+    // them made a missing assets package look like "ordinary blocks do not work".
     BlockIdTable block_id_table;
-    if (block_id_table.LoadFromTsv(assets_root + "/block_ids.tsv")) {
-      std::vector<LtSurfaceMesh> world_meshes;
-      // World origin: the block coordinate of the region's lower-left corner (chunk * 16)
-      BuildWorldBlockMeshes(range.min_x * 16, range.min_z * 16, world_blocks,
-                            span_x, span_z, block_id_table, cull_hidden_faces,
-                            &world_meshes);
-      for (const LtSurfaceMesh& mesh : world_meshes) {
-        obj_builder.AddMesh(mesh);
+    const bool has_id_table =
+        !assets_root.empty() &&
+        block_id_table.LoadFromTsv(assets_root + "/block_ids.tsv");
+    if (!has_id_table) {
+      if (json_progress) {
+        EmitEvent(json_progress, "warning",
+                  {JsonField("message",
+                             std::string("no block_ids.tsv; plain blocks are "
+                                         "exported untextured (white)"))});
+      } else {
+        printf("%s",
+               galib::Tr("warning: no block_ids.tsv; plain blocks are exported "
+                         "untextured (white)\n"));
       }
-    } else {
-      printf(galib::Tr("warning: cannot read %s/block_ids.tsv, skipping plain "
-                       "block export\n"),
-             assets_root.c_str());
+    }
+    std::vector<LtSurfaceMesh> world_meshes;
+    // World origin: the block coordinate of the region's lower-left corner (chunk * 16)
+    BuildWorldBlockMeshes(range.min_x * 16, range.min_z * 16, world_blocks,
+                          span_x, span_z, block_id_table, cull_hidden_faces,
+                          &world_meshes);
+    for (const LtSurfaceMesh& mesh : world_meshes) {
+      obj_builder.AddMesh(mesh);
     }
   }
 
