@@ -102,7 +102,7 @@ EUN=0  EUS=1  EDN=2  EDS=3  WUN=4  WUS=5  WDN=6  WDS=7
 偏移值消费顺序：按 AngleID 升序，每个角点内依次 x → y → z（`SetAngleOffsetStateData`，`BlockTileEntities.cpp`）。
 
 > **验证记录**：README 的示例 SNBT（状态 `-2135499923` = `0x80B6DB6D`）经 C++ 算法、
-> 仓库内 `python/IntArrayInterpreter.py`、以及 README 给出的 MATLAB 输出三者结果**完全一致**
+> 生成端的 `python/IntArrayInterpreter.py`、以及 README 给出的 MATLAB 输出三者结果**完全一致**
 > （EUN(-2,0,-1) … WDS(2,0,1)）。位域与偏移解码已被确认正确。
 
 ## 4. 坐标系统

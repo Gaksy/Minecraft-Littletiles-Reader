@@ -35,8 +35,10 @@ and other modelling tools.
 
 ## Test Data
 
-The region archives used for verification are kept in the repository
-(all of them are Minecraft 1.12.2 + Little Tiles 1.5.66 saves).
+The region archives used for verification **are not distributed with this library**
+(all of them are Minecraft 1.12.2 + Little Tiles 1.5.66 saves); they ship with the
+generator-side test-data package. The paths below are relative to that package's
+`data/` folder — pass the absolute path when running.
 Enter the folder, then a chunk coordinate and a scan radius:
 
 | Folder | Chunk (x, z) | Recommended radius | Scan size | Baseline (Debug, plain blocks on, hidden faces culled) |
@@ -45,35 +47,43 @@ Enter the folder, then a chunk coordinate and a scan radius:
 | `data/regions/test_region_medim/` | **-136, 49** | **5** | 11×11 chunks | 55,561 tiles → 388,744 faces → 34 MB OBJ, ~9 s |
 | `data/regions/test_region_large/` | **-7, -26** | **5** | 11×11 chunks | 324,427 tiles + 1,945,017 plain blocks → 2,036,139 faces → 178 MB OBJ, ~50 s |
 
-`python3 tools/benchmark.py` re-runs all three with these parameters and records
-the result; past runs are kept in [`docs/benchmark.md`](docs/benchmark.md).
+`tools/benchmark.py` on the generator/test-data side re-runs all three with these
+parameters and records the result; past runs are kept in
+[`docs/benchmark.md`](docs/benchmark.md) (the script is not part of this repo).
 
 ```sh
-# language (1 = zh-CN, 2 = en-US), region folder, chunk x, chunk z, radius,
-# plain blocks, cull hidden faces, center the model, normalize scale,
-# print progress and timing
-printf "2\ndata/regions/test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
+# region folder, chunk x, chunk z, radius, plain blocks, cull hidden faces,
+# center the model, normalize scale, print progress and timing
+# (for a structure file .txt/.struct the three coordinate/radius questions are skipped)
+# <region root> = the data/ folder of the test-data package
+printf "<region root>/regions/test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
 ```
 
-The first question picks the interface language (blank = zh-CN); every prompt and
-message is bilingual. The last question controls both the progress output
+All prompts, progress and result lines are **English only** (to avoid mojibake from
+terminal encodings). Every user-visible string goes through `galib::Tr()`, which is
+now a single-argument pass-through — restoring another language means changing that
+one function. The last question controls both the progress output
 (`[progress] chunk (x, z) - i/n`, plus the per-chunk/per-block detail from the
-library) and the final total-time line. Answer `n` for clean, script-friendly
-output.
+library) and the final total-time line. Answer `n` for clean, script-friendly output.
 
 The result is written to `outputs/` relative to the current working
 directory (OBJ + MTL + a `<obj name>_textures/` folder).
 
 ## Using a Resource Pack
 
-Textures come from an assets root (`data/assets/1.12.2` by default). To export with a
-resource pack, merge it onto the vanilla assets first:
+Textures come from an **assets package** directory (`assets_root` — the library has
+exactly one entry point for assets, see
+[`docs/assets-package.md`](docs/assets-package.md)). A package is produced by the
+**generator side**: it merges a resource pack onto the vanilla assets into a
+"mapping table + read-only textures" folder (`block_textures.tsv` + `textures/`,
+optionally `manifest.json`). The merge script is not part of this repo.
 
 ```sh
-python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out data/assets/pack
+# generator side (illustrative)
+python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out <assets root>/pack
 ```
 
-Then point the reader at the result, either via `LITTLETILES_ASSETS=data/assets/pack`
+Then point the reader at the result, either via `LITTLETILES_ASSETS=<assets root>/pack`
 or by typing the path at the `assets root (blank = auto-detect):` prompt.
 The pack overrides only the textures it ships; the rest falls back to vanilla.
 Relative paths are resolved against the current directory, then the executable's
@@ -171,8 +181,9 @@ commit so builds stay reproducible.
 
 ## Matlab Support
 
-The geometric structure data exported by the LittleTile mod can be converted
-with `IntArrayInterpreter.py` in the `python/` directory to display it in MatLab.
+The geometric structure data exported by the LittleTile mod can be converted with
+`python/IntArrayInterpreter.py` from the generator-side test-data package to
+display it in MatLab.
 
 For example, the SNBT
 `[I;0,0,0,2,1,2,-2135499923,-65537,65537,-65537,65537,-1,131073,-1,131073]` from:
@@ -217,5 +228,5 @@ referencing symbols rather than line numbers):
 - [`docs/snbt-format.md`](docs/snbt-format.md) — LittleTiles structure SNBT (both dialects), box encoding, children, mod textures
 - [`docs/known-issues.md`](docs/known-issues.md) — verified defects, output determinism, test-data baselines, README/code mismatches
 - [`docs/texture-mapping.md`](docs/texture-mapping.md) — UV conventions, tint baking, resource pack overlay
-- [`docs/benchmark.md`](docs/benchmark.md) — recorded export baselines (`python3 tools/benchmark.py --write docs/benchmark.md`)
+- [`docs/benchmark.md`](docs/benchmark.md) — recorded export baselines (generated by the test-data side's `tools/benchmark.py`)
 - [`docs/reference-lt3d-importer.md`](docs/reference-lt3d-importer.md) — study of the third-party LT 3D Importer & Exporter mod (UV/texture strategies)

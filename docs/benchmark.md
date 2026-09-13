@@ -1,7 +1,8 @@
 # 导出基线与实测数据
 
-由 `python3 tools/benchmark.py --write docs/benchmark.md` 生成，每次运行追加一节。
+由测试数据侧的 `python3 tools/benchmark.py --write docs/benchmark.md` 生成，每次运行追加一节。
 各存档的推荐参数写在 `tools/benchmark.py` 的 `CASES` 里，与 README「测试存档」表一致。
+（`tools/` 与 `data/` 都不随本库分发，见 `docs/README.md` 的说明。）
 
 ## 2026-09-12 03:56
 

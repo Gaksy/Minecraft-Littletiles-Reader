@@ -301,13 +301,16 @@ if (!neighbor.is_air() && !neighbor.little_tiles_host) { /* 剔除 */ }
 
 ## 4. 测试数据与基线
 
+> 测试数据（`regions/`、`snbt/`、`matlab/`）**不随本库分发**，与生成端脚本一起放在
+> 生成端/测试数据包里。下表用的是相对该数据根的目录名。
+
 | 目录 | region 数 | 说明 |
 |---|---|---|
 | `test_region/` | 4 | 小样本（推荐 chunk **(0,0)**、半径 1） |
 | `test_region_medim/` | 11 | 中等样本（推荐 chunk **(-136,49)**、半径 5，即 11×11，只用到 `r.-5.1.mca`） |
 | `test_region_large/` | 16 | 大样本（推荐 chunk **(-7,-26)**、半径 5，即 11×11） |
 
-基线数字（**Debug** 构建；由 `python3 tools/benchmark.py` 复核，逐次记录见 `docs/benchmark.md`）：
+基线数字（**Debug** 构建；由测试数据侧的 `tools/benchmark.py` 复核，逐次记录见 `docs/benchmark.md`）：
 
 | 输入 | 结果 |
 |---|---|

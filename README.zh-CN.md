@@ -30,7 +30,9 @@
 
 ## 测试存档
 
-用于验证的 region 存档都在仓库里（均为 Minecraft 1.12.2 + Little Tiles 1.5.66）。
+用于验证的 region 存档（均为 Minecraft 1.12.2 + Little Tiles 1.5.66）**不随本库分发**：
+它们和生成端脚本一起放在**测试数据包**里。下表路径相对测试数据根
+（例如 `…/minecraft-littletiles-reader-data/data`），用时把绝对路径填进去即可。
 运行时依次输入存档目录、区块坐标、扫描半径：
 
 | 目录 | 区块坐标 (x, z) | 推荐范围 | 扫描规模 | 基线（Debug 构建，开启完整方块、剔除相邻面） |
@@ -39,17 +41,21 @@
 | `data/regions/test_region_medim/` | **-136, 49** | **5** | 11×11 区块 | 55561 个 tile → 388744 面 → 34 MB OBJ，约 9 s |
 | `data/regions/test_region_large/` | **-7, -26** | **5** | 11×11 区块 | 324427 个 tile + 194 万普通方块 → 2036139 面 → 178 MB OBJ，约 50 s |
 
-`python3 tools/benchmark.py` 会用上面这套参数把三个存档各跑一遍并记录结果，
-历史记录见 [`docs/benchmark.md`](docs/benchmark.md)。
+测试数据侧的 `tools/benchmark.py` 会用上面这套参数把三个存档各跑一遍并记录结果，
+历史记录见 [`docs/benchmark.md`](docs/benchmark.md)（脚本不在本仓库内）。
 
 ```sh
-# 依次为：语言（1 = 中文，2 = English）、存档目录、区块 x、区块 z、半径、
+# 依次为：存档目录、区块 x、区块 z、半径、
 # 完整方块、剔除相邻面、居中、单位化、进度与耗时
-printf "1\ndata/regions/test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
+# （给的是结构文件 .txt/.struct 时，跳过坐标与半径那三问）
+# <region 根> = 测试数据包里的 data/ 目录
+printf "<region 根>/regions/test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
 ```
 
-**第一个问题选界面语言**（直接回车 = 简体中文）：所有提示、进度、结果行都有中英两版，
-切一次语言全程生效。最后一项同时控制**进度提示**（每处理一个区块打印 `[进度] 区块 (x, z) —— i/n`，
+界面的提示、进度与结果行**只输出英文**（避免终端编码导致的乱码）。所有可见文案都走
+`galib::Tr()` 这一个入口，它现在是单参数的直通函数，源码里已不含中文——
+要恢复多语言，只需改这一个函数。
+最后一项同时控制**进度提示**（每处理一个区块打印 `[progress] chunk (x, z) - i/n`，
 以及库里逐区块、逐方块的详细信息）和结尾的**总耗时**一行。
 想要干净的、方便脚本处理的输出就答 `n`。
 
@@ -57,18 +63,22 @@ printf "1\ndata/regions/test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./Litt
 
 ## 使用自定义材质包
 
-贴图来自一个素材根目录（默认 `data/assets/1.12.2`）。想用别的材质包（例如工作室内部包，
-不入库），先把材质包与原版素材合并：
+贴图来自一个**素材包目录**（`assets_root`，库侧只认这一个入口，见
+[`docs/assets-package.md`](docs/assets-package.md)）。素材包本身由**生成端**产出：
+把材质包与原版素材合并成"映射表 + 只读贴图目录"（`block_textures.tsv` + `textures/`，
+可选 `manifest.json`）。合并脚本不随本库分发，在生成端/测试数据包里。
 
 ```sh
-python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out data/assets/pack
+# 生成端：把材质包与原版素材合并成一个素材包目录（示意）
+python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out <素材包根>/pack
 ```
 
-合并出的目录就是标准素材根：材质包里有的贴图用它自己的，没有的回退原版。指定方式两种——
-环境变量 `LITTLETILES_ASSETS=data/assets/pack`，或运行时在 `assets root (blank = auto-detect):`
-那一问里直接填路径（可留空走自动探测）。相对路径依次按「当前工作目录 → 可执行文件目录 →
-可执行文件上一级」解析（CLion 的工作目录是构建目录，所以这样在哪儿都能填 `data/assets/pack`），
-选中后会打印成绝对路径，方便确认到底用了哪一份素材。细节与限制见
+合并出的目录就是标准素材包：材质包里有的贴图用它自己的，没有的回退原版。指定方式两种——
+环境变量 `LITTLETILES_ASSETS=<素材包根>/pack`，或运行时在 `assets root (blank = auto-detect):`
+那一问里直接填路径。相对路径依次按「当前工作目录 → 可执行文件目录 →
+可执行文件上一级」解析（CLion 的工作目录是构建目录），选中后会打印成绝对路径，
+并列出该素材包的方块数 / 引用贴图数 / 缺失贴图，方便确认到底用了哪一份素材。
+细节与限制见
 [`docs/texture-mapping.md`](docs/texture-mapping.md)。
 
 ## 处理流程
@@ -152,8 +162,8 @@ cmake --build cmake-build-debug
 
 ## Matlab 支持
 
-通过 LittleTile 模组导出的几何结构数据可以通过 Python 目录中的
-`IntArrayInterpreter.py` 进行转换，以在 MatLab 中展示其几何结构。
+通过 LittleTile 模组导出的几何结构数据可以用生成端/测试数据包里的
+`python/IntArrayInterpreter.py` 转换，以在 MatLab 中展示其几何结构。
 如 SNBT 中的 `[I;0,0,0,2,1,2,-2135499923,-65537,65537,-65537,65537,-1,131073,-1,131073]`：
 ```
 {tiles:[{bBox:[I;0,0,0,2,1,2,-2135499923,-65537,65537,-65537,65537,-1,131073,-1,131073],tile:{block:"minecraft:stone"}}],min:[I;0,0,0],size:[I;2,1,2],grid:2,count:1}
@@ -195,5 +205,5 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 - [`docs/snbt-format.md`](docs/snbt-format.md) —— LittleTiles 结构 SNBT（两种方言）、盒子编码、子结构、模组贴图
 - [`docs/known-issues.md`](docs/known-issues.md) —— 已核实缺陷、输出确定性、测试基线与 README/代码不一致清单
 - [`docs/texture-mapping.md`](docs/texture-mapping.md) —— UV 约定、tint 烘焙、材质包叠加
-- [`docs/benchmark.md`](docs/benchmark.md) —— 导出基线与实测数据（由 `tools/benchmark.py` 生成）
+- [`docs/benchmark.md`](docs/benchmark.md) —— 导出基线与实测数据（由测试数据侧的 `tools/benchmark.py` 生成）
 - [`docs/reference-lt3d-importer.md`](docs/reference-lt3d-importer.md) —— 第三方模组 LT 3D Importer & Exporter 的研究（UV/纹理策略）

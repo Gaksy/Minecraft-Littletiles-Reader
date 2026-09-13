@@ -130,19 +130,22 @@ MC 的原生渲染是"贴图像素 × 该颜色"。两种落地方式：
 ```sh
 # 1) 取版本清单 → 1.12.2 的版本 json → downloads.client.url
 # 2) 下载 client.jar（约 9.7 MB，sha1 0f275bc1…）
-# 3) 解出 assets/minecraft/{blockstates,models,textures/blocks} → data/assets/1.12.2/
+# 3) 解出 assets/minecraft/{blockstates,models,textures/blocks} → <素材包根>/1.12.2/
 ```
 
-本项目的 `data/assets/` 目录**不进入版本库**（见 `.gitignore`），需要时按上面步骤重建。
+这一步与下面的合并、UV 验证用的都是**生成端**脚本（`tools/*.py`），
+它们与素材、测试数据一起放在生成端/测试数据包里，**不随本库分发**。
+库只消费生成好的素材包目录（见 `docs/assets-package.md`）。
 LT 自身方块（`littletiles:*`）的贴图在 LT mod jar 的 assets 里，需要另行提供。
 
 ## 5.1 使用自定义材质包（资源包叠加）
 
 想用别的材质包（工作室内部包不入库，见 `.gitignore` 的 `/texture`）导出时，
-先把材质包与原版素材**合并**成一个 assets 根：
+先在生成端把材质包与原版素材**合并**成一个素材包目录：
 
 ```sh
-python3 tools/build_assets_from_pack.py --pack "texture/INCEPTION texture V1.4.zip" --out data/assets/pack_v14
+# 生成端脚本（不随库分发）
+python3 tools/build_assets_from_pack.py --pack "texture/INCEPTION texture V1.4.zip" --out <素材包根>/pack_v14
 ```
 
 工具做三件事：
@@ -155,17 +158,18 @@ python3 tools/build_assets_from_pack.py --pack "texture/INCEPTION texture V1.4.z
    （`*_n.png` / `*_s.png`）不会被带进来。
 3. 复制 `block_ids.tsv`，并写一份 `pack-source.txt` 记录来源，便于回溯。
 
-产物是标准 assets 根，两种指定方式：
+产物是标准素材包，两种指定方式：
 
 ```sh
-LITTLETILES_ASSETS=data/assets/pack_v14 ./LittleTilesReader     # 环境变量
+LITTLETILES_ASSETS=<素材包根>/pack_v14 ./LittleTilesReader     # 环境变量
 # 或者运行时在 "assets root (blank = auto-detect):" 一问里直接填路径（可留空）
 ```
 
 相对路径的解析顺序是**当前工作目录 → 可执行文件所在目录 → 可执行文件的上一级**：
-CLion 运行时工作目录是构建目录，直接填 `data/assets/pack_v14` 也能找到仓库根下的那一份。
-选中后会打印成绝对路径（`assets root: /…/data/assets/pack_v14`）——
-**这一行是判断"到底用了哪份素材"的唯一依据**，导出结果不对时先看它。
+CLion 运行时工作目录是构建目录，所以填仓库外的绝对路径最稳。
+选中后会打印成绝对路径（`assets root: /…/pack_v14`），并顺带列出该素材包的
+方块数 / 引用贴图数 / 缺失清单——**这几行是判断"到底用了哪份素材"的依据**，
+导出结果不对时先看它们。
 
 实测（INCEPTION texture V1.4 + 1.12.2 存档）：
 
@@ -174,11 +178,11 @@ CLion 运行时工作目录是构建目录，直接填 `data/assets/pack_v14` �
 | 映射表 | 455 个键（与原版一致） |
 | 贴图来源 | 材质包 **159 张** + 原版兜底 142 张，缺失 0 |
 | 分辨率 | 原版 16×16 → 材质包 128/256/512/1024 |
-| 合并素材根 | `data/assets/pack_v14` ≈ 69 MB |
+| 合并素材根 | `pack_v14` ≈ 69 MB |
 | `test_region_medim` 11×11 导出 | OBJ 34.3 MB / 388744 面（**与原版完全一致**）+ 贴图 77 张 18 MB；写出文件 1.4 s → **11.5 s**（烘焙 512²/1024² 变慢） |
 | `test_region_large` 11×11 导出 | OBJ 177.5 MB / 2036139 面（与原版一致）+ 120 张贴图；写出文件 7.1 s → **16.4 s** |
 
-（数字来自 `docs/benchmark.md` 里 2026-09-12 那一节，`tools/benchmark.py --assets data/assets/pack_v14`。）
+（数字来自 `docs/benchmark.md` 里 2026-09-12 那一节，由测试数据侧的 `tools/benchmark.py --assets …/pack_v14` 跑出。）
 
 注意事项：
 
@@ -198,8 +202,9 @@ CLion 运行时工作目录是构建目录，直接填 `data/assets/pack_v14` �
 ## 5.2 UV 验证模型（人工核对用）
 
 ```sh
-python3 tools/resolve_block_textures.py assets/1.12.2 --table assets/1.12.2/block_textures.tsv
-python3 tools/make_uv_test_model.py assets/1.12.2 outputs/uv_test
+# 生成端脚本（不随库分发）
+python3 tools/resolve_block_textures.py <素材包根>/1.12.2 --table <素材包根>/1.12.2/block_textures.tsv
+python3 tools/make_uv_test_model.py <素材包根>/1.12.2 outputs/uv_test
 # -> outputs/uv_test/uv_test.obj + uv_test.mtl + 所需贴图（已复制到同目录）
 ```
 
@@ -261,7 +266,8 @@ python3 tools/make_uv_test_model.py assets/1.12.2 outputs/uv_test
 | 组件 | 位置 | 说明 |
 |---|---|---|
 | PNG 读写 | `Minecraft/TextureSupport/PngImage.h/.cpp` | 读：8 位、非交错、颜色类型 0/2/3/4/6，统一转 RGBA；写：8 位 RGBA |
-| 染色烘焙 | `Minecraft/TextureSupport/TextureBaker.h/.cpp` | 按 `贴图 × tint × tile 颜色` 逐像素相乘；tile 颜色的 alpha 会同时调制透明度 |
+| 染色烘焙 | `Minecraft/TextureSupport/MaterialManager.h/.cpp` | 按 `贴图 × tint × tile 颜色` 逐像素相乘；tile 颜色的 alpha 会同时调制透明度。同一张源贴图只解码一次（变体从缓存出图），去重键是结构化的 `(贴图, tint, tile 颜色)` |
+| 素材门面 | `Minecraft/TextureSupport/AssetsPackage.h/.cpp` | 素材目录的唯一入口：读映射表（+ 可选 `manifest.json` / `tint.tsv`）、解析纹理路径、给 tint 色；lint 出方块数 / 贴图数 / 缺失清单 |
 
 **tint 颜色用的是固定默认值**（草 `#91BD59`、树叶 `#79C05A`），不是从 `colormap` 采样：
 

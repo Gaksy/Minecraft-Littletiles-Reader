@@ -1,1 +1,0 @@
-{tiles:[{bBox:[I;26,10,0,27,11,1,-1097643722,-15,-65521,-983025,-917505,1048561,983040],tile:{color:-15987700,block:"littletiles:ltcoloredblock:10"}}],min:[I;26,10,0],size:[I;1,1,1],grid:32,count:1}

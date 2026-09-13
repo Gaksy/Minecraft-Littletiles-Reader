@@ -73,7 +73,8 @@
 
 ## 5. 模组方块与贴图
 
-结构里会出现模组方块，必须另外准备贴图（见 `tools/add_mod_textures.py`）：
+结构里会出现模组方块，必须另外准备贴图（见生成端的 `tools/add_mod_textures.py`，
+该脚本不随本库分发）：
 
 - `littletiles:ltcoloredblock[:meta]`：LT 自己的彩色方块，**白色底图 + tile 颜色**。
   meta 0..11 对应贴图 `ltcolored0..11`（meta 10 = clay），12 起是 light_clean /
