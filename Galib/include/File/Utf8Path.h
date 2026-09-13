@@ -46,6 +46,12 @@ std::string Utf8String(const std::filesystem::path& kPath);
 // OBJ/MTL file, where a backslash is not a portable separator.
 std::string Utf8GenericString(const std::filesystem::path& kPath);
 
+#ifdef _WIN32
+// UTF-16 as UTF-8. A Windows command line is UTF-16, and that is where the CLI's
+// arguments (a job file path) come from.
+std::string Utf8String(const wchar_t* kWide);
+#endif
+
 }  // namespace galib
 
 #endif  // GALIB_FILE_UTF8PATH_H

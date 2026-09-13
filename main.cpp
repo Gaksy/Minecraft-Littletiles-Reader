@@ -1075,17 +1075,10 @@ int RunTilesReader(int argc, char** argv) {
 
 }  // namespace
 
-int main(int argc, char** argv) {
-#ifdef _WIN32
-  // The interactive prompts read and print **UTF-8** paths, so the console has to be
-  // told; otherwise a Chinese path typed at the prompt arrives in the OEM code page
-  // and is converted to mojibake by the library. Job mode (what the app uses) is
-  // unaffected: it never touches the console.
-  SetConsoleOutputCP(CP_UTF8);
-  SetConsoleCP(CP_UTF8);
-#endif
+// Body of the entry point, shared by both entry points below.
+int RunMain(const int kArgc, char** const argv) {
   try {
-    return RunTilesReader(argc, argv);
+    return RunTilesReader(kArgc, argv);
   } catch (const std::exception& error) {
     // The library reports failures by throwing; the CLI host is the boundary that
     // turns them into an exit code plus one line. Without this, a malformed input
@@ -1097,3 +1090,33 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 }
+
+#ifdef _WIN32
+// Windows uses the *wide* entry point on purpose: the narrow `main` receives the
+// command line already converted to the ANSI code page, so any character outside it
+// (a job file under a Chinese install folder, say) arrives as '?' and can never be
+// opened. wmain hands us UTF-16, which converts losslessly to the UTF-8 that the CLI
+// and the library speak.
+int wmain(const int kArgc, wchar_t** const argv) {
+  // The interactive prompts read and print UTF-8 paths, so the console has to be told;
+  // otherwise a Chinese path typed at the prompt arrives in the OEM code page. Job mode
+  // (what the app uses) never touches the console either way.
+  SetConsoleOutputCP(CP_UTF8);
+  SetConsoleCP(CP_UTF8);
+
+  std::vector<std::string> arguments;
+  arguments.reserve(static_cast<std::size_t>(kArgc));
+  for (int i = 0; i < kArgc; ++i) {
+    arguments.push_back(galib::Utf8String(argv[i]));
+  }
+  std::vector<char*> pointers;
+  pointers.reserve(arguments.size() + 1);
+  for (std::string& argument : arguments) {
+    pointers.push_back(argument.data());
+  }
+  pointers.push_back(nullptr);
+  return RunMain(kArgc, pointers.data());
+}
+#else
+int main(int argc, char** argv) { return RunMain(argc, argv); }
+#endif

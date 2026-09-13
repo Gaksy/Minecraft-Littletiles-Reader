@@ -83,4 +83,23 @@ std::string Utf8GenericString(const std::filesystem::path& kPath) {
   return text;
 }
 
+#ifdef _WIN32
+std::string Utf8String(const wchar_t* const kWide) {
+  if (kWide == nullptr) {
+    return {};
+  }
+  // -1: the input is null-terminated
+  const int length = WideCharToMultiByte(CP_UTF8, 0, kWide, -1, nullptr, 0,
+                                         nullptr, nullptr);
+  if (length <= 0) {
+    return {};
+  }
+  std::string utf8(static_cast<std::size_t>(length), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, kWide, -1, utf8.data(), length, nullptr,
+                      nullptr);
+  utf8.resize(static_cast<std::size_t>(length) - 1);  // drop the terminator
+  return utf8;
+}
+#endif
+
 }  // namespace galib
