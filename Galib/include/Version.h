@@ -33,11 +33,16 @@
 // string ("0.2.0-beta"), so a log or an export record always says which kind of
 // build produced it.
 //
-// A build may override it without editing this file, e.g. a nightly CI job:
-//   cmake -DGALIB_VERSION_CHANNEL=beta ...
-// The default below is what an ordinary checkout builds.
+// The default is "beta" **on purpose**: a plain checkout is a development build,
+// and a random build must never be able to call itself stable by accident.
+// Shipping a stable release is an explicit act:
+//   cmake -DGALIB_VERSION_CHANNEL=stable ..
+//
+// The other direction (defaulting to stable, opting into beta) is what a build
+// with no release process ends up doing: everything claims to be stable, and the
+// label stops carrying information.
 #ifndef GALIB_VERSION_CHANNEL
-#define GALIB_VERSION_CHANNEL "stable"
+#define GALIB_VERSION_CHANNEL "beta"
 #endif
 
 namespace galib {
