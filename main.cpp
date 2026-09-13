@@ -982,6 +982,10 @@ int RunTilesReader(int argc, char** argv) {
                 .generic_string();
 
   const Clock::time_point build_end = Clock::now();
+  // Tell the host that reading is over and the slow part (writing the OBJ, baking
+  // textures) begins. Without this a progress bar sits at 100% during the whole
+  // write, which reads as "hung".
+  EmitEvent(json_progress, "stage", {JsonField("name", std::string("write"))});
   const bool written = obj_builder.WriteToFile(obj_file_path.c_str());
   const Clock::time_point write_end = Clock::now();
 
