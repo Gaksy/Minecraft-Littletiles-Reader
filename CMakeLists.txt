@@ -36,6 +36,11 @@ elseif(WIN32)
 endif()
 
 project(LittleTilesReader)
+
+# Release channel for the version string; the default lives in Galib/include/Version.h.
+# A CI job can build a test build without touching the header:
+#   cmake -DGALIB_VERSION_CHANNEL=beta ..
+set(GALIB_VERSION_CHANNEL "" CACHE STRING "Release channel: stable or beta (empty = use the header default)")
 # The code actually uses C++17 features (if-init, nested namespace definitions,
 # std::filesystem), and CGAL 6.x also requires C++17; the previous declaration of
 # 14 did not match the code.

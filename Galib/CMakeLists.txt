@@ -27,9 +27,16 @@ add_library(galib STATIC
     Log/GalibText.cpp
     Exception/MinecraftException.cpp
     Exception/LittleTilesException.cpp
+    Version.cpp
 )
 
 target_include_directories(galib PUBLIC include)
+
+# Let a build override the release channel without editing Version.h
+# (see the root CMakeLists for the cache variable).
+if(GALIB_VERSION_CHANNEL)
+  target_compile_definitions(galib PUBLIC GALIB_VERSION_CHANNEL="${GALIB_VERSION_CHANNEL}")
+endif()
 
 # Dependencies are exposed as PUBLIC, so consumers (the CLI / a future web
 # service) only need to link against galib

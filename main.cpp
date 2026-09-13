@@ -22,6 +22,7 @@
 #include "Minecraft/LtStructure.h"
 #include "Minecraft/SaveFolder.h"
 #include "Minecraft/TextureSupport/AssetsPackage.h"
+#include "Version.h"
 
 using galib::minecraft::AnvilReader;
 using galib::minecraft::BlockIdTable;
@@ -223,6 +224,7 @@ struct CommandLine {
   std::string job_path;        // --job <file.json> : non-interactive
   bool json_progress{false};   // --progress json
   bool help{false};
+  bool version{false};
 };
 
 CommandLine ParseCommandLine(const int kArgc, char** const kArgv) {
@@ -239,6 +241,8 @@ CommandLine ParseCommandLine(const int kArgc, char** const kArgv) {
       parsed.json_progress = argument.substr(11) == "json";
     } else if (argument == "--help" || argument == "-h") {
       parsed.help = true;
+    } else if (argument == "--version" || argument == "-V") {
+      parsed.version = true;
     }
   }
   return parsed;
@@ -545,11 +549,20 @@ int RunTilesReader(int argc, char** argv) {
   const CommandLine command_line = ParseCommandLine(argc, argv);
   if (command_line.help) {
     std::printf(
+        "%s\n"
+        "\n"
         "usage: LittleTilesReader [--job <file.json>] [--progress json]\n"
         "\n"
         "  no --job : interactive prompts (the original behaviour)\n"
         "  --job    : run a job file once and exit, without asking anything\n"
-        "  --progress json : emit one JSON event per line on stdout\n");
+        "  --progress json : emit one JSON event per line on stdout\n"
+        "  --version : print the version and exit\n",
+        galib::VersionLine().c_str());
+    return EXIT_SUCCESS;
+  }
+  if (command_line.version) {
+    std::printf("%s\n", galib::VersionLine().c_str());
+    std::printf("%s\n", galib::VersionString().c_str());
     return EXIT_SUCCESS;
   }
 
@@ -571,7 +584,7 @@ int RunTilesReader(int argc, char** argv) {
       ProgramDirectory(argc > 0 ? argv[0] : nullptr);
 
   if (interactive && text_output) {
-    printf("=== LittleTiles Reader ===\n");
+    printf("=== %s ===\n", galib::VersionLine().c_str());
   }
 
   std::string region_folder = job.input_path;
@@ -719,6 +732,9 @@ int RunTilesReader(int argc, char** argv) {
   EmitEvent(json_progress, "start",
             {JsonField("mode", std::string(is_structure_file ? "snbt"
                                                              : "region")),
+             // The host records this, so an export can always be traced back to
+             // the build that produced it.
+             JsonField("library", galib::VersionString()),
              JsonField("chunks",
                        static_cast<long long>(is_structure_file ? 0
                                                                 : range.Count())),
