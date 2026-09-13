@@ -66,14 +66,15 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadChunkNbt(
                              "The chunk NBT root node is empty.", "ChunkTiles");
   }
 
-  // 1.12 之前的结构为 root -> "Level" -> "TileEntities"；
-  // 1.18+ 把 level 的内容摊平到了根上，此时直接把根当作 level。
+  // Before 1.12 the structure is root -> "Level" -> "TileEntities";
+  // 1.18+ flattened the contents of level onto the root, in which case the root
+  // itself is treated as the level.
   const tag_compound& chunk_level =
       kChunkRootNbt.has_key("Level")
           ? kChunkRootNbt.at("Level").as<tag_compound>()
           : kChunkRootNbt;
 
-  // 若 level 内带有区块坐标，则同步到 chunk 坐标
+  // If the level carries chunk coordinates, sync them to the chunk coordinate
   if (chunk_level.has_key("xPos") && chunk_level.has_key("zPos")) {
     chunk_coordinate_ = {chunk_level.at("xPos").as<nbt::tag_int>().get(),
                          chunk_level.at("zPos").as<nbt::tag_int>().get()};
@@ -100,8 +101,7 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
   size_type boxes_count = 0;
 
 #ifdef GALIB_DEBUG
-  ProgressPrintf(Tr("ChunkTileEntities::ReadChunk 读取区块: %d %d\n",
-                    "ChunkTileEntities::ReadChunk chunk: %d %d\n"),
+  ProgressPrintf(Tr("ChunkTileEntities::ReadChunk chunk: %d %d\n"),
                  chunk_coordinate_.x, chunk_coordinate_.z);
 #endif
 
@@ -122,8 +122,7 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
 #else
     catch (const std::exception& e) {
       printf("%s%s\n",
-             Tr("ChunkTileEntities::ReadChunk 出错: ",
-                "ChunkTileEntities::ReadChunk error: "),
+             Tr("ChunkTileEntities::ReadChunk error: "),
              e.what());
     }
 #endif
@@ -133,8 +132,7 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
   block_tile_entities_.swap(block_tile_entities);
 
 #ifdef GALIB_DEBUG
-  ProgressPrintf(Tr("ChunkTileEntities::ReadChunk tile %zu 个，盒子 %zu 个\n",
-                    "ChunkTileEntities::ReadChunk %zu tiles, %zu boxes\n"),
+  ProgressPrintf(Tr("ChunkTileEntities::ReadChunk %zu tiles, %zu boxes\n"),
                  tile_count, boxes_count);
 #endif
 

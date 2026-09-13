@@ -56,10 +56,12 @@ class LtSurfaceMesh {
   [[nodiscard]] SurfaceMeshType& surface_mesh();
   [[nodiscard]] const SurfaceMeshType& surface_mesh() const;
 
-  // 逐顶点的"方块内本地坐标"（0..1，相对于该顶点所在的那个方块）。
-  // 一个网格可能包含多个方块的几何（例如按方块类型分组后的完整方块），
-  // 此时无法用网格级的方块坐标反推，必须逐顶点记录。
-  // UV 依赖它，并且必须在导出归一化（居中/缩放）之前记录。
+  // Per-vertex "local position inside the block" (0..1, relative to the block
+  // the vertex belongs to). A single mesh may contain the geometry of several
+  // blocks (for example full blocks grouped by block type), in which case the
+  // block coordinate cannot be derived from the mesh as a whole and must be
+  // recorded per vertex. UVs depend on this, and it must be recorded before the
+  // export normalization (centering / scaling) is applied.
   void SetVertexLocalPosition(SurfaceMeshType::Vertex_index kVertex,
                               const LtPoint3& kLocalPosition);
   [[nodiscard]] bool has_vertex_local_positions() const;
@@ -68,7 +70,7 @@ class LtSurfaceMesh {
 
   void set_block_id(const std::string& str);
   [[nodiscard]] const std::string& block_id() const;
-  // tile 的染色；未染色的 tile 保持 has_tile_color_ = false
+  // Tint of the tile; an untinted tile keeps has_tile_color_ = false
   void set_tile_color(std::int32_t kColor, bool kHasColor);
   [[nodiscard]] bool has_tile_color() const;
   [[nodiscard]] std::int32_t tile_color() const;

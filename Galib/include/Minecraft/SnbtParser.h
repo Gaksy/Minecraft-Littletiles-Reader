@@ -26,18 +26,20 @@
 
 namespace galib::minecraft::snbt {
 
-// SNBT 值（Minecraft 的文本 NBT 方言）。
+// An SNBT value (Minecraft's textual NBT dialect).
 //
-// 只需要覆盖 LittleTiles 结构导出真正用到的部分：compound、list、类型化数组
-// （`[I;...]`）、字符串、整数、浮点。类型后缀（`1b`/`1.0f`/`2d`）在解析时归一化
-// 成整数或浮点，不再保留原始类型——目前没有需要区分 byte/short/int 的场景。
+// Only the parts that LittleTiles structure exports actually use need to be
+// covered: compound, list, typed arrays (`[I;...]`), strings, integers, floats.
+// Type suffixes (`1b`/`1.0f`/`2d`) are normalized to integers or floats during
+// parsing and the original type is not preserved - there is currently no case
+// that needs to distinguish byte/short/int.
 class Value {
  public:
   enum class Kind {
-    kInt,       // 含 byte/short/int/long 及其后缀
+    kInt,       // includes byte/short/int/long and their suffixes
     kFloat,     // float/double
-    kString,    // 带引号或不带引号的字符串
-    kList,      // 普通列表，或类型化数组（看 array_type）
+    kString,    // quoted or unquoted string
+    kList,      // plain list, or typed array (see array_type)
     kCompound,  // { key:value, ... }
   };
 
@@ -49,7 +51,7 @@ class Value {
   [[nodiscard]] bool is_list() const { return kind_ == Kind::kList; }
   [[nodiscard]] bool is_compound() const { return kind_ == Kind::kCompound; }
 
-  // 类型化数组的标记：'I' / 'B' / 'L'；普通列表为 '\0'
+  // Marker of a typed array: 'I' / 'B' / 'L'; '\0' for a plain list
   [[nodiscard]] char array_type() const { return array_type_; }
 
   [[nodiscard]] std::int64_t as_int() const { return integer_; }
@@ -63,18 +65,19 @@ class Value {
   [[nodiscard]] bool has_member(const std::string& kKey) const {
     return members_.find(kKey) != members_.end();
   }
-  // 取复合标签的成员；键不存在时抛 std::out_of_range（与 std::map::at 一致）
+  // Get a member of a compound tag; throws std::out_of_range when the key does
+  // not exist (consistent with std::map::at)
   [[nodiscard]] const Value& member(const std::string& kKey) const {
     return members_.at(kKey);
   }
-  // 取列表/数组的第 kIndex 个元素；越界抛 std::out_of_range
+  // Get the kIndex-th element of a list/array; throws std::out_of_range when out of bounds
   [[nodiscard]] const Value& item(std::size_t kIndex) const {
     return items_.at(kIndex);
   }
   [[nodiscard]] std::size_t size() const {
     return kind_ == Kind::kCompound ? members_.size() : items_.size();
   }
-  // 列表/数组里每个元素都当整数取（`[I;...]` 用）
+  // Take every element of a list/array as an integer (used for `[I;...]`)
   [[nodiscard]] std::vector<std::int64_t> AsIntArray() const;
 
  private:
@@ -89,11 +92,13 @@ class Value {
   std::map<std::string, Value> members_;
 };
 
-// 解析一段 SNBT 文本；失败时抛 std::runtime_error，消息里带出错位置
-// （LittleTiles 导出的结构是**单行**大文件，没有位置信息几乎无法排查）。
+// Parse a piece of SNBT text; throws std::runtime_error on failure with the error
+// position in the message (a structure exported by LittleTiles is a **single-line**
+// large file, and without position information it is nearly impossible to debug).
 [[nodiscard]] Value Parse(const std::string& kText);
 
-// 从文件读入并解析（整份读进内存；实测 800 KB 的房屋结构约 0.1 s）。
+// Read from a file and parse (the whole file is read into memory; a measured
+// 800 KB house structure takes about 0.1 s).
 [[nodiscard]] Value ParseFile(const std::string& kPath);
 
 }  // namespace galib::minecraft::snbt

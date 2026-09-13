@@ -30,9 +30,10 @@ class ChunkTileEntities;
 
 namespace galib::minecraft {
 
-// 一个区块里的"普通方块"（Level.Sections[].Blocks/Data/Add）。
-// LittleTiles 的 tile entity 是挂在普通方块上的，那些方块的外观由 tile 表达，
-// 因此导出完整方块时需要把它们排除（见 MarkLittleTilesHosts）。
+// The "plain blocks" of a chunk (Level.Sections[].Blocks/Data/Add).
+// LittleTiles tile entities are attached to plain blocks, and the appearance of
+// those blocks is expressed by the tiles, so they must be excluded when exporting
+// full blocks (see MarkLittleTilesHosts).
 class ChunkBlocks {
  public:
   static constexpr int kSizeX = 16;
@@ -42,13 +43,15 @@ class ChunkBlocks {
       static_cast<std::size_t>(kSizeX) * kSizeY * kSizeZ;
 
   struct State {
-    // bit0：LittleTiles 宿主位置；bit1..bit6：该位置 6 个面是否被 tile 整面铺满
-    // （位序同 TileFaceID：EAST / WEST / SOUTH / NORTH / UP / DOWN）。
-    // 打包成 1 字节是为了让整个 State 仍是 4 字节——大范围导出要同时驻留
-    // 上百个区块的方块网格，这里每多一字节就是几十 MB。
+    // bit0: LittleTiles host position; bit1..bit6: whether each of the 6 faces at
+    // this position is fully covered by tiles (bit order as in TileFaceID:
+    // EAST / WEST / SOUTH / NORTH / UP / DOWN).
+    // It is packed into 1 byte so that the whole State stays 4 bytes - a large-area
+    // export keeps the block grids of hundreds of chunks resident at once, and every
+    // extra byte here costs tens of MB.
     static constexpr std::uint8_t kLittleTilesHostFlag = 0x01;
 
-    std::uint16_t block_id{0};  // 0 = 空气
+    std::uint16_t block_id{0};  // 0 = air
     std::uint8_t meta{0};
     std::uint8_t flags{0};
 
@@ -76,21 +79,25 @@ class ChunkBlocks {
     }
   };
 
-  // 解析 Level.Sections（含 Add 高位数组）。没有 Sections 时返回 false。
+  // Parse Level.Sections (including the Add high-bit array). Returns false when
+  // there is no Sections tag.
   bool ReadFromChunkLevel(const nbt::tag_compound& kChunkLevel);
 
-  // 标记 LittleTiles tile entity 所在的方块。
-  // 注意：1.12 的 tile entity 里 x/y/z 是**世界坐标**，需要 chunk 坐标才能换算成区块内坐标；
-  // 换算错了会一个都匹配不上，结果是 LT 结构下面的地形也被当成普通方块导出。
+  // Mark the blocks where LittleTiles tile entities live.
+  // Note: in 1.12 the tile entity's x/y/z are **world coordinates**, so the chunk
+  // coordinate is needed to convert them to in-chunk coordinates; getting the
+  // conversion wrong matches nothing, and the terrain underneath the LT structure
+  // ends up being exported as plain blocks too.
   void MarkLittleTilesHosts(const nbt::tag_list& kTileEntities,
                             const ChunkCoordinate& kChunkCoord);
 
-  // 记录每个 LittleTiles 宿主位置的"哪些面被 tile 整面铺满"。
-  // 完整方块的邻居剔除据此判断：只有铺满的面才真的挡住了相邻方块的表面。
+  // Record, for each LittleTiles host position, which faces are fully covered by
+  // tiles. Neighbour culling of full blocks relies on this: only a fully covered
+  // face really hides the surface of the neighbouring block.
   void MarkLittleTilesCoverage(
       const littletiles::ChunkTileEntities& kChunkTileEntities);
 
-  // 局部坐标访问；越界返回空气
+  // Local coordinate access; returns air when out of range
   const State& At(int kX, int kY, int kZ) const;
 
  private:

@@ -21,10 +21,13 @@
 
 namespace galib {
 
-// 输出统一为英文，避免终端编码导致中文乱码。
-// 历史上 Tr(zh, en) 支持中英双语；现在固定返回英文，中文参数被忽略。
-// 保留同样签名，调用点无需改动。
-[[nodiscard]] const char* Tr(const char* kZhCn, const char* kEnUs);
+// The library emits English-only messages, to avoid mojibake caused by terminal
+// encodings. This used to be the bilingual hook taking a Chinese and an English
+// string; the Chinese argument has been dropped.
+//
+// Every user-visible string still goes through this one function, so restoring
+// another language later means changing this entry point only.
+[[nodiscard]] const char* Tr(const char* kEnUs);
 
 }  // namespace galib
 

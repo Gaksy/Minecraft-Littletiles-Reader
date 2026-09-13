@@ -25,7 +25,7 @@
 #include "Minecraft/MinecraftCoord.h"
 
 namespace galib::minecraft::littletiles {
-// ChunkTileEntity -> BlockTileEntity -> BoxTileTntity -> TileEntity
+// ChunkTileEntity -> BlockTileEntity -> BoxTileEntity -> TileEntity
 
 enum class AngleID : std::uint8_t {
   EUN = 0,  // East Up North
@@ -84,9 +84,9 @@ struct TileFace {
   LittleTilesCoord pos_4{0, 0, 0};
 };
 
-// tile 的材质键：方块 id + 可选染色。
-// LittleTiles 会把同一种方块的不同颜色存成不同的 tile 条目，
-// 因此只用 block id 当键会把它们合并/丢弃。
+// Material key of a tile: block id + optional tint.
+// LittleTiles stores different colours of the same block as different tile entries,
+// so keying on the block id alone would merge or drop them.
 struct TileMaterial {
   std::string block_id;
   std::int32_t color{0};
@@ -124,7 +124,7 @@ class TileEntity {
   [[nodiscard]] bool is_offset_off_boundary() const;
   [[nodiscard]] bool has_color() const;
   [[nodiscard]] std::int32_t color() const;
-  // 未偏移的盒子（grid 单位，原点在方块角上）
+  // The unoffset box (in grid units, with the origin at the block corner)
   [[nodiscard]] const LittleTilesCoord& pos_1() const;
   [[nodiscard]] const LittleTilesCoord& pos_2() const;
   void set_pos(const LittleTilesCoord& kPos1, const LittleTilesCoord& kPos2);
@@ -144,14 +144,15 @@ class TileEntity {
 
 using BoxTileEnities = std::vector<TileEntity>;
 
-// 解析 LittleTiles 的盒子数组（存档里的 `box`/`boxes`、结构 SNBT 里的同一个编码）：
-// 前 6 个是 (x1,y1,z1,x2,y2,z2)，第 7 个（下标 6）是角度状态位，其后是打包的 16 位偏移。
+// Parse a LittleTiles box array (the `box`/`boxes` in saves and the same encoding in
+// structure SNBT): the first 6 entries are (x1,y1,z1,x2,y2,z2), the 7th (index 6) is
+// the angle state bits, and the rest are packed 16-bit offsets.
 //
-// 规则来自官方源码 `LittleBox.create`：
-//   * 长度 == 6                         → 普通 AABB
-//   * 数组[6] < 0                       → 带角度偏移（本函数解出 8 个角的偏移与 flip 位）
-//   * 长度 == 7 或 11 且 数组[6] >= 0   → 旧 slice 格式，按普通 AABB 处理
-// 返回 false 表示这个数组没有角度数据（按普通 AABB 处理）。
+// The rules come from the official source `LittleBox.create`:
+//   * length == 6                         -> plain AABB
+//   * array[6] < 0                        -> has angle offsets (this function decodes the offsets of the 8 corners and the flip bits)
+//   * length == 7 or 11 and array[6] >= 0 -> legacy slice format, treated as a plain AABB
+// Returning false means the array has no angle data (treat it as a plain AABB).
 bool DecodeBoxAngleData(const std::vector<std::int32_t>& kBoxArray,
                         AngleOffset kOffsets[8], Flipped* p_desc_flipped);
 
@@ -181,10 +182,13 @@ class BlockTileEntities {
 
   [[nodiscard]] size_type TileCount() const;
 
-  // 这个位置的 tile 是否把方块 6 个面"整面铺满"（位序同 TileFaceID：
-  // EAST / WEST / SOUTH / NORTH / UP / DOWN）。用于完整方块的邻居剔除：
-  // 只有铺满的面才挡得住相邻完整方块的面，花盆这种只占一小块的要保留。
-  // 带角度偏移的 tile 是斜面/异形，无法用盒子判断，按"没铺满"处理（保守）。
+  // Whether the tiles at this position fully cover all 6 faces of the block (bit
+  // order as in TileFaceID: EAST / WEST / SOUTH / NORTH / UP / DOWN). Used for
+  // neighbour culling of full blocks: only a fully covered face can hide the face of
+  // an adjacent full block, while something like a flower pot that occupies only a
+  // small part must be kept.
+  // A tile with angle offsets is a slanted/irregular shape that cannot be judged from
+  // its box, so it is treated as "not fully covered" (conservative).
   [[nodiscard]] std::uint8_t covered_face_mask() const;
 
  private:
@@ -218,9 +222,10 @@ class ChunkTileEntities {
                           kChunkDataReference,
                       size_type* p_boxes_count = nullptr);
 
-  // 直接读取 chunk 根 NBT，不经过 Anvil / mca 文件。
-  // 这是"上传 NBT 数据"这类场景的最小入口：优先取根下的 "Level" 子标签，
-  // 若不存在则把根自身当作 level（1.18+ 的扁平结构）。
+  // Read the chunk root NBT directly, bypassing Anvil / mca files.
+  // This is the minimal entry point for scenarios such as "upload NBT data": the
+  // "Level" child tag under the root is preferred, and if it does not exist the root
+  // itself is treated as the level (the 1.18+ flattened structure).
   size_type ReadChunkNbt(const nbt::tag_compound& kChunkRootNbt,
                          size_type* p_boxes_count = nullptr);
 
@@ -236,8 +241,9 @@ class ChunkTileEntities {
   [[nodiscard]] size_type TileCount() const;
 
  private:
-  // 解析 level 下的 "TileEntities" 列表并填充 block_tile_entities_。
-  // ReadChunk 与 ReadChunkNbt 共用此实现，保证两条入口行为一致。
+  // Parse the "TileEntities" list under level and fill block_tile_entities_.
+  // ReadChunk and ReadChunkNbt share this implementation so both entry points behave
+  // identically.
   size_type ReadTileEntities(const nbt::tag_compound& kChunkLevelNbt,
                              size_type* p_boxes_count);
 

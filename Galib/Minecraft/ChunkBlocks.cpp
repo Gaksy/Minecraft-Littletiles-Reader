@@ -26,7 +26,7 @@ namespace {
 
 const ChunkBlocks::State kAirState{};
 
-// 索引顺序：x + z*16 + y*256（YZX，与 Minecraft 的区块存储一致）
+// Index order: x + z*16 + y*256 (YZX, matching Minecraft's chunk storage)
 std::size_t Index(const int kX, const int kY, const int kZ) {
   return static_cast<std::size_t>(kX) +
          static_cast<std::size_t>(kZ) * ChunkBlocks::kSizeX +
@@ -49,8 +49,9 @@ std::vector<std::uint8_t> TagBytes(const nbt::tag_byte_array& kTag) {
   return std::vector<std::uint8_t>(values.begin(), values.end());
 }
 
-// 注意：在这个 libnbt++ 版本 + macOS 上，value::as<nbt::tag_byte_array>() 会抛 std::bad_cast，
-// 因此与 BlockTileEntities.cpp 里处理 box 的做法一致，改用 get() + static_cast。
+// Note: with this libnbt++ version on macOS, value::as<nbt::tag_byte_array>()
+// throws std::bad_cast, so - consistent with how box is handled in
+// BlockTileEntities.cpp - get() + static_cast is used instead.
 const nbt::tag_byte_array& AsByteArray(const nbt::value& kValue) {
   return static_cast<const nbt::tag_byte_array&>(kValue.get());
 }
@@ -68,7 +69,8 @@ bool ChunkBlocks::ReadFromChunkLevel(const nbt::tag_compound& kChunkLevel) {
     if (!section.has_key("Blocks")) {
       continue;
     }
-    // 注意：1.12 里 Sections[].Y 是 TAG_Byte（不是 Int），按 tag_int 取会抛 std::bad_cast
+    // Note: in 1.12 Sections[].Y is a TAG_Byte (not an Int); reading it as
+    // tag_int throws std::bad_cast
     const int section_y =
         section.has_key("Y") ? section.at("Y").as<nbt::tag_byte>().get() : 0;
     const std::vector<std::uint8_t> blocks =
@@ -82,7 +84,7 @@ bool ChunkBlocks::ReadFromChunkLevel(const nbt::tag_compound& kChunkLevel) {
       data = TagBytes(AsByteArray(section.at("Data")));
     }
 
-    // 一个 section 是 16x16x16
+    // One section is 16x16x16
     std::size_t local_index = 0;
     for (int y = 0; y < 16; ++y) {
       for (int z = 0; z < 16; ++z) {
@@ -116,7 +118,7 @@ void ChunkBlocks::MarkLittleTilesHosts(const nbt::tag_list& kTileEntities,
     if (!entity.has_key("x") || !entity.has_key("y") || !entity.has_key("z")) {
       continue;
     }
-    // tile entity 的 x/y/z 是世界坐标，换算成区块内坐标
+    // The tile entity's x/y/z are world coordinates; convert them to in-chunk coordinates
     const int x =
         entity.at("x").as<nbt::tag_int>().get() - kChunkCoord.x * kSizeX;
     const int y = entity.at("y").as<nbt::tag_int>().get();
@@ -134,7 +136,7 @@ void ChunkBlocks::MarkLittleTilesCoverage(
   const ChunkCoordinate& chunk_coord = kChunkTileEntities.chunk_coordinate();
   for (auto it = kChunkTileEntities.cbegin(); it != kChunkTileEntities.cend();
        ++it) {
-    // tile entity 记录的是世界坐标，换算成区块内坐标
+    // The tile entity records world coordinates; convert them to in-chunk coordinates
     const int x = it->block_coordinate().x - chunk_coord.x * kSizeX;
     const int y = it->block_coordinate().y;
     const int z = it->block_coordinate().z - chunk_coord.z * kSizeZ;

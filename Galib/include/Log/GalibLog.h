@@ -28,20 +28,24 @@
 
 namespace galib {
 
-// 进度输出的运行时开关。
+// Runtime switch for progress output.
 //
-// 这个库会逐区块、逐方块地打印进度（解析到哪个区块、构建到第几个方块……），
-// 本地 CLI 看着还行，但作为服务器端核心库时必须能整体关掉——既污染日志，
-// 也会在高并发下把 stdout 拖成瓶颈。CLI 的"显示进度提示"选项即控制它。
+// The library prints progress per chunk and per block (which chunk is being
+// parsed, which block is being built, ...). That is acceptable for a local CLI,
+// but as a server-side core library it must be switchable off entirely - it
+// pollutes the logs and turns stdout into a bottleneck under high concurrency.
+// The CLI's "print progress" option controls it.
 //
-// 注意：这是全局状态，和库里其它全局状态一样不是线程安全的；
-// 线程化之前应当改成显式传递的 logger 参数。
+// Note: this is global state and, like the other global state in the library, it
+// is not thread-safe; before threading it should become an explicitly passed
+// logger parameter.
 void SetProgressEnabled(bool kEnabled);
 
 [[nodiscard]] bool IsProgressEnabled();
 
-// 进度输出：开关关闭时什么都不打印。
-// 只用于进度/调试信息；错误与警告仍直接走 std::printf / std::cerr。
+// Progress output: prints nothing when the switch is off.
+// Only for progress/debug information; errors and warnings still go straight to
+// std::printf / std::cerr.
 void ProgressPrintf(const char* kFormat, ...) GALIB_PRINTF_LIKE(1, 2);
 
 }  // namespace galib

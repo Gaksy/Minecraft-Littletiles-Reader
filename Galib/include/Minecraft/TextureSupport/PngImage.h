@@ -23,15 +23,16 @@
 
 namespace galib::minecraft::texture_support {
 
-// 极简 PNG 读写：只覆盖 Minecraft 贴图实际用到的子集。
-// 读：8 位深度、非交错，颜色类型 0/2/3/4/6；统一转成 RGBA。
-// 写：8 位 RGBA、非交错、filter 0。
+// Minimal PNG reader/writer: it only covers the subset that Minecraft textures
+// actually use.
+// Read: 8-bit depth, non-interlaced, colour types 0/2/3/4/6; always converted to RGBA.
+// Write: 8-bit RGBA, non-interlaced, filter 0.
 class PngImage {
  public:
   PngImage() = default;
   PngImage(int kWidth, int kHeight);
 
-  // 失败时返回 false，并把原因写入 p_desc_error（可为空）
+  // Returns false on failure and writes the reason into p_desc_error (may be null)
   bool Load(const std::string& kPath, std::string* p_desc_error = nullptr);
   bool Save(const std::string& kPath,
             std::string* p_desc_error = nullptr) const;
@@ -40,7 +41,7 @@ class PngImage {
   int width() const { return width_; }
   int height() const { return height_; }
 
-  // 每像素 4 字节（RGBA）；下标越界返回 nullptr
+  // 4 bytes per pixel (RGBA); returns nullptr when the index is out of range
   unsigned char* Pixel(int kX, int kY);
   const unsigned char* Pixel(int kX, int kY) const;
 

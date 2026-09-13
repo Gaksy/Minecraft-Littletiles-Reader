@@ -45,7 +45,8 @@ using galib::minecraft::cgal_support::LtSurfaceMesh;
 using CGAL::SM_Vertex_index;
 
 // ---------------------------------------------------------------------------
-// 面构建辅助：平面四边形输出为 n 边形，非平面才回退到两个三角形
+// Face building helpers: a planar quad is emitted as an n-gon, and only a non-planar
+// one falls back to two triangles
 // ---------------------------------------------------------------------------
 namespace {
 using LtVertexIndex =
@@ -53,7 +54,8 @@ using LtVertexIndex =
 using LtPoint = galib::minecraft::cgal_support::LtPoint3;
 using SurfaceMeshType = galib::minecraft::cgal_support::SurfaceMeshType;
 
-// 四个点是否共面（坐标此时是 grid 单位，尺度 <= 数百，1e-9 的绝对容差足够）
+// Whether four points are coplanar (coordinates here are in grid units with a scale
+// of a few hundred at most, so an absolute tolerance of 1e-9 is enough)
 bool isPlanarQuad(const LtPoint& kA, const LtPoint& kB, const LtPoint& kC,
                   const LtPoint& kD) {
   const double abx = kB.x() - kA.x(), aby = kB.y() - kA.y(),
@@ -66,7 +68,7 @@ bool isPlanarQuad(const LtPoint& kA, const LtPoint& kB, const LtPoint& kC,
   const double length = std::sqrt(nx * nx + ny * ny + nz * nz);
   if (length < 1e-12) {
     return true;
-  }  // 退化面，交给 CGAL 自行拒绝
+  }  // degenerate face; let CGAL reject it
 
   const double adx = kD.x() - kA.x(), ady = kD.y() - kA.y(),
                adz = kD.z() - kA.z();
@@ -79,12 +81,14 @@ bool isSamePoint(const LtPoint& kA, const LtPoint& kB) {
          std::fabs(kA.y() - kB.y()) < 1e-9 && std::fabs(kA.z() - kB.z()) < 1e-9;
 }
 
-// kIndices/kPoints 必须按同一环绕顺序给出（该顺序决定面的法线方向）
+// kIndices/kPoints must be given in the same winding order (the order determines the
+// face normal direction)
 void addQuadFace(galib::minecraft::cgal_support::SurfaceMeshType& mesh,
                  const std::array<LtVertexIndex, 4>& kIndices,
                  const std::array<LtPoint, 4>& kPoints, const bool kFlipped) {
-  // 角点偏移可能让两个角点落在同一位置（退化四边形）。
-  // 此时必须先把重合点去掉，否则 CGAL 会以"非法多边形"为由拒绝整个面。
+  // Corner offsets can make two corners land on the same position (a degenerate quad).
+  // The coincident points must be removed first, otherwise CGAL rejects the whole face
+  // as an "invalid polygon".
   std::array<LtVertexIndex, 4> indices{};
   std::array<LtPoint, 4> points{};
   std::size_t count = 0;
@@ -101,7 +105,7 @@ void addQuadFace(galib::minecraft::cgal_support::SurfaceMeshType& mesh,
   }
   if (count < 3) {
     return;
-  }  // 退化成一个点或一条线，无面可加
+  }  // degenerated to a point or a line; no face to add
 
   if (count == 3) {
     mesh.add_face(indices[0], indices[1], indices[2]);
@@ -109,12 +113,13 @@ void addQuadFace(galib::minecraft::cgal_support::SurfaceMeshType& mesh,
   }
 
   if (isPlanarQuad(points[0], points[1], points[2], points[3])) {
-    // 平面四边形：保留为 1 个 n 边形（线框里不会出现多余的对角线）
+    // Planar quad: keep it as one n-gon (no superfluous diagonals appear in wireframe view)
     mesh.add_face(indices[0], indices[1], indices[2], indices[3]);
     return;
   }
 
-  // 非平面四边形：沿用原先的两三角形剖分，Flipped 决定用哪条对角线
+  // Non-planar quad: keep the original two-triangle split, with Flipped deciding which
+  // diagonal is used
   if (!kFlipped) {
     mesh.add_face(indices[0], indices[1], indices[3]);
     mesh.add_face(indices[1], indices[2], indices[3]);
@@ -165,7 +170,8 @@ void galib::minecraft::cgal_support::CreateMeshFromTileEntity(
   const bool up_flipped = flipped_data.up;
   const bool down_flipped = flipped_data.down;
 
-  // 环绕顺序与原先两三角形的绕向一致（法线方向不变）
+  // The winding order matches the original two triangles (the normal direction is
+  // unchanged)
   addQuadFace(mesh, {eds, edn, eun, eus}, {p_eds, p_edn, p_eun, p_eus},
               east_flipped);
   addQuadFace(mesh, {wdn, wds, wus, wun}, {p_wdn, p_wds, p_wus, p_wun},
@@ -181,7 +187,7 @@ void galib::minecraft::cgal_support::CreateMeshFromTileEntity(
 }
 
 // ---------------------------------------------------------------------------
-// 半空间裁剪：替代 corefine_and_compute_intersection
+// Half-space clipping: replaces corefine_and_compute_intersection
 // ---------------------------------------------------------------------------
 namespace {
 struct ClipVec3 {
@@ -268,7 +274,8 @@ ClipPolygon clipSimplifyPolygon(const ClipPolygon& kPolygon) {
   return polygon;
 }
 
-// 用半空间 n·p >= d 裁剪一个凸多面体；保留面按原环绕顺序，切面补一个新的 n 边形（cap）。
+// Clip a convex polyhedron with the half-space n.p >= d; kept faces retain their
+// winding order and a new n-gon (cap) is added for the cut plane.
 ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
                                      const ClipVec3& kN, const double kD) {
   ClipPolyhedron result;
@@ -303,15 +310,17 @@ ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
         cut_points.push_back(cross_point);
       }
     }
-    // 顶点恰好落在裁剪平面上时会产生重复点；cap 面还可能带有落在边上的
-    // 共线切点。两者都要去掉，否则 CGAL 会拒绝整个面。
+    // Vertices lying exactly on the clipping plane produce duplicate points, and the cap
+    // face may also carry collinear cut points lying on its edges. Both must be removed,
+    // otherwise CGAL rejects the whole face.
     const ClipPolygon simplified = clipSimplifyPolygon(clipped);
     if (simplified.size() >= 3) {
       result.push_back(simplified);
     }
   }
 
-  // 切面：所有新产生的点都落在裁剪平面上，去重后按平面内极角排序即可得到正确的环绕顺序
+  // Cap face: all newly produced points lie on the clipping plane, so after
+  // deduplication, sorting by in-plane polar angle yields the correct winding order
   ClipPolygon unique_points;
   for (const ClipVec3& point : cut_points) {
     bool duplicated = false;
@@ -339,8 +348,9 @@ ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
     center.y *= inverse_count;
     center.z *= inverse_count;
 
-    // 构造平面内基底 (u, v)，使 u × v = -n：
-    // 保留的是 n·p >= d 一侧，实体在 +n 方向，因此切面的外法线指向 -n。
+    // Build an in-plane basis (u, v) with u x v = -n:
+    // the kept side is n.p >= d and the solid is in the +n direction, so the cap face's
+    // outward normal points along -n.
     ClipVec3 u =
         (std::fabs(kN.x) <= std::fabs(kN.y) &&
          std::fabs(kN.x) <= std::fabs(kN.z))
@@ -435,10 +445,11 @@ std::size_t addClipFaceAsTriangleFanWithUnweldedVertices(
   return added_face_count;
 }
 
-// 把一个四边形面加入待裁剪多面体：
-// 角点重合时先合并退化点；平面四边形保留为 1 个面，
-// 非平面（扭曲）四边形按 Flipped 规则拆成两个三角形——
-// 与 CreateMeshFromTileEntity 的渲染一致，否则裁剪结果会与原布尔运算不同。
+// Add one quad face to the polyhedron to be clipped:
+// coincident corners are merged first; a planar quad is kept as one face, and a
+// non-planar (twisted) quad is split into two triangles following the Flipped rule -
+// consistent with the rendering in CreateMeshFromTileEntity, otherwise the clipping
+// result would differ from the original boolean operation.
 void appendQuadFace(ClipPolyhedron& desc_polyhedron, ClipPolygon kPoints,
                     const bool kFlipped) {
   ClipPolygon polygon = clipSimplifyPolygon(kPoints);
@@ -462,12 +473,16 @@ void appendQuadFace(ClipPolyhedron& desc_polyhedron, ClipPolygon kPoints,
 }  // namespace
 
 // ---------------------------------------------------------------------------
-// 忠实复刻 LittleTiles 1.12 LittleTransformableBox.requestCache()：
-// 盒子形状 = 6 个轴对齐盒面分别被"倾斜平面"切割（而非凸多面体交集）。
-// - 阶段一：从 8 个变换角点求出每个面的倾斜平面与倾斜条带，
-//           倾斜条带再被 6 个轴平面临界裁剪（保留背侧）。
-// - 阶段二：每个轴的盒(轴对齐)四边形被各倾斜平面裁剪；convex 面取交集，
-//           非 convex 面用 VectorFan 2D 投影做并集(cut2d/cutAxisStrip2)。
+// A faithful reproduction of LittleTiles 1.12
+// LittleTransformableBox.requestCache():
+// the box shape = the 6 axis-aligned box faces each cut by "tilted planes"
+// (rather than a convex polyhedron intersection).
+// - Stage 1: derive each face's tilted planes and tilted strips from the 8
+//            transformed corners; the tilted strips are then clipped by the 6 axis
+//            planes (keeping the back side).
+// - Stage 2: each axis's box (axis-aligned) quad is clipped by the tilted planes;
+//            convex faces take the intersection, non-convex faces take the union via a
+//            VectorFan 2D projection (cut2d/cutAxisStrip2).
 // ---------------------------------------------------------------------------
 namespace {
 constexpr int kDown = 0;
@@ -480,8 +495,9 @@ constexpr int kAxisX = 0;
 constexpr int kAxisY = 1;
 constexpr int kAxisZ = 2;
 
-// 角点 ID 顺序 = AngleID 序：0 EUN 1 EUS 2 EDN 3 EDS 4 WUN 5 WUS 6 WDN 7 WDS
-// 每面的 4 个角点（1.12 BoxFace 顺序，勾选三角形与轴条带都用同一顺序）
+// Corner ID order = AngleID order: 0 EUN 1 EUS 2 EDN 3 EDS 4 WUN 5 WUS 6 WDN 7 WDS
+// The 4 corners of each face (1.12 BoxFace order; triangle selection and axis strips
+// both use the same order)
 constexpr int kFaceCorners[6][4] = {
     /*DOWN*/ {7, 6, 2, 3},   // WDS WDN EDN EDS
     /*UP*/   {4, 5, 1, 0},   // WUN WUS EUS EUN
@@ -490,9 +506,9 @@ constexpr int kFaceCorners[6][4] = {
     /*WEST*/ {4, 6, 7, 5},   // WUN WDN WDS WUS
     /*EAST*/ {1, 3, 2, 0},   // EUS EDS EDN EUN
 };
-// 各面的主轴
+// Principal axis of each face
 constexpr int kFaceAxis[6] = {kAxisY, kAxisY, kAxisZ, kAxisZ, kAxisX, kAxisX};
-// 各面的外向法线
+// Outward normal of each face
 constexpr ClipVec3 kFaceDir[6] = {{0, -1, 0}, {0, 1, 0},   {0, 0, -1},
                                   {0, 0, 1},  {-1, 0, 0}, {1, 0, 0}};
 
@@ -516,15 +532,18 @@ ClipVec3 vfNorm(const ClipVec3& v) {
   if (len < 1e-12) return {0.0, 0.0, 0.0};
   return {v.x / len, v.y / len, v.z / len};
 }
-// isFront 语义：1=前侧(dot>eps)，-1=背侧(dot<-eps)，0=平面(|dot|<=eps)
+// isFront semantics: 1 = front side (dot > eps), -1 = back side (dot < -eps),
+// 0 = on the plane (|dot| <= eps)
 int vfSide(const ClipVec3& p, const ClipVec3& o, const ClipVec3& n) {
   double r = clipDot(clipSub(p, o), n);
   if (std::fabs(r) < kVfEps) return 0;
   return r > 0.0 ? 1 : -1;
 }
 
-// 用平面(o,n)做 Sutherland-Hodgman 裁剪：保留严格背侧，丢弃前侧与恰好落在平面上的点
-// (Python cut 的 keep = (isFront is False)，平面上 isFront 返回 None === 不保留)
+// Sutherland-Hodgman clipping with the plane (o,n): keep the strictly back side, drop
+// the front side and points lying exactly on the plane
+// (Python's cut uses keep = (isFront is False), and on the plane isFront returns
+// None === not kept)
 ClipPolygon vfCut(const ClipPolygon& poly, const ClipVec3& o,
                   const ClipVec3& n) {
   if (poly.size() < 3) return {};
@@ -548,7 +567,7 @@ ClipPolygon vfCut(const ClipPolygon& poly, const ClipVec3& o,
     prev = cur;
     pi = ci;
   }
-  // 去重
+  // deduplicate
   ClipPolygon res;
   for (const ClipVec3& p : out) {
     if (res.empty() || !vfVeq(res.back(), p, 1e-9)) res.push_back(p);
@@ -558,7 +577,8 @@ ClipPolygon vfCut(const ClipPolygon& poly, const ClipVec3& o,
   return res;
 }
 
-// tri 三个角点是否在主轴方向上与盒角点平齐（即无倾斜）
+// Whether the three corners of tri are flush with the box corners along the principal
+// axis (i.e. not tilted)
 bool vfCheckEqual(const int tri[3], int axis,
                   const std::array<ClipVec3, 8>& corners,
                   const std::array<ClipVec3, 8>& base) {
@@ -577,7 +597,7 @@ ClipVec3 vfTriNormal(const int tri[3],
                    clipSub(corners[tri[2]], corners[tri[0]]));
 }
 
-// 生成三角形角点（Flipped 决定取哪个）
+// Produce the triangle corners (Flipped decides which one is taken)
 void vfTriangle(const int fc[4], bool inv, bool first, int tri[3]) {
   if (first) {
     tri[0] = fc[0]; tri[1] = fc[1]; tri[2] = inv ? fc[3] : fc[2];
@@ -609,7 +629,8 @@ struct VfPlane {
   bool valid = false;
 };
 
-// 面 facing 的轴平面对（origin 取该面第一个角点在主轴上的盒坐标）
+// Axis plane of the face `facing` (origin is the box coordinate of that face's first
+// corner along the principal axis)
 VfPlane vfAxisPlane(int facing, const std::array<ClipVec3, 8>& base) {
   ClipVec3 origin{0.0, 0.0, 0.0};
   vfSetComponent(
@@ -618,7 +639,7 @@ VfPlane vfAxisPlane(int facing, const std::array<ClipVec3, 8>& base) {
   return {origin, kFaceDir[facing], true};
 }
 
-// ---- VectorFan 2D 投影裁剪 ----
+// ---- VectorFan 2D projection clipping ----
 int vfGetOne(int axis) { return axis == kAxisX ? kAxisY : (axis == kAxisY ? kAxisZ : kAxisX); }
 int vfGetTwo(int axis) { return axis == kAxisX ? kAxisZ : (axis == kAxisY ? kAxisX : kAxisY); }
 int vfGetThird(int one, int two) {
@@ -648,7 +669,7 @@ struct VfRay2d {
     const double other = o2 + d2 * (onev - o1) / d1;
     return std::fabs(other - twov) < kVfEps;
   }
-  // 1=true(右侧) 0=线上 -1=false(左侧)
+  // 1 = true (right side), 0 = on the line, -1 = false (left side)
   int isCoordinateToTheRight(double onev, double twov) const {
     const double r = d1 * (twov - o2) - d2 * (onev - o1);
     if (r > -kVfEps && r < kVfEps) return 0;
@@ -669,8 +690,10 @@ struct VfRay2d {
     ok = true;
     return p;
   }
-  // 返回交点参数 t；raises=true 表示两射线平行且共线（对应 Python 抛 Parallel）。
-  // 仅共线时 raises 置真；平行但不相交的平行线 raises=false 且返回 -1（与 Python 一致）。
+  // Returns the intersection parameter t; raises = true means the two rays are parallel
+  // and collinear (corresponding to Python raising Parallel). raises is set only when
+  // collinear; parallel but non-intersecting lines give raises = false and return -1
+  // (consistent with Python).
   double intersectWhen(const VfRay2d& line, bool& raises) const {
     const double den = d2 * line.d1 - d1 * line.d2;
     if (den > -kVfEps && den < kVfEps) {
@@ -782,7 +805,8 @@ bool vfIntersect2d(const ClipPolygon& fan, const ClipPolygon& other, int one,
 
 typedef std::vector<ClipPolygon> Clippolygon_done;
 
-// 单条边对 fan 的 2D 裁剪；done 收集被丢弃侧的面片（可能多个）
+// 2D clipping of fan by a single edge; done collects the pieces on the discarded side
+// (possibly several)
 ClipPolygon vfCut2dSingle(ClipPolygon fan, const VfRay2d& ray, int one, int two,
                           bool inverse, Clippolygon_done* done) {
   const std::size_t n = fan.size();
@@ -794,7 +818,7 @@ ClipPolygon vfCut2dSingle(ClipPolygon fan, const VfRay2d& ray, int one, int two,
     cutted[j] = c;
   }
   bool all_same = true;
-  int all_value = 0;  // 0=未定(等效 Python None)，1=右侧，-1=左侧
+  int all_value = 0;  // 0 = undetermined (equivalent to Python None), 1 = right side, -1 = left side
   bool all_value_set = (cutted[0] != 0);
   if (all_value_set) all_value = cutted[0];
   for (std::size_t j = 1; j < n; ++j) {
@@ -804,14 +828,14 @@ ClipPolygon vfCut2dSingle(ClipPolygon fan, const VfRay2d& ray, int one, int two,
       // Python: elif allValue!=c and c is not None: allSame=False
       if (c != 0 && c != all_value) all_same = false;
     } else {
-      // Python: if allValue is None: allValue=c  (取第一个非平面侧作为基准)
+      // Python: if allValue is None: allValue=c  (take the first non-plane side as the reference)
       if (c != 0) { all_value = c; all_value_set = true; }
     }
   }
   if (all_same) {
-    if (!all_value_set) return {};  // 全部落在裁剪线上，退化
-    if (all_value == 1) return fan;  // 全在保留侧
-    if (done) done->push_back(fan);  // 全在被丢弃侧
+    if (!all_value_set) return {};  // all on the clipping line, degenerate
+    if (all_value == 1) return fan;  // all on the kept side
+    if (done) done->push_back(fan);  // all on the discarded side
     return {};
   }
   const int third = vfGetThird(one, two);
@@ -848,7 +872,8 @@ ClipPolygon vfCut2dSingle(ClipPolygon fan, const VfRay2d& ray, int one, int two,
   return right;
 }
 
-// cutter 多边形对 fan 的 2D 裁剪；返回 done 面片列表（takeInner 时含内侧余料）
+// 2D clipping of fan by the cutter polygon; returns the done piece list (includes the
+// inner remainder when takeInner is set)
 ClipPolygon vfCut2d(const ClipPolygon& fan, const ClipPolygon& cutter, int one,
                     int two, bool inverse, bool takeInner,
                     Clippolygon_done* done) {
@@ -868,7 +893,8 @@ ClipPolygon vfCut2d(const ClipPolygon& fan, const ClipPolygon& cutter, int one,
   return to_cut;
 }
 
-// 非 convex 面的双平面裁剪（两个半空间区域的并集），返回多个结果多边形
+// Two-plane clipping of a non-convex face (the union of two half-space regions);
+// returns several result polygons
 std::vector<ClipPolygon> vfCutAxisStrip2(int facing, const ClipPolygon& strip,
                                          const VfPlane& pa, const VfPlane& pb) {
   const int axis = kFaceAxis[facing];
@@ -896,7 +922,7 @@ std::vector<ClipPolygon> vfCutAxisStrip2(int facing, const ClipPolygon& strip,
 bool galib::minecraft::cgal_support::ClipTileEntityToBox(
     LtSurfaceMesh& desc_mesh, const TileEntity& kTileEntity,
     const bool kApplyOffset) {
-  // 8 个角点：tilted = 加偏移，base = 盒(轴对齐)角点
+  // The 8 corners: tilted = with offsets applied, base = the box (axis-aligned) corners
   std::array<ClipVec3, 8> corners{};
   std::array<ClipVec3, 8> base{};
   const AngleID angle_ids[8] = {AngleID::EUN, AngleID::EUS, AngleID::EDN,
@@ -911,7 +937,7 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
   const bool flipped_arr[6] = {flipped.down, flipped.up, flipped.north,
                                flipped.south, flipped.west, flipped.east};
 
-  // 阶段一：每个面的倾斜平面 + 倾斜条带
+  // Stage 1: each face's tilted planes + tilted strips
   VfPlane tilted_planes[6][2];  // [face][a/b]
   ClipPolygon tilted_strips[6][2];
   bool convex[6];
@@ -956,7 +982,7 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
           tilted_planes[f][1] = {corners[tri2[0]], n2n, true};
       }
     }
-    // convex：strip2 是否在 plane1 前侧
+    // convex: whether strip2 is on the front side of plane1
     bool is_convex = true;
     if (!strip1.empty() && !strip2.empty() && tilted_planes[f][0].valid) {
       for (const ClipVec3& v : strip2) {
@@ -967,7 +993,7 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
         }
       }
     }
-    // 两条带都被 6 个轴平面裁剪（保留背侧）
+    // Both strips are clipped by the 6 axis planes (keeping the back side)
     if (!strip1.empty()) {
       for (int jf = 0; jf < 6; ++jf) {
         strip1 = vfCut(strip1, axis_planes[jf].origin, axis_planes[jf].normal);
@@ -985,7 +1011,7 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
     convex[f] = is_convex;
   }
 
-  // 阶段二：每个面的盒(轴对齐)四边形被各倾斜平面裁剪
+  // Stage 2: each face's box (axis-aligned) quad is clipped by the tilted planes
   std::vector<ClipPolygon> axis_strips[6];
   for (int f = 0; f < 6; ++f) {
     ClipPolygon quad;
@@ -1033,7 +1059,7 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
     axis_strips[f] = polys;
   }
 
-  // 汇总：去重后得到所有输出面
+  // Collect: after deduplication, all output faces are obtained
   auto round_key = [](const ClipVec3& p) {
     long long key[3];
     for (int a = 0; a < 3; ++a) {
@@ -1064,7 +1090,7 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
   SurfaceMeshType& mesh = desc_mesh.surface_mesh();
   std::map<std::array<long long, 3>, SurfaceMeshType::Vertex_index>
       welded_vertices;
-  const double weld_scale = 1e6;  // grid 单位下 1e-6 的量化精度足够区分真实顶点
+  const double weld_scale = 1e6;  // in grid units a 1e-6 quantization is precise enough to distinguish real vertices
   std::size_t fallback_face_count = 0;
 
   for (const ClipPolygon& face : faces) {
@@ -1095,8 +1121,10 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
       face_indices.push_back(found->second);
     }
 
-    // 裁剪会产生 T-junction：面在坐标上闭合，但 Surface_mesh 的流形拓扑不一定
-    // 能共享这些边。被 CGAL 拒绝时，用独立顶点 + 三角扇保住 OBJ 需要的面片。
+    // Clipping produces T-junctions: the faces close in coordinates, but the
+    // Surface_mesh manifold topology cannot necessarily share those edges. When CGAL
+    // rejects them, independent vertices + a triangle fan preserve the faces the OBJ
+    // needs.
     if (mesh.add_face(face_indices) == SurfaceMeshType::null_face()) {
       if (face.size() == 3) {
         if (addClipFaceWithUnweldedVertices(mesh, face) !=
@@ -1123,18 +1151,18 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
 
 const LtSurfaceMesh& galib::minecraft::cgal_support::CreateIntersectionCube(
     const GridType kGrid) {
-  // 静态指针，确保只在第一次调用时创建
+  // Static pointer, so it is created only on the first call
   static LtSurfaceMesh* p_lt_surface_mesh = nullptr;
 
-  // 如果cube尚未创建，则构建它
+  // If the cube has not been created yet, build it
   if (!p_lt_surface_mesh) {
     p_lt_surface_mesh = new LtSurfaceMesh();
     SurfaceMeshType& cube = p_lt_surface_mesh->surface_mesh();
 
-    // 构建正方体顶点 p1(0, 0, 0) 和 p2(1, 1, 1)
+    // Build the cube's vertices p1(0, 0, 0) and p2(1, 1, 1)
     using Point = SurfaceMeshType::Point;
 
-    // 顶点坐标
+    // Vertex coordinates
     const SM_Vertex_index eun = cube.add_vertex(Point(kGrid, kGrid, 0));
     const SM_Vertex_index eus = cube.add_vertex(Point(kGrid, kGrid, kGrid));
     const SM_Vertex_index edn = cube.add_vertex(Point(kGrid, 0, 0));
@@ -1144,7 +1172,7 @@ const LtSurfaceMesh& galib::minecraft::cgal_support::CreateIntersectionCube(
     const SM_Vertex_index wdn = cube.add_vertex(Point(0, 0, 0));
     const SM_Vertex_index wds = cube.add_vertex(Point(0, 0, kGrid));
 
-    // 创建正方体的面（六个面，每个面由两个三角形组成）
+    // Create the cube's faces (six faces, each made of two triangles)
     cube.add_face(eds, eun, eus);
     cube.add_face(eds, edn, eun);
     cube.add_face(wdn, wus, wun);
@@ -1159,7 +1187,7 @@ const LtSurfaceMesh& galib::minecraft::cgal_support::CreateIntersectionCube(
     cube.add_face(wdn, edn, eds);
   }
 
-  return *p_lt_surface_mesh;  // 返回静态指针
+  return *p_lt_surface_mesh;  // return the static pointer
 }
 
 void(galib::minecraft::cgal_support::ApplyWorldOffset)(
@@ -1193,16 +1221,17 @@ void(galib::minecraft::cgal_support::ApplyGrid)(LtSurfaceMesh& mesh,
   }
 }
 
-// 网格清理函数
+// Mesh cleanup function
 void(galib::minecraft::cgal_support::CleanupMesh)(LtSurfaceMesh& mesh) {
   SurfaceMeshType& surface_mesh = mesh.surface_mesh();
 
-  // 移除孤立顶点
+  // Remove isolated vertices
   CGAL::Polygon_mesh_processing::remove_isolated_vertices(surface_mesh);
 
-  // 移除退化面。
-  // 注意：PMP::remove_degenerate_faces 只接受三角形网格，而本项目的网格可能是
-  // 四边形/多边形（平面面片不再被拆成三角形），因此多边形网格改为手动检查重复顶点。
+  // Remove degenerate faces.
+  // Note: PMP::remove_degenerate_faces only accepts triangle meshes, whereas this
+  // project's meshes may be quads/polygons (planar patches are no longer split into
+  // triangles), so for polygon meshes duplicate vertices are checked manually.
   if (CGAL::is_triangle_mesh(surface_mesh)) {
     CGAL::Polygon_mesh_processing::remove_degenerate_faces(surface_mesh);
   } else {
@@ -1234,7 +1263,7 @@ void(galib::minecraft::cgal_support::CleanupMesh)(LtSurfaceMesh& mesh) {
     CGAL::Polygon_mesh_processing::remove_isolated_vertices(surface_mesh);
   }
 
-  // 确保网格是流形的
+  // Make sure the mesh is manifold
   if (!CGAL::is_valid_polygon_mesh(surface_mesh)) {
     std::cerr << "Warning: Mesh is not valid after cleanup" << std::endl;
   }

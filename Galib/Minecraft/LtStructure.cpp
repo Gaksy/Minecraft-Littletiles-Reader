@@ -23,11 +23,11 @@ namespace galib::minecraft::littletiles {
 
 namespace {
 
-// 一个 box 数组 → TileEntity（复用存档路径的同一套语义）
+// One box array -> TileEntity (reusing the same semantics as the save-file path)
 void ReadBox(const std::vector<std::int64_t>& kNumbers,
              TileEntity* p_desc_tile) {
   if (kNumbers.size() < 6) {
-    throw std::runtime_error("盒子数组长度不足 6");
+    throw std::runtime_error("box array has fewer than 6 entries");
   }
   LittleTilesCoord pos_1;
   LittleTilesCoord pos_2;
@@ -59,7 +59,7 @@ void ReadBox(const std::vector<std::int64_t>& kNumbers,
 
 LtStructure LtStructure::FromSnbt(const snbt::Value& kRoot) {
   if (!kRoot.is_compound()) {
-    throw std::runtime_error("结构 SNBT 的顶层不是复合标签");
+  throw std::runtime_error("the top level of the structure SNBT is not a compound tag");
   }
   LtStructure structure;
   if (kRoot.has_member("grid")) {
@@ -100,7 +100,7 @@ LtStructure LtStructure::FromSnbtFile(const std::string& kPath) {
 }
 
 void LtStructure::ReadGroups(const snbt::Value& kGroup) {
-  // 一个分组 = 一种材质（block + 可选 color）+ 若干盒子
+  // One group = one material (block + optional color) + a number of boxes
   if (kGroup.has_member("tile")) {
     const snbt::Value& tile = kGroup.member("tile");
     if (tile.is_compound() && tile.has_member("block") &&
@@ -132,7 +132,8 @@ void LtStructure::ReadGroups(const snbt::Value& kGroup) {
       }
     }
   }
-  // children：结构里嵌的子结构（门、灯……）。v1 只取几何，忽略其行为参数。
+  // children: child structures embedded in the structure (doors, lamps, ...).
+  // v1 only takes their geometry and ignores their behavioural parameters.
   if (kGroup.has_member("children")) {
     for (const snbt::Value& child : kGroup.member("children").items()) {
       ++child_group_count_;

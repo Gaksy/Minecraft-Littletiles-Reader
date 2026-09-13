@@ -88,16 +88,16 @@ BlockTileEntities::size_type BlockTileEntities::ReadBlockTileNbt(
 
 #ifdef GALIB_DEBUG
     ProgressPrintf(
-        Tr("BlockTileEntities::ReadBlockTileNbt 解析方块: %d %d %d\n",
-           "BlockTileEntities::ReadBlockTileNbt block: %d %d %d\n"),
+        Tr("BlockTileEntities::ReadBlockTileNbt block: %d %d %d\n"),
         block_coordinate_.x, block_coordinate_.y, block_coordinate_.z);
 #endif
 
     for (auto it = tiles.begin(); it != tiles.cend(); ++it) {
       tag_compound* p_boxes = &it->as<tag_compound>();  // Get boxes
 
-      // 材质键 = 方块 id + 可选颜色。
-      // 同一种方块可以用不同染色，LittleTiles 会把它们存成不同的 tile 条目。
+      // Material key = block id + optional colour.
+      // The same block can be tinted differently, and LittleTiles stores those as
+      // different tile entries.
       TileMaterial material;
       material.block_id = p_boxes->at("block").as<tag_string>().get();
       if (p_boxes->has_key("color")) {
@@ -105,9 +105,10 @@ BlockTileEntities::size_type BlockTileEntities::ReadBlockTileNbt(
         material.has_color = true;
       }
 
-      // 只有 (block, color) 完全相同才跳过。
-      // 原先只用 block id 判重，会把同种方块的不同染色整条丢弃
-      // （实测 chunk(-136,49) 因此丢了 45% 的 box）。
+      // Skip only when (block, color) are exactly the same.
+      // The original code deduplicated on block id alone, which dropped every
+      // differently tinted variant of the same block (measured: chunk(-136,49) lost
+      // 45% of its boxes because of this).
       if (box_tile_enities_map.find(material) != box_tile_enities_map.end()) {
         continue;
       }
@@ -132,8 +133,7 @@ BlockTileEntities::size_type BlockTileEntities::ReadBlockTileNbt(
 
 #ifdef GALIB_DEBUG
     ProgressPrintf(
-        Tr("BlockTileEntities::ReadBlockTileNbt 盒子 %zu 个，tile %zu 个\n",
-           "BlockTileEntities::ReadBlockTileNbt %zu boxes, %zu tiles\n"),
+        Tr("BlockTileEntities::ReadBlockTileNbt %zu boxes, %zu tiles\n"),
         boxes_count, tile_count);
 #endif
     if (p_boxes_count) {
@@ -175,9 +175,10 @@ BlockTileEntities::size_type BlockTileEntities::TileCount() const {
 
 namespace {
 
-// 6 个面的几何约定（下标与 TileFaceID 一致）：
+// Geometry convention of the 6 faces (indices match TileFaceID):
 //   0 EAST(+x) 1 WEST(-x) 2 SOUTH(+z) 3 NORTH(-z) 4 UP(+y) 5 DOWN(-y)
-// normal_axis 是面法线所在的轴；u/v 是面内两个轴，用来把面栅格化成 grid×grid。
+// normal_axis is the axis of the face normal; u/v are the two in-plane axes, used to
+// rasterize the face into grid x grid cells.
 struct FaceAxes {
   int normal_axis;
   int u_axis;
@@ -208,8 +209,9 @@ std::uint8_t BlockTileEntities::covered_face_mask() const {
     return 0;
   }
 
-  // 先把"没有角度偏移"的 tile 盒子整理成整数区间：
-  // 有偏移的 tile 是斜面/异形，盒子不代表实际形状，保守当作没覆盖。
+  // First turn the boxes of tiles "without angle offsets" into integer ranges: a tile
+  // with offsets is a slanted/irregular shape whose box does not represent its actual
+  // form, so it is conservatively treated as not covering anything.
   struct Box {
     int low[3];
     int high[3];
@@ -235,7 +237,8 @@ std::uint8_t BlockTileEntities::covered_face_mask() const {
     return 0;
   }
 
-  // 面被栅格化为 grid×grid 个小格；每个贴在该面上的 tile 把自己的矩形格子标满。
+  // The face is rasterized into grid x grid cells; every tile lying on that face marks
+  // its rectangular cells as covered.
   const auto grid_size = static_cast<std::size_t>(grid);
   std::vector<std::uint8_t> covered(grid_size * grid_size, 0);
   std::uint8_t mask = 0;
@@ -246,7 +249,8 @@ std::uint8_t BlockTileEntities::covered_face_mask() const {
     std::size_t marked_area = 0;
 
     for (const Box& box : boxes) {
-      // 必须真的贴在面所在的平面上（例如方块底面就是 y = 0 那个平面）
+      // It must actually lie on the plane of the face (for example the block's bottom
+      // face is the y = 0 plane)
       const bool touches = axes.positive ? box.high[axes.normal_axis] >= grid
                                          : box.low[axes.normal_axis] <= 0;
       if (!touches) {
@@ -269,7 +273,8 @@ std::uint8_t BlockTileEntities::covered_face_mask() const {
       }
     }
 
-    // 面积不够一定铺不满；够的话再确认没有空洞（tile 之间可能重叠）
+    // Insufficient area definitely means not fully covered; if the area is enough,
+    // confirm there are no holes (tiles may overlap)
     if (marked_area < grid_size * grid_size) {
       continue;
     }
@@ -322,7 +327,7 @@ bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,
       try {
         TileEntity temp;
         auto& inner_tag = it->get();
-        // 强制转换
+        // Cast
 #ifdef __APPLE__
         const auto& int_array =
             static_cast<const nbt::tag_array<int32_t>&>(inner_tag);
@@ -383,10 +388,11 @@ bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,
 bool galib::minecraft::littletiles::DecodeBoxAngleData(
     const std::vector<std::int32_t>& kBoxArray, AngleOffset kOffsets[8],
     Flipped* const p_desc_flipped) {
-  // 规则见 LittleBox.create：长度 6 是普通盒子；下标 6 为负才是带角度偏移的
-  // transformable box；长度为 7 或 11 且下标 6 非负的是旧 slice 格式（按普通盒
-  // 子处理）。旧实现只判断"长度 > 6"，遇到旧 slice 会把后面的数据当偏移解出
-  // 垃圾几何。
+  // Rules from LittleBox.create: length 6 is a plain box; only a negative index 6
+  // means a transformable box with angle offsets; a length of 7 or 11 with a
+  // non-negative index 6 is the legacy slice format (treated as a plain box). The old
+  // implementation only tested "length > 6", so with a legacy slice it decoded the
+  // trailing data as offsets and produced garbage geometry.
   if (kBoxArray.size() <= 6 || kBoxArray[6] >= 0) {
     return false;
   }
@@ -397,9 +403,9 @@ bool galib::minecraft::littletiles::DecodeBoxAngleData(
   for (std::size_t index = 7; index < kBoxArray.size(); ++index) {
     const std::uint32_t packed = static_cast<std::uint32_t>(kBoxArray[index]);
     angle_offset_array.push_back(
-        static_cast<OffsetType>((packed & 0xFFFF0000u) >> 16));  // 高 16 位
+        static_cast<OffsetType>((packed & 0xFFFF0000u) >> 16));  // high 16 bits
     angle_offset_array.push_back(
-        static_cast<OffsetType>(packed & 0x0000FFFFu));  // 低 16 位
+        static_cast<OffsetType>(packed & 0x0000FFFFu));  // low 16 bits
   }
 
   AngleOffset* p_offset = kOffsets;
@@ -426,8 +432,9 @@ bool galib::minecraft::littletiles::DecodeBoxAngleData(
     ++p_offset;
   }
 
-  // flip 位：24~29。官方 getData() 里指示位是 `Integer.MIN_VALUE | 翻转位`，
-  // 顺序与 Facing 序数一致（down/up/north/south/west/east）。
+  // Flip bits: 24..29. In the official getData() the indicator bit is
+  // `Integer.MIN_VALUE | flip bits`, and the order matches the Facing ordinals
+  // (down/up/north/south/west/east).
   if (p_desc_flipped != nullptr) {
     p_desc_flipped->down = (state_binary & (0x1u << 24)) != 0;
     p_desc_flipped->up = (state_binary & (0x2u << 24)) != 0;
@@ -447,7 +454,7 @@ bool BlockTileEntities::SetAngleOffsetStateData(const tag_int_array& offset_nbt,
     return false;
   }
 
-  // 与结构 SNBT 路径共用同一份解码实现
+  // Shares the same decoding implementation as the structure SNBT path
   std::vector<std::int32_t> box_array;
   box_array.reserve(offset_nbt.size());
   for (const auto& value : offset_nbt) {

@@ -17,7 +17,8 @@
 #ifndef GALIB_GALIBNAMESPACEDEF_H
 #define GALIB_GALIBNAMESPACEDEF_H
 
-// 调试输出开关。后续应改成 CMake 选项（目前恒为打开，见 docs/known-issues.md）。
+// Debug output switch. It should become a CMake option later
+// (currently always enabled, see docs/known-issues.md).
 #define GALIB_DEBUG
 
 #endif  // GALIB_GALIBNAMESPACEDEF_H

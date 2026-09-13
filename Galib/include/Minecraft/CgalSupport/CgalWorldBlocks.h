@@ -26,17 +26,23 @@
 
 namespace galib::minecraft::cgal_support {
 
-// 把一批区块里的"普通方块"（实体方块）转成完整立方体网格。
+// Convert the "plain blocks" (solid blocks) of a batch of chunks into full cube
+// meshes.
 //
-// 与 LittleTiles 的 tile 不同，普通方块本身就是一个 1x1x1 的立方体
-// （UV 恰好是整张贴图），因此这里只做三件事：
-//   1. 跳过空气与 LittleTiles 的宿主方块（后者外观由 tile 表达）；
-//   2. 按 (方块 id, meta) 分组，每组生成一个网格（网格级的方块名与颜色因此仍然成立）；
-//   3. 可选邻居剔除——只输出朝向空气或区域之外的面。
+// Unlike LittleTiles tiles, a plain block is itself a 1x1x1 cube (its UVs are
+// exactly the whole texture), so only three things are done here:
+//   1. Skip air and the LittleTiles host blocks (whose appearance is expressed
+//      by the tiles);
+//   2. Group by (block id, meta) and build one mesh per group (so the mesh-level
+//      block name and colour still hold);
+//   3. Optionally cull neighbours - only faces pointing at air or outside the
+//      region are emitted.
 //
-// kChunks 按行主序给出：chunk_x 从慢到快（外层是 z、内层是 x）。
-// kWorldOriginX/kWorldOriginZ 是这片区域左下角的世界方块坐标——
-// 输出必须用世界坐标，否则无法与 LittleTiles 的 tile 对齐。
+// kChunks is given in row-major order: chunk_x varies fastest (the outer loop is
+// z, the inner loop is x).
+// kWorldOriginX/kWorldOriginZ is the world block coordinate of the lower-left
+// corner of this region - the output must use world coordinates, otherwise it
+// cannot be aligned with the LittleTiles tiles.
 void BuildWorldBlockMeshes(int kWorldOriginX, int kWorldOriginZ,
                            const std::vector<minecraft::ChunkBlocks>& kChunks,
                            int kChunkSizeX, int kChunkSizeZ,

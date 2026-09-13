@@ -33,7 +33,8 @@ namespace {
 constexpr int kChunkSizeBlocks = 16;
 constexpr int kWorldHeight = 256;
 
-// 立方体六个面：4 个角的局部偏移（顺序决定法线方向，与 tile 的绕向一致）
+// The cube's six faces: local offsets of the 4 corners (the order determines the
+// normal direction, consistent with the tile winding)
 struct FaceSpec {
   int neighbor[3];
   int corners[4][3];
@@ -60,7 +61,8 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
     return;
   }
 
-  // 1. 把整片区域摊平成一张世界方块网格，方便跨区块做邻居剔除
+  // 1. Flatten the whole region into one world block grid, so neighbours can be
+  // culled across chunks
   const int size_x = kChunkSizeX * kChunkSizeBlocks;
   const int size_z = kChunkSizeZ * kChunkSizeBlocks;
   const std::size_t plane = static_cast<std::size_t>(size_x) * size_z;
@@ -119,20 +121,20 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
       }
     }
     ProgressPrintf(
-        Tr("[worldblocks] 网格 %dx%dx%d：非空气 %zu，LT 宿主 %zu\n",
-           "[worldblocks] grid %dx%dx%d: %zu solid blocks, %zu LT hosts\n"),
+        Tr("[worldblocks] grid %dx%dx%d: %zu solid blocks, %zu LT hosts\n"),
         size_x, kWorldHeight, size_z, filled, hosts);
   }
 #endif
 
-  // 2. 按 (方块 id, meta) 分组，每组一个网格
+  // 2. Group by (block id, meta), one mesh per group
   std::map<std::pair<std::uint16_t, std::uint8_t>, std::size_t> group_index;
 #ifdef GALIB_DEBUG
   std::size_t emitted_blocks = 0;
   std::size_t emitted_faces = 0;
   std::size_t culled_faces = 0;
 #endif
-  // add_face 失败时 CGAL 不抛异常，只返回 null_face；必须自己统计，否则会静默丢面
+  // When add_face fails CGAL throws no exception and only returns null_face; it must
+  // be counted here, otherwise faces are silently dropped
   std::size_t rejected_faces = 0;
   for (int y = 0; y < kWorldHeight; ++y) {
     for (int z = 0; z < size_z; ++z) {
@@ -144,7 +146,7 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
         const std::string block_name =
             kBlockIdTable.BlockName(state.block_id, state.meta);
         if (block_name.empty()) {
-          continue;  // 表里没有这个 id
+          continue;  // this id is not in the table
         }
 
         const auto key = std::make_pair(state.block_id, state.meta);
@@ -158,14 +160,18 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
         LtSurfaceMesh& mesh = (*p_desc_meshes)[found->second];
         SurfaceMeshType& surface = mesh.surface_mesh();
 
-        // 角点：世界坐标 = 世界原点 + 网格内坐标 + 0/1 偏移；本地坐标就是那个 0/1 偏移
+        // Corners: world coordinate = world origin + in-grid coordinate + 0/1 offset;
+        // the local coordinate is that 0/1 offset
         const int world_x = kWorldOriginX + x;
         const int world_z = kWorldOriginZ + z;
-        // 立方体的 8 个角只在"这一个方块"内共享，绝不跨方块焊接。
-        // CGAL 的 Euler::add_face 只接受"每个顶点都还在边界上、每条边都还不存在或为边界边"
-        // 的环；跨方块焊接顶点后，先写完的那个方块会把自己的顶点变成内部顶点，
-        // 于是相邻方块的这些面被静默拒绝（不抛异常、不返回失败），
-        // 表现为"完整方块只剩一两个面"。每个方块独立成一张闭合曲面就没有这个问题。
+        // The cube's 8 corners are shared only within "this one block" and are never
+        // welded across blocks. CGAL's Euler::add_face only accepts a cycle where
+        // "every vertex is still on the boundary and every edge does not exist yet or is
+        // a boundary edge"; after welding vertices across blocks, the block written first
+        // turns its own vertices into interior vertices, so these faces of the
+        // neighbouring block are silently rejected (no exception, no failure return),
+        // showing up as "a full block has only one or two faces left". Making each block
+        // its own closed surface avoids this entirely.
         std::array<SurfaceMeshType::Vertex_index, 8> corners;
         corners.fill(SurfaceMeshType::null_vertex());
         const auto corner_index = [](const int kLocalX, const int kLocalY,
@@ -188,20 +194,21 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
               return cached;
             };
 
-        // kFaces 的下标与 TileFaceID 一致（EAST/WEST/SOUTH/NORTH/UP/DOWN），
-        // 因此"邻居朝向本方块的那个面"就是 face_index ^ 1。
+        // The indices of kFaces match TileFaceID (EAST/WEST/SOUTH/NORTH/UP/DOWN), so
+        // "the neighbour's face pointing at this block" is face_index ^ 1.
         for (std::size_t face_index = 0; face_index < 6; ++face_index) {
           const FaceSpec& face = kFaces[face_index];
           if (kCullHiddenFaces) {
             const ChunkBlocks::State& neighbor =
                 state_at(x + face.neighbor[0], y + face.neighbor[1],
                          z + face.neighbor[2]);
-            // 挡得住这个面的只有两种情况：
-            //   1. 邻居是普通实心方块；
-            //   2. 邻居是 LT 宿主，且它那一侧的整个面被 tile 铺满
-            //      （例如一整块 tile 砌的实心方块）。
-            // LT 宿主位置的方块 id 是 LittleTiles 自己的方块（实测 id 257，非空气），
-            // 但它占的往往只是一小块几何（例如花盆），此时必须保留这个面。
+            // Only two cases can hide this face:
+            //   1. the neighbour is a plain solid block;
+            //   2. the neighbour is an LT host whose entire face on that side is covered
+            //      by tiles (for example a solid block built from a full tile).
+            // The block id at an LT host position is LittleTiles' own block (measured id
+            // 257, non-air), but it often occupies only a small piece of geometry (for
+            // example a flower pot), in which case this face must be kept.
             const std::uint8_t facing =
                 static_cast<std::uint8_t>(1u << (face_index ^ 1));
             const bool blocked = !neighbor.is_air() &&
@@ -235,14 +242,12 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
 
 #ifdef GALIB_DEBUG
   ProgressPrintf(
-      Tr("[worldblocks] 输出方块 %zu 个，面 %zu 个（邻居剔除 %zu 个，被 CGAL "
-         "拒绝 "
-         "%zu 个）\n",
-         "[worldblocks] emitted %zu blocks, %zu faces (culled %zu, rejected by "
+      Tr("[worldblocks] emitted %zu blocks, %zu faces (culled %zu, rejected by "
          "CGAL %zu)\n"),
       emitted_blocks, emitted_faces, culled_faces, rejected_faces);
   {
-    // 分组网格里"实际保存下来的面/顶点"——若远少于 emitted_faces，说明 add_face 被 CGAL 拒绝了
+    // The faces/vertices actually stored in the group meshes - if far fewer than
+    // emitted_faces, add_face was rejected by CGAL
     std::size_t stored_faces = 0;
     std::size_t stored_vertices = 0;
     for (const LtSurfaceMesh& mesh : *p_desc_meshes) {
@@ -250,8 +255,7 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
       stored_vertices += mesh.surface_mesh().number_of_vertices();
     }
     ProgressPrintf(
-        Tr("[worldblocks] 分组网格实际保存：%zu 个网格，面 %zu，顶点 %zu\n",
-           "[worldblocks] stored in group meshes: %zu meshes, %zu faces, %zu "
+        Tr("[worldblocks] stored in group meshes: %zu meshes, %zu faces, %zu "
            "vertices\n"),
         p_desc_meshes->size(), stored_faces, stored_vertices);
   }

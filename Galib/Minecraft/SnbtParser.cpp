@@ -41,8 +41,9 @@ std::vector<std::int64_t> Value::AsIntArray() const {
   return result;
 }
 
-// 递归下降解析器。LittleTiles 的结构文件是单行巨型文本，
-// 出错时把位置和上下文一起报出来，否则根本没法查。
+// Recursive-descent parser. A LittleTiles structure file is a single-line gigantic
+// text, so errors report both the position and the surrounding context; otherwise
+// they would be impossible to debug.
 class Parser {
  public:
   explicit Parser(const std::string& kText) : text_(kText) {}
@@ -51,7 +52,7 @@ class Parser {
     Value value = ParseValue();
     SkipSpaces();
     if (position_ != text_.size()) {
-      Fail("文档末尾有多余内容");
+      Fail("trailing content after the end of the document");
     }
     return value;
   }
@@ -62,8 +63,9 @@ class Parser {
     const std::size_t length =
         (position_ + 60 < text_.size() ? position_ + 60 : text_.size()) - begin;
     std::ostringstream message;
-    message << "SNBT 解析失败（位置 " << position_ << "）：" << kWhat << "\n"
-            << "  上下文: ..." << text_.substr(begin, length) << "...";
+    message << "SNBT parse failed (position " << position_ << "): " << kWhat
+            << "\n"
+            << "  context: ..." << text_.substr(begin, length) << "...";
     throw std::runtime_error(message.str());
   }
 
@@ -82,7 +84,7 @@ class Parser {
   void Expect(const char kCh) {
     SkipSpaces();
     if (position_ >= text_.size() || text_[position_] != kCh) {
-      Fail(std::string("期望 '") + kCh + "'");
+      Fail(std::string("expected '") + kCh + "'");
     }
     ++position_;
   }
@@ -97,7 +99,7 @@ class Parser {
       case '"':
         return ParseQuotedString();
       case '\0':
-        Fail("内容意外结束");
+        Fail("unexpected end of input");
       default:
         break;
     }
@@ -130,7 +132,7 @@ class Parser {
         ++position_;
         return result;
       }
-      Fail("复合标签里期望 ',' 或 '}'");
+      Fail("expected ',' or '}' in compound tag");
     }
   }
 
@@ -139,14 +141,14 @@ class Parser {
     result.kind_ = Value::Kind::kList;
     Expect('[');
     SkipSpaces();
-    // 类型化数组：[I;...] / [B;...] / [L;...]
+    // Typed array: [I;...] / [B;...] / [L;...]
     if (position_ + 1 < text_.size() &&
         (text_[position_] == 'I' || text_[position_] == 'B' ||
          text_[position_] == 'L') &&
         text_[position_ + 1] == ';') {
       result.array_type_ = text_[position_];
       position_ += 2;
-      if (Peek() == ']') {  // 空数组：[I;]
+      if (Peek() == ']') {  // empty array: [I;]
         ++position_;
         return result;
       }
@@ -161,7 +163,7 @@ class Parser {
           ++position_;
           return result;
         }
-        Fail("数组里期望 ',' 或 ']'");
+        Fail("expected ',' or ']' in array");
       }
     }
     if (Peek() == ']') {
@@ -179,7 +181,7 @@ class Parser {
         ++position_;
         return result;
       }
-      Fail("列表里期望 ',' 或 ']'");
+      Fail("expected ',' or ']' in list");
     }
   }
 
@@ -190,7 +192,7 @@ class Parser {
     std::string text;
     while (true) {
       if (position_ >= text_.size()) {
-        Fail("字符串没有结束的引号");
+        Fail("unterminated string (no closing quote)");
       }
       const char ch = text_[position_++];
       if (ch == '"') {
@@ -201,7 +203,7 @@ class Parser {
         continue;
       }
       if (position_ >= text_.size()) {
-        Fail("转义符后面没有内容");
+        Fail("escape character at end of input");
       }
       const char escaped = text_[position_++];
       switch (escaped) {
@@ -215,7 +217,7 @@ class Parser {
           text.push_back('\r');
           break;
         default:
-          text.push_back(escaped);  // \" \\ \' 等原样保留
+          text.push_back(escaped);  // \" \\ \' etc. are kept as-is
           break;
       }
     }
@@ -230,7 +232,7 @@ class Parser {
       ++position_;
     }
     if (begin == position_) {
-      Fail("这里需要一个值");
+      Fail("expected a value here");
     }
     Value result;
     result.kind_ = Value::Kind::kString;
@@ -261,9 +263,9 @@ class Parser {
     }
     const std::string digits = text_.substr(begin, position_ - begin);
     if (digits.empty() || digits == "-" || digits == "+") {
-      Fail("数字格式不对");
+      Fail("malformed number");
     }
-    // 类型后缀：b/B s/S l/L → 整型；f/F d/D → 浮点
+    // Type suffix: b/B s/S l/L -> integer; f/F d/D -> float
     char suffix = '\0';
     if (position_ < text_.size()) {
       const char ch = text_[position_];
@@ -300,7 +302,7 @@ Value Parse(const std::string& kText) {
 Value ParseFile(const std::string& kPath) {
   std::ifstream input(kPath, std::ios::binary);
   if (!input) {
-    throw std::runtime_error("无法打开 SNBT 文件: " + kPath);
+    throw std::runtime_error("cannot open SNBT file: " + kPath);
   }
   std::ostringstream buffer;
   buffer << input.rdbuf();

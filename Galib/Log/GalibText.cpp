@@ -18,9 +18,6 @@
 
 namespace galib {
 
-const char* Tr(const char* const kZhCn, const char* const kEnUs) {
-  (void)kZhCn;  // 只输出英文，中文参数不再使用
-  return kEnUs;
-}
+const char* Tr(const char* const kEnUs) { return kEnUs; }
 
 }  // namespace galib

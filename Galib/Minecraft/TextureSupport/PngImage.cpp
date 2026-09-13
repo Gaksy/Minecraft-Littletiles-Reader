@@ -61,13 +61,13 @@ void AppendChunk(std::vector<unsigned char>* const p_desc_out,
 int ChannelsOfColorType(const int kColorType) {
   switch (kColorType) {
     case 0:
-      return 1;  // 灰度
+      return 1;  // grayscale
     case 2:
       return 3;  // RGB
     case 3:
-      return 1;  // 调色板（索引）
+      return 1;  // palette (indexed)
     case 4:
-      return 2;  // 灰度 + alpha
+      return 2;  // grayscale + alpha
     case 6:
       return 4;  // RGBA
     default:
@@ -75,7 +75,7 @@ int ChannelsOfColorType(const int kColorType) {
   }
 }
 
-// 反解一行 PNG 滤波器，输出到 kLine（就地修改）
+// Reverse one row of PNG filtering, writing into kLine (in place)
 void UnfilterLine(const int kFilter, const int kBytesPerPixel,
                   const int kStride, const unsigned char* const kPrev,
                   unsigned char* const kLine) {
@@ -107,7 +107,7 @@ void UnfilterLine(const int kFilter, const int kBytesPerPixel,
         break;
       }
       default:
-        break;  // filter 0：原样
+        break;  // filter 0: as-is
     }
   }
 }
@@ -141,14 +141,14 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
 
   std::ifstream input(kPath, std::ios::binary);
   if (!input) {
-    return fail(Tr("无法打开文件", "cannot open file"));
+    return fail(Tr("cannot open file"));
   }
   const std::vector<unsigned char> data((std::istreambuf_iterator<char>(input)),
                                         std::istreambuf_iterator<char>());
   static const unsigned char kSignature[8] = {0x89, 'P',  'N',  'G',
                                               0x0D, 0x0A, 0x1A, 0x0A};
   if (data.size() < 8 || std::memcmp(data.data(), kSignature, 8) != 0) {
-    return fail(Tr("不是合法的 PNG", "not a valid PNG"));
+    return fail(Tr("not a valid PNG"));
   }
 
   int width = 0;
@@ -188,17 +188,17 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   }
 
   if (width <= 0 || height <= 0) {
-    return fail(Tr("IHDR 缺失或尺寸非法", "missing IHDR or invalid size"));
+    return fail(Tr("missing IHDR or invalid size"));
   }
   if (bit_depth != 8) {
-    return fail(Tr("只支持 8 位深度", "only 8-bit depth is supported"));
+    return fail(Tr("only 8-bit depth is supported"));
   }
   if (interlace != 0) {
-    return fail(Tr("不支持交错 PNG", "interlaced PNG is not supported"));
+    return fail(Tr("interlaced PNG is not supported"));
   }
   const int channels = ChannelsOfColorType(color_type);
   if (channels == 0) {
-    return fail(Tr("不支持的颜色类型", "unsupported colour type"));
+    return fail(Tr("unsupported colour type"));
   }
 
   const std::size_t stride = static_cast<std::size_t>(width) * channels;
@@ -206,7 +206,7 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   uLongf raw_size = static_cast<uLongf>(raw.size());
   if (uncompress(raw.data(), &raw_size, compressed.data(),
                  static_cast<uLong>(compressed.size())) != Z_OK) {
-    return fail(Tr("zlib 解压失败", "zlib inflate failed"));
+    return fail(Tr("zlib inflate failed"));
   }
   raw.resize(raw_size);
 
@@ -219,7 +219,7 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   std::size_t raw_offset = 0;
   for (int y = 0; y < height; ++y) {
     if (raw_offset + 1 + stride > raw.size()) {
-      return fail(Tr("像素数据不完整", "incomplete pixel data"));
+      return fail(Tr("incomplete pixel data"));
     }
     const int filter = raw[raw_offset++];
     std::memcpy(line.data(), raw.data() + raw_offset, stride);
@@ -271,7 +271,7 @@ bool PngImage::Save(const std::string& kPath,
                     std::string* const p_desc_error) const {
   if (!is_valid()) {
     if (p_desc_error) {
-      *p_desc_error = Tr("图像为空", "image is empty");
+      *p_desc_error = Tr("image is empty");
     }
     return false;
   }
@@ -292,7 +292,7 @@ bool PngImage::Save(const std::string& kPath,
   if (compress2(compressed.data(), &compressed_size, raw.data(),
                 static_cast<uLong>(raw.size()), Z_BEST_COMPRESSION) != Z_OK) {
     if (p_desc_error) {
-      *p_desc_error = Tr("zlib 压缩失败", "zlib deflate failed");
+      *p_desc_error = Tr("zlib deflate failed");
     }
     return false;
   }
@@ -306,11 +306,11 @@ bool PngImage::Save(const std::string& kPath,
   std::vector<unsigned char> header;
   AppendBigEndian32(&header, static_cast<std::uint32_t>(width_));
   AppendBigEndian32(&header, static_cast<std::uint32_t>(height_));
-  header.push_back(8);  // 位深
-  header.push_back(6);  // 颜色类型 RGBA
-  header.push_back(0);  // 压缩方法
-  header.push_back(0);  // 滤波方法
-  header.push_back(0);  // 非交错
+  header.push_back(8);  // bit depth
+  header.push_back(6);  // colour type RGBA
+  header.push_back(0);  // compression method
+  header.push_back(0);  // filter method
+  header.push_back(0);  // non-interlaced
   AppendChunk(&output, "IHDR", header);
   AppendChunk(&output, "IDAT", compressed);
   AppendChunk(&output, "IEND", {});
@@ -318,7 +318,7 @@ bool PngImage::Save(const std::string& kPath,
   std::ofstream out(kPath, std::ios::binary);
   if (!out) {
     if (p_desc_error) {
-      *p_desc_error = Tr("无法写出文件", "cannot write file");
+      *p_desc_error = Tr("cannot write file");
     }
     return false;
   }
