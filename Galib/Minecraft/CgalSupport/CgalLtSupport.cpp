@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "GalibNamespaceDef.h"
+#include "Log/GalibLog.h"
 #include "Minecraft/CgalSupport/CgalTypeDef.h"
 #include "Minecraft/LittleTiles.h"
 
@@ -48,6 +49,7 @@ namespace {
 using LtVertexIndex =
     galib::minecraft::cgal_support::SurfaceMeshType::Vertex_index;
 using LtPoint = galib::minecraft::cgal_support::LtPoint3;
+using SurfaceMeshType = galib::minecraft::cgal_support::SurfaceMeshType;
 
 // 四个点是否共面（坐标此时是 grid 单位，尺度 <= 数百，1e-9 的绝对容差足够）
 bool isPlanarQuad(const LtPoint& kA, const LtPoint& kB, const LtPoint& kC,
@@ -210,6 +212,60 @@ bool clipNearlyEqual(const ClipVec3& kA, const ClipVec3& kB) {
          std::fabs(kA.z - kB.z) < kClipEpsilon;
 }
 
+ClipVec3 clipCross(const ClipVec3& kA, const ClipVec3& kB) {
+  return {kA.y * kB.z - kA.z * kB.y, kA.z * kB.x - kA.x * kB.z,
+          kA.x * kB.y - kA.y * kB.x};
+}
+
+double clipSquaredLength(const ClipVec3& kA) { return clipDot(kA, kA); }
+
+bool clipIsCollinearMiddlePoint(const ClipVec3& kPrev, const ClipVec3& kPoint,
+                                const ClipVec3& kNext) {
+  const ClipVec3 before = clipSub(kPoint, kPrev);
+  const ClipVec3 after = clipSub(kNext, kPoint);
+  const double before_length = std::sqrt(clipSquaredLength(before));
+  const double after_length = std::sqrt(clipSquaredLength(after));
+  if (before_length < kClipEpsilon || after_length < kClipEpsilon) {
+    return true;
+  }
+  const ClipVec3 cross = clipCross(before, after);
+  const double cross_length = std::sqrt(clipSquaredLength(cross));
+  return cross_length <=
+         kClipEpsilon * std::max(1.0, before_length * after_length);
+}
+
+ClipPolygon clipSimplifyPolygon(const ClipPolygon& kPolygon) {
+  ClipPolygon polygon;
+  for (const ClipVec3& point : kPolygon) {
+    if (polygon.empty() || !clipNearlyEqual(polygon.back(), point)) {
+      polygon.push_back(point);
+    }
+  }
+  while (polygon.size() > 1 &&
+         clipNearlyEqual(polygon.front(), polygon.back())) {
+    polygon.pop_back();
+  }
+
+  bool removed = true;
+  while (removed && polygon.size() >= 3) {
+    removed = false;
+    ClipPolygon simplified;
+    simplified.reserve(polygon.size());
+    for (std::size_t i = 0; i < polygon.size(); ++i) {
+      const ClipVec3& prev = polygon[(i + polygon.size() - 1) % polygon.size()];
+      const ClipVec3& point = polygon[i];
+      const ClipVec3& next = polygon[(i + 1) % polygon.size()];
+      if (clipIsCollinearMiddlePoint(prev, point, next)) {
+        removed = true;
+        continue;
+      }
+      simplified.push_back(point);
+    }
+    polygon.swap(simplified);
+  }
+  return polygon;
+}
+
 // 用半空间 n·p >= d 裁剪一个凸多面体；保留面按原环绕顺序，切面补一个新的 n 边形（cap）。
 ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
                                      const ClipVec3& kN, const double kD) {
@@ -245,18 +301,9 @@ ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
         cut_points.push_back(cross_point);
       }
     }
-    // 顶点恰好落在裁剪平面上时会产生重复点，必须去掉，
-    // 否则 CGAL 会认为该多边形非法并拒绝整个面（导致网格不闭合）
-    ClipPolygon simplified;
-    for (const ClipVec3& point : clipped) {
-      if (simplified.empty() || !clipNearlyEqual(simplified.back(), point)) {
-        simplified.push_back(point);
-      }
-    }
-    if (simplified.size() >= 2 &&
-        clipNearlyEqual(simplified.front(), simplified.back())) {
-      simplified.pop_back();
-    }
+    // 顶点恰好落在裁剪平面上时会产生重复点；cap 面还可能带有落在边上的
+    // 共线切点。两者都要去掉，否则 CGAL 会拒绝整个面。
+    const ClipPolygon simplified = clipSimplifyPolygon(clipped);
     if (simplified.size() >= 3) {
       result.push_back(simplified);
     }
@@ -315,7 +362,10 @@ ClipPolyhedron clipPolyhedronByPlane(const ClipPolyhedron& kPolyhedron,
                 return std::atan2(clipDot(lhs, v), clipDot(lhs, u)) <
                        std::atan2(clipDot(rhs, v), clipDot(rhs, u));
               });
-    result.push_back(unique_points);
+    const ClipPolygon cap = clipSimplifyPolygon(unique_points);
+    if (cap.size() >= 3) {
+      result.push_back(cap);
+    }
   }
 
   return result;
@@ -340,22 +390,56 @@ bool clipIsPlanarQuad(const ClipPolygon& kQuad) {
   return std::fabs(clipDot(normal, ad)) / length < 1e-9;
 }
 
+SurfaceMeshType::Face_index addClipFaceWithUnweldedVertices(
+    SurfaceMeshType& desc_mesh, const ClipPolygon& kFace) {
+  std::vector<SurfaceMeshType::Vertex_index> face_indices;
+  face_indices.reserve(kFace.size());
+  for (const ClipVec3& point : kFace) {
+    face_indices.push_back(
+        desc_mesh.add_vertex(LtPoint(point.x, point.y, point.z)));
+  }
+  return desc_mesh.add_face(face_indices);
+}
+
+bool clipIsDegenerateTriangle(const ClipVec3& kA, const ClipVec3& kB,
+                              const ClipVec3& kC) {
+  const ClipVec3 ab = clipSub(kB, kA);
+  const ClipVec3 ac = clipSub(kC, kA);
+  return clipSquaredLength(clipCross(ab, ac)) < kClipEpsilon * kClipEpsilon;
+}
+
+std::size_t addClipFaceAsTriangleFanWithUnweldedVertices(
+    SurfaceMeshType& desc_mesh, const ClipPolygon& kFace) {
+  if (kFace.size() < 3) {
+    return 0;
+  }
+
+  std::size_t added_face_count = 0;
+  for (std::size_t i = 1; i + 1 < kFace.size(); ++i) {
+    const ClipVec3& a = kFace[0];
+    const ClipVec3& b = kFace[i];
+    const ClipVec3& c = kFace[i + 1];
+    if (clipIsDegenerateTriangle(a, b, c)) {
+      continue;
+    }
+
+    const auto va = desc_mesh.add_vertex(LtPoint(a.x, a.y, a.z));
+    const auto vb = desc_mesh.add_vertex(LtPoint(b.x, b.y, b.z));
+    const auto vc = desc_mesh.add_vertex(LtPoint(c.x, c.y, c.z));
+    if (desc_mesh.add_face(va, vb, vc) != SurfaceMeshType::null_face()) {
+      ++added_face_count;
+    }
+  }
+  return added_face_count;
+}
+
 // 把一个四边形面加入待裁剪多面体：
 // 角点重合时先合并退化点；平面四边形保留为 1 个面，
 // 非平面（扭曲）四边形按 Flipped 规则拆成两个三角形——
 // 与 CreateMeshFromTileEntity 的渲染一致，否则裁剪结果会与原布尔运算不同。
 void appendQuadFace(ClipPolyhedron& desc_polyhedron, ClipPolygon kPoints,
                     const bool kFlipped) {
-  ClipPolygon polygon;
-  for (const ClipVec3& point : kPoints) {
-    if (polygon.empty() || !clipNearlyEqual(polygon.back(), point)) {
-      polygon.push_back(point);
-    }
-  }
-  while (polygon.size() > 1 &&
-         clipNearlyEqual(polygon.front(), polygon.back())) {
-    polygon.pop_back();
-  }
+  ClipPolygon polygon = clipSimplifyPolygon(kPoints);
 
   if (polygon.size() < 3) {
     return;
@@ -432,9 +516,15 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
   std::map<std::array<long long, 3>, SurfaceMeshType::Vertex_index>
       welded_vertices;
   const double weld_scale = 1e6;  // grid 单位下 1e-6 的量化精度足够区分真实顶点
+  std::size_t fallback_face_count = 0;
 
   for (const ClipPolygon& face : polyhedron) {
     if (face.size() < 3) {
+      continue;
+    }
+    if (face.size() > 4) {
+      fallback_face_count +=
+          addClipFaceAsTriangleFanWithUnweldedVertices(mesh, face);
       continue;
     }
 
@@ -456,9 +546,28 @@ bool galib::minecraft::cgal_support::ClipTileEntityToBox(
       face_indices.push_back(found->second);
     }
 
-    // CGAL 会拒绝退化面与重复面，返回无效的 face_index，这里忽略即可
-    mesh.add_face(face_indices);
+    // 裁剪会产生 T-junction：面在坐标上闭合，但 Surface_mesh 的流形拓扑不一定
+    // 能共享这些边。被 CGAL 拒绝时，用独立顶点 + 三角扇保住 OBJ 需要的面片。
+    if (mesh.add_face(face_indices) == SurfaceMeshType::null_face()) {
+      if (face.size() == 3) {
+        if (addClipFaceWithUnweldedVertices(mesh, face) !=
+            SurfaceMeshType::null_face()) {
+          ++fallback_face_count;
+        }
+      } else {
+        fallback_face_count +=
+            addClipFaceAsTriangleFanWithUnweldedVertices(mesh, face);
+      }
+    }
   }
+
+#ifdef GALIB_DEBUG
+  if (fallback_face_count > 0) {
+    galib::ProgressPrintf(
+        "ClipTileEntityToBox: kept %zu triangulated fallback face(s)\n",
+        fallback_face_count);
+  }
+#endif
 
   return mesh.number_of_faces() > 0;
 }
