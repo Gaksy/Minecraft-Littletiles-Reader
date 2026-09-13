@@ -17,9 +17,9 @@
 
 用法：
     python3 tools/add_mod_textures.py \
-        --mod-root assets/littletiles_1.5.66 --namespace littletiles \
-        --mod-root assets/kirosblocks_1.2.2 --namespace kirosblocks \
-        --base assets/1.12.2 --out assets/pack_snbt
+        --mod-root data/assets/littletiles_1.5.66 --namespace littletiles \
+        --mod-root data/assets/kirosblocks_1.2.2 --namespace kirosblocks \
+        --base data/assets/1.12.2 --out data/assets/pack_snbt
 """
 
 import argparse
@@ -149,9 +149,9 @@ def main():
                         help='解出来的模组素材目录（可多次传入）')
     parser.add_argument('--namespace', action='append', default=[],
                         help='与 --mod-root 一一对应的命名空间')
-    parser.add_argument('--base', type=Path, default=REPO_ROOT / 'assets' / '1.12.2',
+    parser.add_argument('--base', type=Path, default=REPO_ROOT / 'data' / 'assets' / '1.12.2',
                         help='原版素材目录（提供基础映射表与兜底贴图）')
-    parser.add_argument('--out', type=Path, default=REPO_ROOT / 'assets' / 'pack_snbt')
+    parser.add_argument('--out', type=Path, default=REPO_ROOT / 'data' / 'assets' / 'pack_snbt')
     args = parser.parse_args()
 
     if len(args.mod_root) != len(args.namespace):

@@ -41,9 +41,9 @@ Enter the folder, then a chunk coordinate and a scan radius:
 
 | Folder | Chunk (x, z) | Recommended radius | Scan size | Baseline (Debug, plain blocks on, hidden faces culled) |
 |---|---|---|---|---|
-| `test_region/` | **0, 0** | **1** | 3×3 chunks | 236 tiles → 4,881 faces → 0.3 MB OBJ, ~0.1 s |
-| `test_region_medim/` | **-136, 49** | **5** | 11×11 chunks | 55,561 tiles → 388,744 faces → 34 MB OBJ, ~9 s |
-| `test_region_large/` | **-7, -26** | **5** | 11×11 chunks | 324,427 tiles + 1,945,017 plain blocks → 2,036,139 faces → 178 MB OBJ, ~50 s |
+| `data/regions/test_region/` | **0, 0** | **1** | 3×3 chunks | 236 tiles → 4,881 faces → 0.3 MB OBJ, ~0.1 s |
+| `data/regions/test_region_medim/` | **-136, 49** | **5** | 11×11 chunks | 55,561 tiles → 388,744 faces → 34 MB OBJ, ~9 s |
+| `data/regions/test_region_large/` | **-7, -26** | **5** | 11×11 chunks | 324,427 tiles + 1,945,017 plain blocks → 2,036,139 faces → 178 MB OBJ, ~50 s |
 
 `python3 tools/benchmark.py` re-runs all three with these parameters and records
 the result; past runs are kept in [`docs/benchmark.md`](docs/benchmark.md).
@@ -52,7 +52,7 @@ the result; past runs are kept in [`docs/benchmark.md`](docs/benchmark.md).
 # language (1 = zh-CN, 2 = en-US), region folder, chunk x, chunk z, radius,
 # plain blocks, cull hidden faces, center the model, normalize scale,
 # print progress and timing
-printf "2\ntest_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
+printf "2\ndata/regions/test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
 ```
 
 The first question picks the interface language (blank = zh-CN); every prompt and
@@ -61,19 +61,19 @@ message is bilingual. The last question controls both the progress output
 library) and the final total-time line. Answer `n` for clean, script-friendly
 output.
 
-The result is written to `out_file/` relative to the current working
+The result is written to `outputs/` relative to the current working
 directory (OBJ + MTL + a `<obj name>_textures/` folder).
 
 ## Using a Resource Pack
 
-Textures come from an assets root (`assets/1.12.2` by default). To export with a
+Textures come from an assets root (`data/assets/1.12.2` by default). To export with a
 resource pack, merge it onto the vanilla assets first:
 
 ```sh
-python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out assets/pack
+python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out data/assets/pack
 ```
 
-Then point the reader at the result, either via `LITTLETILES_ASSETS=assets/pack`
+Then point the reader at the result, either via `LITTLETILES_ASSETS=data/assets/pack`
 or by typing the path at the `assets root (blank = auto-detect):` prompt.
 The pack overrides only the textures it ships; the rest falls back to vanilla.
 Relative paths are resolved against the current directory, then the executable's

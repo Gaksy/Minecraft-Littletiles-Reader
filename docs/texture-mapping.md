@@ -130,10 +130,10 @@ MC 的原生渲染是"贴图像素 × 该颜色"。两种落地方式：
 ```sh
 # 1) 取版本清单 → 1.12.2 的版本 json → downloads.client.url
 # 2) 下载 client.jar（约 9.7 MB，sha1 0f275bc1…）
-# 3) 解出 assets/minecraft/{blockstates,models,textures/blocks} → assets/1.12.2/
+# 3) 解出 assets/minecraft/{blockstates,models,textures/blocks} → data/assets/1.12.2/
 ```
 
-本项目的 `assets/` 目录**不进入版本库**（见 `.gitignore`），需要时按上面步骤重建。
+本项目的 `data/assets/` 目录**不进入版本库**（见 `.gitignore`），需要时按上面步骤重建。
 LT 自身方块（`littletiles:*`）的贴图在 LT mod jar 的 assets 里，需要另行提供。
 
 ## 5.1 使用自定义材质包（资源包叠加）
@@ -142,7 +142,7 @@ LT 自身方块（`littletiles:*`）的贴图在 LT mod jar 的 assets 里，需
 先把材质包与原版素材**合并**成一个 assets 根：
 
 ```sh
-python3 tools/build_assets_from_pack.py --pack "texture/INCEPTION texture V1.4.zip" --out assets/pack_v14
+python3 tools/build_assets_from_pack.py --pack "texture/INCEPTION texture V1.4.zip" --out data/assets/pack_v14
 ```
 
 工具做三件事：
@@ -158,13 +158,13 @@ python3 tools/build_assets_from_pack.py --pack "texture/INCEPTION texture V1.4.z
 产物是标准 assets 根，两种指定方式：
 
 ```sh
-LITTLETILES_ASSETS=assets/pack_v14 ./LittleTilesReader     # 环境变量
+LITTLETILES_ASSETS=data/assets/pack_v14 ./LittleTilesReader     # 环境变量
 # 或者运行时在 "assets root (blank = auto-detect):" 一问里直接填路径（可留空）
 ```
 
 相对路径的解析顺序是**当前工作目录 → 可执行文件所在目录 → 可执行文件的上一级**：
-CLion 运行时工作目录是构建目录，直接填 `assets/pack_v14` 也能找到仓库根下的那一份。
-选中后会打印成绝对路径（`assets root: /…/assets/pack_v14`）——
+CLion 运行时工作目录是构建目录，直接填 `data/assets/pack_v14` 也能找到仓库根下的那一份。
+选中后会打印成绝对路径（`assets root: /…/data/assets/pack_v14`）——
 **这一行是判断"到底用了哪份素材"的唯一依据**，导出结果不对时先看它。
 
 实测（INCEPTION texture V1.4 + 1.12.2 存档）：
@@ -174,11 +174,11 @@ CLion 运行时工作目录是构建目录，直接填 `assets/pack_v14` 也能�
 | 映射表 | 455 个键（与原版一致） |
 | 贴图来源 | 材质包 **159 张** + 原版兜底 142 张，缺失 0 |
 | 分辨率 | 原版 16×16 → 材质包 128/256/512/1024 |
-| 合并素材根 | `assets/pack_v14` ≈ 69 MB |
+| 合并素材根 | `data/assets/pack_v14` ≈ 69 MB |
 | `test_region_medim` 11×11 导出 | OBJ 34.3 MB / 388744 面（**与原版完全一致**）+ 贴图 77 张 18 MB；写出文件 1.4 s → **11.5 s**（烘焙 512²/1024² 变慢） |
 | `test_region_large` 11×11 导出 | OBJ 177.5 MB / 2036139 面（与原版一致）+ 120 张贴图；写出文件 7.1 s → **16.4 s** |
 
-（数字来自 `docs/benchmark.md` 里 2026-09-12 那一节，`tools/benchmark.py --assets assets/pack_v14`。）
+（数字来自 `docs/benchmark.md` 里 2026-09-12 那一节，`tools/benchmark.py --assets data/assets/pack_v14`。）
 
 注意事项：
 
@@ -199,8 +199,8 @@ CLion 运行时工作目录是构建目录，直接填 `assets/pack_v14` 也能�
 
 ```sh
 python3 tools/resolve_block_textures.py assets/1.12.2 --table assets/1.12.2/block_textures.tsv
-python3 tools/make_uv_test_model.py assets/1.12.2 out_file/uv_test
-# -> out_file/uv_test/uv_test.obj + uv_test.mtl + 所需贴图（已复制到同目录）
+python3 tools/make_uv_test_model.py assets/1.12.2 outputs/uv_test
+# -> outputs/uv_test/uv_test.obj + uv_test.mtl + 所需贴图（已复制到同目录）
 ```
 
 样本刻意选"面与面差异明显"的方块，导入 Blender 后按 `.` 定位，逐项确认：
@@ -239,7 +239,7 @@ python3 tools/make_uv_test_model.py assets/1.12.2 out_file/uv_test
 | 贴图表 | `Minecraft/TextureSupport/BlockTextureTable.h/.cpp` | 读 TSV、按 `block(:meta)` 查表；附带六面 UV 计算与法线→朝向判定。不依赖 CGAL / nbt++ |
 | UV 记录 | `CgalLittletilesBuilder.cpp` 的合并过程 | 建网格后坐标是"方块内 0..1"，但导出前还会做居中/缩放，所以**在合并时**用 `世界坐标 − 方块坐标` 记下每个顶点的本地坐标；写出时再按面朝向算 UV |
 | 写出 | 同上的 `MergeAndWriteToObj` | 输出 `mtllib` / `vt` / `usemtl` / `f v/vt`；同时生成 `.mtl`，把用到的 PNG 写进 OBJ 旁边的 `<obj 名>_textures/` 子目录（`map_Kd` 指向该子目录，输出可整体搬走） |
-| 调用 | `main.cpp` | 素材目录优先读环境变量 `LITTLETILES_ASSETS`，否则依次尝试 `./assets/1.12.2` 与 `../assets/1.12.2`；都找不到就只导出几何并给出提示 |
+| 调用 | `main.cpp` | 素材目录优先读环境变量 `LITTLETILES_ASSETS`，否则依次尝试 `./data/assets/1.12.2` 与 `../data/assets/1.12.2`；都找不到就只导出几何并给出提示 |
 
 实测（chunk (-136,49)，8037 个 tile）：
 

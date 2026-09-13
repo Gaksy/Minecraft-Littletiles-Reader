@@ -35,9 +35,9 @@
 
 | 目录 | 区块坐标 (x, z) | 推荐范围 | 扫描规模 | 基线（Debug 构建，开启完整方块、剔除相邻面） |
 |---|---|---|---|---|
-| `test_region/` | **0, 0** | **1** | 3×3 区块 | 236 个 tile → 4881 面 → 0.3 MB OBJ，约 0.1 s |
-| `test_region_medim/` | **-136, 49** | **5** | 11×11 区块 | 55561 个 tile → 388744 面 → 34 MB OBJ，约 9 s |
-| `test_region_large/` | **-7, -26** | **5** | 11×11 区块 | 324427 个 tile + 194 万普通方块 → 2036139 面 → 178 MB OBJ，约 50 s |
+| `data/regions/test_region/` | **0, 0** | **1** | 3×3 区块 | 236 个 tile → 4881 面 → 0.3 MB OBJ，约 0.1 s |
+| `data/regions/test_region_medim/` | **-136, 49** | **5** | 11×11 区块 | 55561 个 tile → 388744 面 → 34 MB OBJ，约 9 s |
+| `data/regions/test_region_large/` | **-7, -26** | **5** | 11×11 区块 | 324427 个 tile + 194 万普通方块 → 2036139 面 → 178 MB OBJ，约 50 s |
 
 `python3 tools/benchmark.py` 会用上面这套参数把三个存档各跑一遍并记录结果，
 历史记录见 [`docs/benchmark.md`](docs/benchmark.md)。
@@ -45,7 +45,7 @@
 ```sh
 # 依次为：语言（1 = 中文，2 = English）、存档目录、区块 x、区块 z、半径、
 # 完整方块、剔除相邻面、居中、单位化、进度与耗时
-printf "1\ntest_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
+printf "1\ndata/regions/test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
 ```
 
 **第一个问题选界面语言**（直接回车 = 简体中文）：所有提示、进度、结果行都有中英两版，
@@ -53,21 +53,21 @@ printf "1\ntest_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
 以及库里逐区块、逐方块的详细信息）和结尾的**总耗时**一行。
 想要干净的、方便脚本处理的输出就答 `n`。
 
-产物写在**当前工作目录**下的 `out_file/`（OBJ + MTL + 同名 `<obj 名>_textures/` 贴图目录）。
+产物写在**当前工作目录**下的 `outputs/`（OBJ + MTL + 同名 `<obj 名>_textures/` 贴图目录）。
 
 ## 使用自定义材质包
 
-贴图来自一个素材根目录（默认 `assets/1.12.2`）。想用别的材质包（例如工作室内部包，
+贴图来自一个素材根目录（默认 `data/assets/1.12.2`）。想用别的材质包（例如工作室内部包，
 不入库），先把材质包与原版素材合并：
 
 ```sh
-python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out assets/pack
+python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out data/assets/pack
 ```
 
 合并出的目录就是标准素材根：材质包里有的贴图用它自己的，没有的回退原版。指定方式两种——
-环境变量 `LITTLETILES_ASSETS=assets/pack`，或运行时在 `assets root (blank = auto-detect):`
+环境变量 `LITTLETILES_ASSETS=data/assets/pack`，或运行时在 `assets root (blank = auto-detect):`
 那一问里直接填路径（可留空走自动探测）。相对路径依次按「当前工作目录 → 可执行文件目录 →
-可执行文件上一级」解析（CLion 的工作目录是构建目录，所以这样在哪儿都能填 `assets/pack`），
+可执行文件上一级」解析（CLion 的工作目录是构建目录，所以这样在哪儿都能填 `data/assets/pack`），
 选中后会打印成绝对路径，方便确认到底用了哪一份素材。细节与限制见
 [`docs/texture-mapping.md`](docs/texture-mapping.md)。
 

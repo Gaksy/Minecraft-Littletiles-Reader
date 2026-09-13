@@ -58,15 +58,15 @@
     打开 `../out_file/xxx.obj`，而 `ofstream` **不会创建目录**，目录不存在时只会打印
     「无法打开文件」并且什么都不产出（参考实现的 Java 版有 `folder.mkdirs()`）。
     现在会先 `create_directories` 建出父目录，并打印**规范化后的绝对路径**，
-    便于定位产物；`/out_file/` 也已加入 `.gitignore`。
+    方便定位产物；`/outputs/` 也已加入 `.gitignore`。
 
-    输出路径仍由 `main.cpp,24` 的宏 `OUT_OBJ_FILE_NAME = "../out_file/marge_obj_from_chunk_"`
-    决定，是**相对运行时工作目录**的：在构建目录下运行会写到 `<repo>/out_file/`，
-    在仓库根目录下运行会写到 `<repo>/../out_file/`。
+    输出路径由 `main.cpp` 决定：仓库模式下 `OUT_OBJ_FILE_NAME = "../outputs/chunk/marge_obj_from_chunk_"`，
+    结构文件（snbt/txt）模式下写到 `../outputs/snbt/<结构名>.obj`。两者都**相对运行时工作目录**：
+    在构建目录下运行会写到 `<repo>/outputs/chunk|snbt/`。
 
     贴图不再与 OBJ 平铺在同一层，而是写进 OBJ 旁边的 `<obj 名>_textures/` 子目录
     （`map_Kd` 指向该子目录，MTL 仍在 OBJ 同级——Blender 按 `mtllib` 相对 OBJ 找 MTL）。
-    这样一次导出只多一个目录，不会再往 out_file 里撒几十上百张 PNG。
+    这样一次导出只多一个目录，不会再往 outputs 里撒几十上百张 PNG。
 
 ### 2.6 输出归一化与数值精度
 

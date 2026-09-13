@@ -34,7 +34,7 @@ using galib::minecraft::littletiles::LtStructure;
 using std::string;
 using std::to_string;
 
-#define OUT_OBJ_FILE_NAME "../out_file/marge_obj_from_chunk_"
+#define OUT_OBJ_FILE_NAME "../outputs/chunk/marge_obj_from_chunk_"
 
 namespace {
 
@@ -44,26 +44,6 @@ using Clock = std::chrono::steady_clock;
 double ElapsedSeconds(const Clock::time_point kStart,
                       const Clock::time_point kEnd) {
   return std::chrono::duration<double>(kEnd - kStart).count();
-}
-
-// 启动时选界面语言：回车默认简体中文，输入 en/2/English 则切英文。
-void AskLanguage() {
-  printf("Language / 语言  [1] zh-CN  [2] en-US : ");
-  fflush(stdout);
-
-  char line[64];
-  if (!fgets(line, sizeof(line), stdin)) {
-    return;  // 非交互（管道）时保持默认中文
-  }
-  std::string answer(line);
-  for (char& ch : answer) {
-    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-  }
-  const bool english = answer.find('e') != std::string::npos ||
-                       answer.find('2') != std::string::npos;
-  galib::SetLanguage(english ? galib::Language::kEnUs : galib::Language::kZhCn);
-  printf("%s\n",
-         galib::Tr("已选择语言：简体中文", "Selected language: English"));
 }
 
 // 读取一行 y/n 回答；直接回车（空行）使用推荐默认值。
@@ -90,7 +70,7 @@ bool askYesNo(const char* const kPQuestion, const bool kDefaultValue) {
 
 // 可执行文件所在目录。CLion 跑程序时的工作目录是构建目录，
 // 相对路径必须能相对可执行文件（以及它的上一级 = 仓库根）解析，否则用户在
-// 仓库根下习惯写的 "assets/xxx" 会因为工作目录不同而找不到。
+// 仓库根下习惯写的 "data/assets/xxx" 会因为工作目录不同而找不到。
 std::filesystem::path ProgramDirectory(const char* const kProgramPath) {
   if (kProgramPath == nullptr || *kProgramPath == '\0') {
     return {};
@@ -102,18 +82,18 @@ std::filesystem::path ProgramDirectory(const char* const kProgramPath) {
 }
 
 // 自动探测素材根：环境变量 LITTLETILES_ASSETS 优先，其次是
-// ./assets/1.12.2、../assets/1.12.2，再退到相对可执行文件的同样位置。
+// ./data/assets/1.12.2、../data/assets/1.12.2，再退到相对可执行文件的同样位置。
 std::string DetectAssetsRoot(const std::filesystem::path& kProgramDir) {
   if (const char* const assets_env = std::getenv("LITTLETILES_ASSETS");
       assets_env != nullptr && *assets_env != '\0') {
     return assets_env;
   }
 
-  std::vector<std::filesystem::path> candidates = {"assets/1.12.2",
-                                                   "../assets/1.12.2"};
+  std::vector<std::filesystem::path> candidates = {"data/assets/1.12.2",
+                                                   "../data/assets/1.12.2"};
   if (!kProgramDir.empty()) {
-    candidates.push_back(kProgramDir / "assets" / "1.12.2");
-    candidates.push_back(kProgramDir.parent_path() / "assets" / "1.12.2");
+    candidates.push_back(kProgramDir / "data" / "assets" / "1.12.2");
+    candidates.push_back(kProgramDir.parent_path() / "data" / "assets" / "1.12.2");
   }
   for (const std::filesystem::path& candidate : candidates) {
     std::error_code error;
@@ -127,9 +107,9 @@ std::string DetectAssetsRoot(const std::filesystem::path& kProgramDir) {
 }
 
 // 素材目录：回车走自动探测；也可以填材质包生成的合并素材根
-// （见 tools/build_assets_from_pack.py，产物形如 assets/pack）。
+// （见 tools/build_assets_from_pack.py，产物形如 data/assets/pack）。
 // 相对路径依次按"当前工作目录 → 可执行文件目录 → 可执行文件上一级"解析，
-// 这样在 CLion（工作目录 = 构建目录）里填 assets/pack 也能找到。
+// 这样在 CLion（工作目录 = 构建目录）里填 data/assets/pack 也能找到。
 // 按整行读取，路径里有空格不用加引号（从 Finder 复制来的引号会自动去掉）。
 std::string AskAssetsRoot(const std::filesystem::path& kProgramDir) {
   printf("%s", galib::Tr("素材目录（回车 = 自动探测）: ",
@@ -183,7 +163,6 @@ std::string AskAssetsRoot(const std::filesystem::path& kProgramDir) {
 
 int main(int argc, char** argv) {
   printf("=== LittleTiles Reader ===\n");
-  AskLanguage();
 
   const std::filesystem::path program_dir =
       ProgramDirectory(argc > 0 ? argv[0] : nullptr);
@@ -301,7 +280,7 @@ int main(int argc, char** argv) {
       }
     }
     const std::string obj_path =
-        std::string("../out_file/") + out_name + ".obj";
+        std::string("../outputs/snbt/") + out_name + ".obj";
     structure_builder.WriteToFile(obj_path.c_str());
 
     if (show_progress) {

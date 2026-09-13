@@ -15,7 +15,7 @@
 
 用法：
   python3 tools/build_assets_from_pack.py --pack "texture/INCEPTION texture V1.5.zip"
-  python3 tools/build_assets_from_pack.py --pack ~/packs/my.zip --out assets/mypack
+  python3 tools/build_assets_from_pack.py --pack ~/packs/my.zip --out data/assets/mypack
   python3 tools/build_assets_from_pack.py --pack ./packs/vanilla_compatible --use-pack-models
 
 zip 与 rar 都能直接给：rar 会用系统自带的 bsdtar（或 brew 的 unar）解到临时目录。
@@ -34,8 +34,8 @@ import zipfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_VANILLA = REPO_ROOT / "assets" / "1.12.2"
-DEFAULT_OUT = REPO_ROOT / "assets" / "pack"
+DEFAULT_VANILLA = REPO_ROOT / "data" / "assets" / "1.12.2"
+DEFAULT_OUT = REPO_ROOT / "data" / "assets" / "pack"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import resolve_block_textures as rbt  # noqa: E402  (要在 sys.path 调整之后导入)
@@ -266,9 +266,9 @@ def main():
     parser.add_argument("--pack", required=True,
                         help="材质包目录，或 .zip / .rar 文件（rar 自动解压）")
     parser.add_argument("--vanilla", type=Path, default=DEFAULT_VANILLA,
-                        help="原版 1.12.2 素材目录（默认 assets/1.12.2）")
+                        help="原版 1.12.2 素材目录（默认 data/assets/1.12.2）")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT,
-                        help="产物目录（默认 assets/pack）")
+                        help="产物目录（默认 data/assets/pack）")
     parser.add_argument("--use-pack-models", action="store_true",
                         help="让材质包的 blockstates/models 也参与解析（仅 1.12.2 命名的包）")
     args = parser.parse_args()

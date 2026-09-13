@@ -21,23 +21,9 @@
 
 namespace galib {
 
-// 界面语言。CLI 启动时二选一，库内部所有面向用户的文本都跟着切换。
-enum class Language {
-  kZhCn,  // 简体中文
-  kEnUs,  // English
-};
-
-// 全局语言开关（默认中文）。与进度开关一样是全局状态，不是线程安全的；
-// 线程化之前应当改成显式传入的 context。
-void SetLanguage(Language kLanguage);
-[[nodiscard]] Language GetLanguage();
-[[nodiscard]] bool IsEnglish();
-
-// 就地二选一的文本：中文与英文写在同一个调用点，避免再维护一份 ID 表。
-//
-//     printf(Tr("找到 %d 个区块", "found %d chunks"), count);
-//
-// 两个版本的格式说明符必须完全一致（同一个 printf 会按当前语言取其中一份）。
+// 输出统一为英文，避免终端编码导致中文乱码。
+// 历史上 Tr(zh, en) 支持中英双语；现在固定返回英文，中文参数被忽略。
+// 保留同样签名，调用点无需改动。
 [[nodiscard]] const char* Tr(const char* kZhCn, const char* kEnUs);
 
 }  // namespace galib

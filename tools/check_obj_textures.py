@@ -2,7 +2,7 @@
 """检查导出的 OBJ 到底引用了哪些贴图——用来把"导出问题"和"Blender 问题"分开。
 
 用法：
-    python3 tools/check_obj_textures.py out_file/marge_obj_from_chunk_0_0_to_1_1.obj
+    python3 tools/check_obj_textures.py outputs/chunk/marge_obj_from_chunk_0_0_to_1_1.obj
     python3 tools/check_obj_textures.py <obj> --list      # 逐个材质列出
 
 判定依据是分辨率：原版 Minecraft 1.12.2 的方块贴图一律 16x16，

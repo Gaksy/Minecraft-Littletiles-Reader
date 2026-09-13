@@ -28,7 +28,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_READER = REPO_ROOT / "cmake-build-debug" / "LittleTilesReader"
-DEFAULT_ASSETS = REPO_ROOT / "assets" / "1.12.2"
+DEFAULT_ASSETS = REPO_ROOT / "data" / "assets" / "1.12.2"
 
 # 各存档的推荐参数：(目录名, 区块 x, 区块 z, 扫描半径)
 CASES = [
@@ -37,9 +37,9 @@ CASES = [
     ("test_region_large", -7, -26, 5),
 ]
 
-# 交互式 CLI 回答顺序：先选语言，再是存档目录、x、z、半径、完整方块、剔面、居中、
-# 单位化、进度、素材目录（留空 = 自动探测；材质包导出用 --assets 指向合并素材根）
-CLI_LANGUAGE = "2"  # 2 = en-US：输出全是 ASCII，脚本解析更稳
+# 交互式 CLI 回答顺序：存档目录、x、z、半径、完整方块、剔面、居中、
+# 进度、素材目录（留空 = 自动探测；材质包导出用 --assets 指向合并素材根）。
+# 输出固定为英文（见 GalibLog/GalibText），脚本解析更稳。
 CLI_ANSWERS = "y\ny\ny\nn\ny\n\n"
 
 
@@ -95,11 +95,9 @@ def run_case(reader: Path, assets: Path, case, work_dir: Path) -> Result:
 
     run_dir = work_dir / f"run_{name}"
     run_dir.mkdir(parents=True, exist_ok=True)
-    region = REPO_ROOT / name
+    region = REPO_ROOT / "data" / "regions" / name
 
-    stdin_text = (
-        f"{CLI_LANGUAGE}\n{region}\n{chunk_x}\n{chunk_z}\n{radius}\n{CLI_ANSWERS}"
-    )
+    stdin_text = f"{region}\n{chunk_x}\n{chunk_z}\n{radius}\n{CLI_ANSWERS}"
     env = dict(os.environ, LITTLETILES_ASSETS=str(assets))
     started = time.monotonic()
     completed = subprocess.run(

@@ -400,7 +400,7 @@ struct ObjMeshBuilder::Impl {
       if (create_error) {
         std::cerr << galib::Tr("无法创建输出目录: ",
                                "cannot create output dir: ")
-                  << output_path.parent_path() << " —— "
+                  << output_path.parent_path() << " : "
                   << create_error.message() << std::endl;
         return false;
       }
@@ -518,7 +518,7 @@ struct ObjMeshBuilder::Impl {
       if (texture_dir_error) {
         std::cerr << galib::Tr("无法创建贴图目录: ",
                                "cannot create texture dir: ")
-                  << texture_dir << " —— " << texture_dir_error.message()
+                  << texture_dir << " : " << texture_dir_error.message()
                   << std::endl;
       }
       std::ofstream mtl(mtl_path);
@@ -560,7 +560,7 @@ struct ObjMeshBuilder::Impl {
                                    "warning: texture failed: ")
                       << texture_path;
             if (!bake_error.empty()) {
-              std::cerr << " —— " << bake_error;
+              std::cerr << ": " << bake_error;
             }
             std::cerr << std::endl;
           }

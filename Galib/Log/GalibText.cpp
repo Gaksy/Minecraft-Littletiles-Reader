@@ -18,20 +18,9 @@
 
 namespace galib {
 
-namespace {
-
-Language g_language = Language::kZhCn;
-
-}  // namespace
-
-void SetLanguage(const Language kLanguage) { g_language = kLanguage; }
-
-Language GetLanguage() { return g_language; }
-
-bool IsEnglish() { return g_language == Language::kEnUs; }
-
 const char* Tr(const char* const kZhCn, const char* const kEnUs) {
-  return g_language == Language::kEnUs ? kEnUs : kZhCn;
+  (void)kZhCn;  // 只输出英文，中文参数不再使用
+  return kEnUs;
 }
 
 }  // namespace galib

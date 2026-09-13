@@ -169,5 +169,5 @@ cmake --build cmake-build-debug
   若 `xcode-select -p` 指向**含空格**的路径（例如 `Xcode Beta.app`），autotools 生成的
   Makefile 会把 `MAKE` 截断导致 gmp 构建失败；可用 `MAKE=/usr/bin/make vcpkg install cgal` 绕过，
   根治方式是 `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`。
-- `main.cpp` 的输出路径 `../out_file/...` 是相对于**当前工作目录**的（`main.cpp,24`），
+- `main.cpp` 的输出路径 `../outputs/...` 是相对于**当前工作目录**的，
   不是可执行文件所在目录。
