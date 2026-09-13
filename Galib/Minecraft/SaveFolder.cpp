@@ -18,6 +18,8 @@
 
 #include <filesystem>
 
+#include "File/Utf8Path.h"
+
 namespace galib::minecraft {
 
 namespace {
@@ -95,7 +97,7 @@ std::optional<RegionFolderResolution> ResolveRegionFolder(
     return fail("save folder is empty");
   }
   std::error_code error;
-  const std::filesystem::path root(kWorldRoot);
+  const std::filesystem::path root = Utf8Path(kWorldRoot);
   if (!std::filesystem::is_directory(root, error)) {
     return fail("save folder not found: " + kWorldRoot);
   }
@@ -106,12 +108,12 @@ std::optional<RegionFolderResolution> ResolveRegionFolder(
   if (!HasRegionFiles(dimension_dir)) {
     // Rule 2: the caller handed us a region folder (or test data without level.dat)
     if (HasRegionFiles(root)) {
-      return RegionFolderResolution{root.string(), "root-is-region-folder"};
+      return RegionFolderResolution{Utf8String(root), "root-is-region-folder"};
     }
-    return fail("no region files under " + dimension_dir.string() +
+    return fail("no region files under " + Utf8String(dimension_dir) +
                 " (dimension " + DimensionName(kDimension) + ")");
   }
-  return RegionFolderResolution{dimension_dir.string(),
+  return RegionFolderResolution{Utf8String(dimension_dir),
                                 std::string("save/") +
                                     DimensionSubFolder(kDimension)};
 }

@@ -23,6 +23,7 @@ add_library(galib STATIC
   Minecraft/TextureSupport/PngImage.cpp
   File/FileState.cpp
     File/PathFormat.cpp
+    File/Utf8Path.cpp
     Log/GalibLog.cpp
     Log/GalibText.cpp
     Exception/MinecraftException.cpp
