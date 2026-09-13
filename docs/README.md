@@ -19,9 +19,10 @@
 > 并请把结论同步回 `.ai/`。
 
 > **本仓库只含库（C++ 核心 + CLI）。** 生成端脚本（原 `tools/`）、MATLAB 辅助（原 `python/`）
-> 与测试数据（原 `data/`：regions / snbt / matlab / assets / reference）**不随库分发**，
-> 已移到两个兄弟仓库：生成端 **`minecraft-littletiles-reader-tools`**（`ltgen` + `tools/`
-> + `python/`）与测试数据 **`minecraft-littletiles-reader-data`**。
+> 与测试数据（原 `data/`：regions / snbt / matlab / assets / reference）**不随库分发**。
+> 现在只有两个仓库：本仓库（C++ 库）与 **`minecraft-littletiles-reader-app`**
+> （Python 侧：`app/` + 生成端 `ltgen/` + `tools/` + `python/`）。
+> 测试数据是兄弟目录 **`minecraft-littletiles-reader-data`**，它不是仓库，就是一份数据目录。
 > 本文档目录里提到 `tools/*.py`、`python/*.py`、
 > `data/...` 的地方，指的都是那些外部资产——保留原文是为了记录"这份素材/这张表是怎么来的"，
 > 不代表本仓库里还有这些文件。库侧契约见 [`assets-package.md`](assets-package.md)。
