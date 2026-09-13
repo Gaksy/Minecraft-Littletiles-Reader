@@ -18,6 +18,7 @@
 #define GALIB_INCLUDE_MINECRAFT_CGALSUPPORT_CGALLITTLETILEBUIDER_H
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "GalibNamespaceDef.h"
@@ -130,7 +131,9 @@ class ObjMeshBuilder {
   void AddMesh(const LtSurfaceMesh& kMesh);
 
   // Normalize and write the OBJ (including mtllib/vt/usemtl plus the MTL and textures)
-  bool WriteToFile(const char* kFilename);
+  // Destination of the OBJ file, as a **UTF-8** path: the output folder and the
+  // object name both come from the host and may contain non-ASCII characters.
+  bool WriteToFile(const std::string& kFilename);
 
   // Valid after WriteToFile.
   const Stats& stats() const;

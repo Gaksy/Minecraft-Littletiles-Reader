@@ -28,6 +28,7 @@
 #include <optional>
 #include <utility>
 
+#include "File/Utf8Path.h"
 #include "Log/GalibLog.h"
 #include "Log/GalibText.h"
 #include "Minecraft/TextureSupport/AssetsPackage.h"
@@ -334,7 +335,7 @@ struct ObjMeshBuilder::Impl {
   }
 
   // Normalize (centre/scale) and write the OBJ, MTL and textures
-  bool WriteToFile(const char* const kFilename) {
+  bool WriteToFile(const std::string& kFilename) {
     using Point = SurfaceMeshType::Point;
     // Normalize: move the bounding-box centre to the origin; if requested, also
     // uniformly scale so the longest edge = 1
@@ -388,18 +389,20 @@ struct ObjMeshBuilder::Impl {
     // Export to an OBJ file
     // Note: ofstream does not create directories, so the output directory must be created
     // first, otherwise this fails outright
-    const std::filesystem::path output_path(kFilename);
+    // UTF-8 in, native path out: the output folder and the object name are chosen by
+    // the host and may contain non-ASCII characters.
+    const std::filesystem::path output_path = galib::Utf8Path(kFilename);
     if (output_path.has_parent_path()) {
       std::error_code create_error;
       std::filesystem::create_directories(output_path.parent_path(),
                                           create_error);
       if (create_error) {
         stats_.error = "cannot create output dir: " +
-                       output_path.parent_path().string() + " : " +
+                       galib::Utf8String(output_path.parent_path()) + " : " +
                        create_error.message();
         if (!options.quiet) {
           std::cerr << galib::Tr("cannot create output dir: ")
-                    << output_path.parent_path() << " : "
+                    << galib::Utf8String(output_path.parent_path()) << " : "
                     << create_error.message() << std::endl;
         }
         return false;
@@ -411,10 +414,12 @@ struct ObjMeshBuilder::Impl {
       std::error_code path_error;
       stats_.error =
           "cannot open file: " +
-          std::filesystem::weakly_canonical(output_path, path_error).string();
+          galib::Utf8String(
+              std::filesystem::weakly_canonical(output_path, path_error));
       if (!options.quiet) {
         std::cerr << galib::Tr("cannot open file: ")
-                  << std::filesystem::weakly_canonical(output_path, path_error)
+                  << galib::Utf8String(std::filesystem::weakly_canonical(
+                         output_path, path_error))
                   << std::endl;
       }
       return false;
@@ -425,7 +430,7 @@ struct ObjMeshBuilder::Impl {
     // with coordinates in the thousands (uncentred world coordinates) the quantization
     // step can reach 0.01 blocks, silently changing the geometry.
     out << std::setprecision(9);
-    const std::string obj_stem = output_path.stem().string();
+    const std::string obj_stem = galib::Utf8String(output_path.stem());
     const std::string mtl_filename = obj_stem + ".mtl";
     // Default destination of the textures: a same-named subdirectory next to the OBJ, so
     // dozens or hundreds of PNGs do not get mixed in with the OBJ; the MTL stays next to
@@ -527,20 +532,25 @@ struct ObjMeshBuilder::Impl {
     std::string texture_dir_label = texture_dir_name;
     if (write_materials) {
       const std::filesystem::path mtl_path =
-          output_path.parent_path() / mtl_filename;
+          output_path.parent_path() / galib::Utf8Path(mtl_filename);
       const std::filesystem::path texture_dir =
           options.material_output_dir.empty()
-              ? output_path.parent_path() / texture_dir_name
-              : std::filesystem::path(options.material_output_dir);
+              ? output_path.parent_path() / galib::Utf8Path(texture_dir_name)
+              : galib::Utf8Path(options.material_output_dir);
 
       // map_Kd is resolved relative to the MTL; the host-specified directory may not be
       // under the OBJ's subtree, so a relative path is computed once
-      std::error_code relative_error;
+      //
+      // lexically_relative() rather than relative(): the latter touches the file
+      // system and, on this toolchain, fails with ERROR_ACCESS_DENIED for every
+      // path (ASCII ones included), which silently degraded map_Kd to an absolute
+      // path. The lexical form is a pure string operation - both paths are already
+      // absolute - and gives the wanted "same folder -> plain name" result.
       const std::filesystem::path relative =
-          std::filesystem::relative(texture_dir, output_path.parent_path(),
-                                    relative_error);
+          texture_dir.lexically_relative(output_path.parent_path());
       std::string map_kd_prefix =
-          relative_error ? texture_dir.string() : relative.generic_string();
+          relative.empty() ? galib::Utf8GenericString(texture_dir)
+                           : galib::Utf8GenericString(relative);
       if (map_kd_prefix.empty()) {
         map_kd_prefix = ".";
       }
@@ -548,8 +558,10 @@ struct ObjMeshBuilder::Impl {
 
       std::string material_error;
       baked_texture_count =
-          materials_->WriteTextures(texture_dir.string(), &material_error);
-      materials_->WriteMtl(mtl_path.string(), map_kd_prefix, &material_error);
+          materials_->WriteTextures(galib::Utf8String(texture_dir),
+                                    &material_error);
+      materials_->WriteMtl(galib::Utf8String(mtl_path), map_kd_prefix,
+                           &material_error);
       if (!material_error.empty() && !options.quiet) {
         std::cerr << material_error;
       }
@@ -561,7 +573,9 @@ struct ObjMeshBuilder::Impl {
     if (!options.quiet) {
       std::error_code path_error;
       std::cout << galib::Tr("exported merged mesh to: ")
-                << std::filesystem::weakly_canonical(output_path, path_error)
+                << galib::Utf8String(
+                       std::filesystem::weakly_canonical(output_path,
+                                                         path_error))
                 << "\n";
       if (write_materials) {
         std::cout << galib::Tr("  materials ") << materials_->size()
@@ -622,7 +636,7 @@ void ObjMeshBuilder::AddMesh(const LtSurfaceMesh& kMesh) {
   impl_->AddMesh(kMesh);
 }
 
-bool ObjMeshBuilder::WriteToFile(const char* const kFilename) {
+bool ObjMeshBuilder::WriteToFile(const std::string& kFilename) {
   return impl_->WriteToFile(kFilename);
 }
 

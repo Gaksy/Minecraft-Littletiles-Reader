@@ -42,6 +42,10 @@ std::filesystem::path Utf8Path(const char* const kUtf8);
 // exactly what a Chinese save folder does.
 std::string Utf8String(const std::filesystem::path& kPath);
 
+// Same as Utf8String, but with forward slashes - the form that goes *inside* an
+// OBJ/MTL file, where a backslash is not a portable separator.
+std::string Utf8GenericString(const std::filesystem::path& kPath);
+
 }  // namespace galib
 
 #endif  // GALIB_FILE_UTF8PATH_H

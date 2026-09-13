@@ -19,6 +19,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 
 #include "GalibNamespaceDef.h"
@@ -27,25 +28,25 @@ namespace galib::file {
 using ByteType = std::uint8_t;
 
 template <typename CharType>
-bool ReadFileBasic(const char* const kPFilePath, CharType* buffer,
+bool ReadFileBasic(const std::filesystem::path& kFilePath, CharType* buffer,
                    const std::size_t kBufferSize) {
-  // Create input file stream
-  std::basic_ifstream<CharType> read_filestream;
-
-  // Open file
-  read_filestream.open(kPFilePath, std::ios::binary);
+  // A plain `std::ifstream` is used deliberately: it takes a
+  // std::filesystem::path, so non-ASCII file names work on Windows, and the
+  // bytes are then reinterpreted into the caller's buffer. Instantiating
+  // std::basic_ifstream<CharType> for an arbitrary CharType is a portability
+  // trap, hence the indirection.
+  std::ifstream read_filestream(kFilePath, std::ios::binary);
   if (!read_filestream.is_open()) {
     return false;
   }
 
   // Read file
-  read_filestream.read(buffer, kBufferSize);
+  read_filestream.read(reinterpret_cast<char*>(buffer),
+                       static_cast<std::streamsize>(kBufferSize));
 
-  // Close file stream
-  read_filestream.close();
-
-  // Return !read_filestream.fail()
-  return read_filestream.operator bool();
+  // A short read means the file is smaller than the caller expected.
+  return read_filestream.gcount() ==
+         static_cast<std::streamsize>(kBufferSize);
 }
 }  // namespace galib::file
 

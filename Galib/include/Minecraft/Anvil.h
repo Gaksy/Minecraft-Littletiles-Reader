@@ -20,6 +20,7 @@
 #include <nbt_tags.h>
 
 #include <cstddef>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -214,12 +215,15 @@ class AnvilReader {
 
  public:
   AnvilReader() = default;
-  explicit AnvilReader(const char* kPRegionFolderPath);
+  // The path is **UTF-8**; it is converted to a native path internally, so a
+  // save folder with non-ASCII characters (a Chinese name, say) works.
+  explicit AnvilReader(const std::string& kRegionFolderPath);
   ~AnvilReader() = default;
 
  public:
   // Set the directory path for the Region folder in the Minecraft save file.
-  bool SetRegionFolder(const char* kPRegionFolderPath);
+  // The path is UTF-8 (see the constructor).
+  bool SetRegionFolder(const std::string& kRegionFolderPath);
 
   // Get the current directory address of the Region folder.
   [[nodiscard]] const std::string& region_folder() const;
@@ -232,12 +236,12 @@ class AnvilReader {
 
  private:
   // Build the mca file directory.
-  static std::string BuildMcaFilePath(
-      const std::string& kRegionFolderPath,
+  static std::filesystem::path BuildMcaFilePath(
+      const std::filesystem::path& kRegionFolderPath,
       const galib::minecraft::RegionCoordinate& kRegionCoord);
 
   // Read the mca file.
-  static bool ReadMcaFile(const std::string& kMcaFilePath,
+  static bool ReadMcaFile(const std::filesystem::path& kMcaFilePath,
                           ByteArray& desc_bytearray);
 
   // Get the chunk index data.
@@ -259,6 +263,8 @@ class AnvilReader {
   ChunkManager chunk_cache_;
 
   // region folder path
+  // Stored as UTF-8: it is what the caller handed us and what gets reported
+  // back through region_folder().
   std::string region_folder_;
 };
 }  // namespace galib::minecraft

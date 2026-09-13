@@ -11,6 +11,16 @@
 #include <vector>
 
 #include <boost/json.hpp>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+#include "File/Utf8Path.h"
 #include "Log/GalibLog.h"
 #include "Log/GalibText.h"
 #include "Minecraft/Anvil.h"
@@ -85,12 +95,34 @@ bool askYesNo(const char* const kPQuestion, const bool kDefaultValue) {
 // "data/assets/xxx" users habitually write from the repository root cannot be found
 // because the working directory differs.
 std::filesystem::path ProgramDirectory(const char* const kProgramPath) {
-  if (kProgramPath == nullptr || *kProgramPath == '\0') {
-    return {};
+  std::filesystem::path program_path;
+#ifdef _WIN32
+  // argv[0] arrives as ANSI bytes on Windows, so an installation folder with
+  // non-ASCII characters would come out as mojibake; ask the OS instead.
+  std::vector<wchar_t> buffer(MAX_PATH);
+  for (;;) {
+    const DWORD length = GetModuleFileNameW(
+        nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (length == 0) {
+      break;
+    }
+    if (length < buffer.size()) {
+      program_path = std::filesystem::path(
+          std::wstring(buffer.data(), static_cast<std::size_t>(length)));
+      break;
+    }
+    buffer.resize(buffer.size() * 2);
+  }
+#endif
+  if (program_path.empty()) {
+    if (kProgramPath == nullptr || *kProgramPath == '\0') {
+      return {};
+    }
+    program_path = std::filesystem::path(kProgramPath);
   }
   std::error_code error;
   const std::filesystem::path absolute =
-      std::filesystem::weakly_canonical(kProgramPath, error);
+      std::filesystem::weakly_canonical(program_path, error);
   return error ? std::filesystem::path() : absolute.parent_path();
 }
 
@@ -122,7 +154,7 @@ std::string DetectAssetsRoot(const std::filesystem::path& kProgramDir) {
     if (std::filesystem::exists(candidate / "block_textures.tsv", error)) {
       const std::filesystem::path absolute =
           std::filesystem::weakly_canonical(candidate, error);
-      return error ? candidate.string() : absolute.string();
+      return error ? galib::Utf8String(candidate) : galib::Utf8String(absolute);
     }
   }
   return {};
@@ -157,10 +189,10 @@ std::string AskAssetsRoot(const std::filesystem::path& kProgramDir) {
     return DetectAssetsRoot(kProgramDir);
   }
 
-  std::vector<std::filesystem::path> candidates = {path};
+  std::vector<std::filesystem::path> candidates = {galib::Utf8Path(path)};
   if (!kProgramDir.empty()) {
-    candidates.push_back(kProgramDir / path);
-    candidates.push_back(kProgramDir.parent_path() / path);
+    candidates.push_back(kProgramDir / galib::Utf8Path(path));
+    candidates.push_back(kProgramDir.parent_path() / galib::Utf8Path(path));
   }
   for (const std::filesystem::path& candidate : candidates) {
     std::error_code error;
@@ -169,12 +201,12 @@ std::string AskAssetsRoot(const std::filesystem::path& kProgramDir) {
     }
     const std::filesystem::path absolute =
         std::filesystem::weakly_canonical(candidate, error);
-    return error ? candidate.string() : absolute.string();
+    return error ? galib::Utf8String(candidate) : galib::Utf8String(absolute);
   }
 
   printf("%s", galib::Tr("warning: no block_textures.tsv in any of these:\n"));
   for (const std::filesystem::path& candidate : candidates) {
-    printf("        %s\n", candidate.string().c_str());
+    printf("        %s\n", galib::Utf8String(candidate).c_str());
   }
   printf("%s", galib::Tr("      (an absolute path is safest; falling back to "
                          "auto-detect)\n"));
@@ -333,7 +365,9 @@ void EmitEvent(const bool kJson, const char* const kName,
 
 bool ReadFileToString(const std::string& kPath, std::string* p_desc_out,
                       std::string* p_desc_error) {
-  std::ifstream input(kPath, std::ios::binary);
+  // The job file path is UTF-8 (the host writes it, and it may sit under a
+  // directory the user named).
+  std::ifstream input(galib::Utf8Path(kPath), std::ios::binary);
   if (!input) {
     if (p_desc_error) {
       *p_desc_error = "cannot open job file: " + kPath;
@@ -607,7 +641,8 @@ int RunTilesReader(int argc, char** argv) {
   const bool is_structure_file =
       job.from_json
           ? job.is_snbt
-          : std::filesystem::is_regular_file(region_folder, path_error_code);
+          : std::filesystem::is_regular_file(
+                galib::Utf8Path(region_folder), path_error_code);
 
   ChunkCoordinate::NumericType chunk_x = 0;
   ChunkCoordinate::NumericType chunk_z = 0;
@@ -783,11 +818,15 @@ int RunTilesReader(int argc, char** argv) {
         !job.output_name.empty()
             ? job.output_name
             : (structure.name().empty()
-                   ? std::filesystem::path(region_folder).stem().string()
+                   ? galib::Utf8String(
+                         galib::Utf8Path(region_folder).stem())
                    : structure.name());
     for (char& ch : out_name) {
-      const bool is_ok = std::isalnum(static_cast<unsigned char>(ch)) != 0 ||
-                         ch == '_' || ch == '-';
+      // Bytes >= 0x80 are kept: they belong to a multi-byte UTF-8 character (a
+      // Chinese structure name, say), which is a perfectly legal file name.
+      const bool is_ok =
+          std::isalnum(static_cast<unsigned char>(ch)) != 0 ||
+          static_cast<unsigned char>(ch) >= 0x80 || ch == '_' || ch == '-';
       if (!is_ok) {
         ch = '_';
       }
@@ -795,10 +834,10 @@ int RunTilesReader(int argc, char** argv) {
     const std::string obj_path =
         job.output_dir.empty()
             ? std::string("../outputs/snbt/") + out_name + ".obj"
-            : (std::filesystem::path(job.output_dir) / (out_name + ".obj"))
-                  .generic_string();
+            : galib::Utf8GenericString(galib::Utf8Path(job.output_dir) /
+                                       galib::Utf8Path(out_name + ".obj"));
     EmitEvent(json_progress, "stage", {JsonField("name", "write")});
-    const bool structure_written = structure_builder.WriteToFile(obj_path.c_str());
+    const bool structure_written = structure_builder.WriteToFile(obj_path);
 
     const double seconds = ElapsedSeconds(process_start, Clock::now());
     if (!structure_written) {
@@ -829,7 +868,7 @@ int RunTilesReader(int argc, char** argv) {
   }
 
   AnvilReader anvil_reader;
-  anvil_reader.SetRegionFolder(region_folder.c_str());
+  anvil_reader.SetRegionFolder(region_folder);
 
   // Incremental accumulation: as soon as a chunk is processed its meshes are merged
   // into the result and released; otherwise the meshes of hundreds of chunks would stay
@@ -978,15 +1017,15 @@ int RunTilesReader(int argc, char** argv) {
   const std::string obj_file_path =
       job.output_dir.empty()
           ? std::string("../outputs/chunk/") + obj_stem + ".obj"
-          : (std::filesystem::path(job.output_dir) / (obj_stem + ".obj"))
-                .generic_string();
+          : galib::Utf8GenericString(galib::Utf8Path(job.output_dir) /
+                                     galib::Utf8Path(obj_stem + ".obj"));
 
   const Clock::time_point build_end = Clock::now();
   // Tell the host that reading is over and the slow part (writing the OBJ, baking
   // textures) begins. Without this a progress bar sits at 100% during the whole
   // write, which reads as "hung".
   EmitEvent(json_progress, "stage", {JsonField("name", std::string("write"))});
-  const bool written = obj_builder.WriteToFile(obj_file_path.c_str());
+  const bool written = obj_builder.WriteToFile(obj_file_path);
   const Clock::time_point write_end = Clock::now();
 
   if (!written) {
@@ -1037,6 +1076,14 @@ int RunTilesReader(int argc, char** argv) {
 }  // namespace
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
+  // The interactive prompts read and print **UTF-8** paths, so the console has to be
+  // told; otherwise a Chinese path typed at the prompt arrives in the OEM code page
+  // and is converted to mojibake by the library. Job mode (what the app uses) is
+  // unaffected: it never touches the console.
+  SetConsoleOutputCP(CP_UTF8);
+  SetConsoleCP(CP_UTF8);
+#endif
   try {
     return RunTilesReader(argc, argv);
   } catch (const std::exception& error) {

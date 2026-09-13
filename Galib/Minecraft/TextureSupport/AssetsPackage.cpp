@@ -24,6 +24,8 @@
 
 #include <boost/json.hpp>
 
+#include "File/Utf8Path.h"
+
 namespace galib::minecraft::texture_support {
 
 namespace {
@@ -74,7 +76,7 @@ bool DefaultTintForBlock(const std::string& kBlockId, std::uint32_t* p_desc_argb
 }
 
 bool ReadWholeFile(const std::string& kPath, std::string* p_desc_text) {
-  std::ifstream input(kPath, std::ios::binary);
+  std::ifstream input(galib::Utf8Path(kPath), std::ios::binary);
   if (!input) {
     return false;
   }
@@ -116,7 +118,7 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
     return fail("assets directory is empty");
   }
 
-  const std::filesystem::path dir(kDir);
+  const std::filesystem::path dir = galib::Utf8Path(kDir);
   std::error_code error;
   if (!std::filesystem::is_directory(dir, error)) {
     return fail("assets directory not found: " + kDir);
@@ -130,8 +132,8 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
   const std::filesystem::path manifest_path = dir / "manifest.json";
   if (std::filesystem::is_regular_file(manifest_path, error)) {
     std::string text;
-    if (!ReadWholeFile(manifest_path.string(), &text)) {
-      return fail("cannot read manifest: " + manifest_path.string());
+    if (!ReadWholeFile(galib::Utf8String(manifest_path), &text)) {
+      return fail("cannot read manifest: " + galib::Utf8String(manifest_path));
     }
     package.info_.has_manifest = true;
     // A broken manifest is reported instead of being silently treated as version 1:
@@ -140,12 +142,12 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
     const boost::json::value document = boost::json::parse(text, parse_error);
     if (parse_error) {
       return fail("manifest is not valid JSON (" + parse_error.message() + "): " +
-                  manifest_path.string());
+                  galib::Utf8String(manifest_path));
     }
     const boost::json::object* const object = document.if_object();
     if (object == nullptr) {
       return fail("manifest must contain a JSON object: " +
-                  manifest_path.string());
+                  galib::Utf8String(manifest_path));
     }
     int version = 1;
     if (const auto found = object->find("format_version");
@@ -156,7 +158,7 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
         version = static_cast<int>(found->value().as_uint64());
       } else {
         return fail("manifest: format_version must be an integer: " +
-                    manifest_path.string());
+                    galib::Utf8String(manifest_path));
       }
     }
     package.info_.format_version = version;
@@ -164,7 +166,7 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
       return fail("unsupported manifest format_version " +
                   std::to_string(version) + " (this build supports <= " +
                   std::to_string(kSupportedFormatVersion) + "): " +
-                  manifest_path.string());
+                  galib::Utf8String(manifest_path));
     }
   }
 
@@ -173,15 +175,15 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
   if (!std::filesystem::is_regular_file(table_path, error)) {
     return fail("missing block_textures.tsv in " + kDir);
   }
-  if (!package.table_.LoadFromTsv(table_path.string())) {
+  if (!package.table_.LoadFromTsv(galib::Utf8String(table_path))) {
     return fail("cannot read block_textures.tsv (empty or unreadable): " +
-                table_path.string());
+                galib::Utf8String(table_path));
   }
 
   // The tint table is optional
   const std::filesystem::path tint_path = dir / "tint.tsv";
   if (std::filesystem::is_regular_file(tint_path, error)) {
-    package.LoadTintTable(tint_path.string());
+    package.LoadTintTable(galib::Utf8String(tint_path));
   }
 
   // lint: count the unique referenced textures and check whether they exist on disk
@@ -211,7 +213,7 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
 }
 
 bool AssetsPackage::LoadTintTable(const std::string& kPath) {
-  std::ifstream input(kPath);
+  std::ifstream input(galib::Utf8Path(kPath));
   if (!input) {
     return false;
   }
@@ -244,7 +246,8 @@ bool AssetsPackage::Lookup(const std::string& kBlockId,
 }
 
 std::string AssetsPackage::ResolveTexture(const std::string& kRel) const {
-  return (std::filesystem::path(dir_) / "textures" / (kRel + ".png")).string();
+  return galib::Utf8String(galib::Utf8Path(dir_) / "textures" /
+                           galib::Utf8Path(kRel + ".png"));
 }
 
 bool AssetsPackage::HasTexture(const std::string& kRel) const {

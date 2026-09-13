@@ -19,10 +19,23 @@
 
 #include <sys/stat.h>
 
+#include <cstdint>
+#include <filesystem>
+
 #include "GalibNamespaceDef.h"
 
 namespace galib::file {
 using FileStat = struct ::stat;
+
+// Path-based probes. Prefer these for anything that can carry non-ASCII
+// characters: they go through std::filesystem, whereas the ::stat()-based
+// helpers below interpret a `const char*` in the **ANSI code page** on Windows -
+// which turns a Chinese save folder into mojibake and makes every lookup fail.
+bool IsFileAccessible(const std::filesystem::path& kPath);
+bool IsFolderAccessible(const std::filesystem::path& kPath);
+
+// Size of a file in bytes; false when it cannot be stat'ed.
+bool GetFileSize(const std::filesystem::path& kPath, std::uintmax_t* p_desc_size);
 
 // On success, true is returned. On error, false is returned and errno is set to indicare the error
 inline bool GetFileStat(const char* const kPFilePath,

@@ -22,6 +22,7 @@
 #include <cstring>
 #include <fstream>
 
+#include "File/Utf8Path.h"
 #include "Log/GalibText.h"
 
 namespace galib::minecraft::texture_support {
@@ -139,7 +140,7 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
     return false;
   };
 
-  std::ifstream input(kPath, std::ios::binary);
+  std::ifstream input(galib::Utf8Path(kPath), std::ios::binary);
   if (!input) {
     return fail(Tr("cannot open file"));
   }
@@ -315,7 +316,7 @@ bool PngImage::Save(const std::string& kPath,
   AppendChunk(&output, "IDAT", compressed);
   AppendChunk(&output, "IEND", {});
 
-  std::ofstream out(kPath, std::ios::binary);
+  std::ofstream out(galib::Utf8Path(kPath), std::ios::binary);
   if (!out) {
     if (p_desc_error) {
       *p_desc_error = Tr("cannot write file");

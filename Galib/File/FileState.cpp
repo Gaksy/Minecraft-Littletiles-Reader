@@ -16,7 +16,32 @@
 
 #include "File/FileState.h"
 
+#include <filesystem>
+
 #include "GalibNamespaceDef.h"
+
+bool galib::file::IsFileAccessible(const std::filesystem::path& kPath) {
+  std::error_code error;
+  return std::filesystem::is_regular_file(kPath, error) && !error;
+}
+
+bool galib::file::IsFolderAccessible(const std::filesystem::path& kPath) {
+  std::error_code error;
+  return std::filesystem::is_directory(kPath, error) && !error;
+}
+
+bool galib::file::GetFileSize(const std::filesystem::path& kPath,
+                              std::uintmax_t* const p_desc_size) {
+  std::error_code error;
+  const std::uintmax_t size = std::filesystem::file_size(kPath, error);
+  if (error) {
+    return false;
+  }
+  if (p_desc_size) {
+    *p_desc_size = size;
+  }
+  return true;
+}
 
 bool galib::file::IsFolderAccessible(const char* const kPFolderPath,
                                      FileStat* const p_file_stat) {

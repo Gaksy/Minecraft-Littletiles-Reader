@@ -21,6 +21,8 @@
 #include <sstream>
 #include <vector>
 
+#include "File/Utf8Path.h"
+
 namespace galib::minecraft::texture_support {
 
 namespace {
@@ -75,7 +77,8 @@ bool BlockTextureTable::LoadFromTsv(const std::string& kTsvPath) {
   entries_.clear();
   loaded_ = false;
 
-  std::ifstream input(kTsvPath);
+  // UTF-8 path: the table may sit in a folder the user named.
+  std::ifstream input(galib::Utf8Path(kTsvPath));
   if (!input) {
     return false;
   }

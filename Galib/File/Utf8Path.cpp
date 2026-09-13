@@ -32,14 +32,17 @@ std::filesystem::path Utf8Path(const std::string& kUtf8) {
   const int length = MultiByteToWideChar(CP_UTF8, 0, kUtf8.c_str(),
                                          static_cast<int>(kUtf8.size()), nullptr, 0);
   if (length <= 0) {
-    return std::filesystem::path(kUtf8);   // 转换失败就退回原样，至少行为可预期
+    // Conversion failed (invalid UTF-8): fall back to the raw bytes so the caller
+    // at least gets predictable behaviour instead of an exception.
+    return std::filesystem::path(kUtf8);
   }
   std::wstring wide(static_cast<std::size_t>(length), L'\0');
   MultiByteToWideChar(CP_UTF8, 0, kUtf8.c_str(), static_cast<int>(kUtf8.size()),
                       wide.data(), length);
   return std::filesystem::path(wide);
 #else
-  return std::filesystem::path(kUtf8);     // 类 Unix 上 UTF-8 就是本地编码
+  // On Unix-like systems UTF-8 already is the native encoding.
+  return std::filesystem::path(kUtf8);
 #endif
 }
 
@@ -66,6 +69,18 @@ std::string Utf8String(const std::filesystem::path& kPath) {
 #else
   return kPath.string();
 #endif
+}
+
+std::string Utf8GenericString(const std::filesystem::path& kPath) {
+  std::string text = Utf8String(kPath);
+  // Safe byte-wise: a backslash can only appear as itself in UTF-8, never as part
+  // of a multi-byte sequence.
+  for (char& ch : text) {
+    if (ch == '\\') {
+      ch = '/';
+    }
+  }
+  return text;
 }
 
 }  // namespace galib

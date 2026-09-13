@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <fstream>
 
+#include "File/Utf8Path.h"
 #include "Log/GalibText.h"
 
 namespace galib::minecraft::texture_support {
@@ -143,7 +144,9 @@ std::size_t MaterialManager::Claim(const std::string& kTextureRel,
 std::size_t MaterialManager::WriteTextures(const std::string& kOutputDir,
                                            std::string* const p_desc_error) {
   std::error_code error;
-  std::filesystem::create_directories(kOutputDir, error);
+  // UTF-8 in, native path out: the output directory is typically named after the
+  // job and may contain characters outside the ANSI code page.
+  std::filesystem::create_directories(galib::Utf8Path(kOutputDir), error);
   if (error) {
     if (p_desc_error) {
       *p_desc_error += "cannot create texture dir: " + kOutputDir + " : " +
@@ -151,7 +154,7 @@ std::size_t MaterialManager::WriteTextures(const std::string& kOutputDir,
     }
     return 0;
   }
-  const std::filesystem::path output_dir(kOutputDir);
+  const std::filesystem::path output_dir = galib::Utf8Path(kOutputDir);
 
   // Write out grouped by source texture: tinted variants of the same texture are
   // processed consecutively, so it only needs to be decoded once and only one
@@ -171,7 +174,10 @@ std::size_t MaterialManager::WriteTextures(const std::string& kOutputDir,
   PngImage decoded;
   for (const std::size_t i : order) {
     const MaterialKey& key = keys_[i];
-    const std::filesystem::path target = output_dir / (names_[i] + ".png");
+    // The material name derives from the texture path, which comes from a resource
+    // pack and is not guaranteed to be ASCII.
+    const std::filesystem::path target =
+        output_dir / galib::Utf8Path(names_[i] + ".png");
     const std::string source = package_.ResolveTexture(key.texture);
 
     // When no tinting is needed, copy the source texture directly to avoid a
@@ -181,9 +187,10 @@ std::size_t MaterialManager::WriteTextures(const std::string& kOutputDir,
     bool ready = false;
     if (!needs_bake) {
       std::error_code copy_error;
-      if (std::filesystem::exists(source)) {
+      const std::filesystem::path source_path = galib::Utf8Path(source);
+      if (std::filesystem::exists(source_path)) {
         std::filesystem::copy_file(
-            source, target,
+            source_path, target,
             std::filesystem::copy_options::overwrite_existing, copy_error);
         ready = !copy_error;
       }
@@ -204,10 +211,10 @@ std::size_t MaterialManager::WriteTextures(const std::string& kOutputDir,
       PngImage baked = decoded;  // always bake from the original, leaving the decoded result untouched
       ApplyTintAndTileColor(&baked, key.tint_rgb, key.tile_color);
       std::string save_error;
-      ready = baked.Save(target.string(), &save_error);
+      ready = baked.Save(galib::Utf8String(target), &save_error);
       if (!ready && p_desc_error) {
-        *p_desc_error += "cannot write " + target.string() + " : " + save_error +
-                         "\n";
+        *p_desc_error += "cannot write " + galib::Utf8String(target) + " : " +
+                         save_error + "\n";
       }
     }
 
@@ -223,7 +230,7 @@ std::size_t MaterialManager::WriteTextures(const std::string& kOutputDir,
 bool MaterialManager::WriteMtl(const std::string& kMtlPath,
                                const std::string& kMapKdPrefix,
                                std::string* const p_desc_error) const {
-  std::ofstream mtl(kMtlPath);
+  std::ofstream mtl(galib::Utf8Path(kMtlPath));
   if (!mtl) {
     if (p_desc_error) {
       *p_desc_error += "cannot open " + kMtlPath + "\n";

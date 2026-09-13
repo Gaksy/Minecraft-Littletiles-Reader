@@ -20,12 +20,16 @@
 #include <fstream>
 #include <sstream>
 
+#include "File/Utf8Path.h"
+
 namespace galib::minecraft {
 
 bool BlockIdTable::LoadFromTsv(const std::string& kTsvPath) {
   names_.clear();
 
-  std::ifstream input(kTsvPath);
+  // The table path can live under a folder the user named (a project directory, say),
+  // so it is converted from UTF-8 instead of being handed to the stream as bytes.
+  std::ifstream input(Utf8Path(kTsvPath));
   if (!input) {
     return false;
   }

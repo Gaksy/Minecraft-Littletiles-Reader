@@ -21,6 +21,8 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "File/Utf8Path.h"
+
 namespace galib::minecraft::snbt {
 
 namespace {
@@ -300,7 +302,7 @@ Value Parse(const std::string& kText) {
 }
 
 Value ParseFile(const std::string& kPath) {
-  std::ifstream input(kPath, std::ios::binary);
+  std::ifstream input(galib::Utf8Path(kPath), std::ios::binary);
   if (!input) {
     throw std::runtime_error("cannot open SNBT file: " + kPath);
   }

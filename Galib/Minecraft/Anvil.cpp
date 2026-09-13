@@ -26,16 +26,18 @@
 #include "File/FileOperator.h"
 #include "File/FileState.h"
 #include "File/PathFormat.h"
+#include "File/Utf8Path.h"
 #include "GalibNamespaceDef.h"
 
 using galib::coord::Coord2DToString;
 
-using galib::file::FileStat;
 using galib::file::FormatFolderPath;
-using galib::file::GetFileStat;
+using galib::file::GetFileSize;
 using galib::file::IsFileAccessible;
 using galib::file::IsFolderAccessible;
 using galib::file::ReadFileBasic;
+using galib::Utf8Path;
+using galib::Utf8String;
 
 using galib::exception::MinecraftErrorCode;
 using galib::exception::MinecraftException;
@@ -63,18 +65,22 @@ using nbt::io::stream_reader;
 // ANVIL EDITOR
 //
 
-AnvilReader::AnvilReader(const char* const kPRegionFolderPath) {
-  SetRegionFolder(kPRegionFolderPath);
+AnvilReader::AnvilReader(const std::string& kRegionFolderPath) {
+  SetRegionFolder(kRegionFolderPath);
 }
 
-bool AnvilReader::SetRegionFolder(const char* const kPRegionFolderPath) {
+bool AnvilReader::SetRegionFolder(const std::string& kRegionFolderPath) {
+  // Paths reach us as UTF-8 (JSON job files, the UI's file dialog) and have to be
+  // converted before touching the file system, or every non-ASCII path fails.
+  const std::filesystem::path native_folder = Utf8Path(kRegionFolderPath);
+
   // Check Folder Path
-  if (!IsFolderAccessible(kPRegionFolderPath)) {
+  if (!IsFolderAccessible(native_folder)) {
     return false;
   }
 
   // Format folder path style
-  string temp_region_folder(kPRegionFolderPath);
+  string temp_region_folder(kRegionFolderPath);
   if (!FormatFolderPath(&temp_region_folder.back(),
                         temp_region_folder.length())) {
     return false;
@@ -100,12 +106,13 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkDataReference(
 
   if (desc_mca_manager_it == mca_cache_.end()) {
     // Create mca path
-    string desc_mca_path = BuildMcaFilePath(region_folder_, desc_region_coord);
-    if (!IsFileAccessible(desc_mca_path.c_str())) {
+    const std::filesystem::path desc_mca_path =
+        BuildMcaFilePath(Utf8Path(region_folder_), desc_region_coord);
+    if (!IsFileAccessible(desc_mca_path)) {
       throw MinecraftException(
           MinecraftErrorCode::mc_file_read,
           (string("The MCA file cannot be read because it does not exist.") +
-           desc_mca_path)
+           Utf8String(desc_mca_path))
               .c_str());
     }
 
@@ -114,7 +121,8 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkDataReference(
     if (!ReadMcaFile(desc_mca_path, desc_mca_data)) {
       throw MinecraftException(
           MinecraftErrorCode::mc_file_read,
-          (string("The MCA file cannot be read.") + desc_mca_path).c_str());
+          (string("The MCA file cannot be read.") + Utf8String(desc_mca_path))
+              .c_str());
     }
 
     // Save mca data
@@ -197,26 +205,32 @@ void AnvilReader::Clear() {
   region_folder_.clear();
 }
 
-string AnvilReader::BuildMcaFilePath(const string& kRegionFolderPath,
-                                     const RegionCoordinate& kRegionCoord) {
-  return kRegionFolderPath + "/r." + to_string(kRegionCoord.x) + "." +
-         to_string(kRegionCoord.z) + ".mca";
+std::filesystem::path AnvilReader::BuildMcaFilePath(
+    const std::filesystem::path& kRegionFolderPath,
+    const RegionCoordinate& kRegionCoord) {
+  // The file name itself is plain ASCII, so appending it as a narrow string is
+  // safe even on Windows; the folder part carries the user's characters.
+  return kRegionFolderPath /
+         ("r." + to_string(kRegionCoord.x) + "." + to_string(kRegionCoord.z) +
+          ".mca");
 }
 
-bool AnvilReader::ReadMcaFile(const string& kMcaFilePath,
+bool AnvilReader::ReadMcaFile(const std::filesystem::path& kMcaFilePath,
                               ByteArray& desc_bytearray) {
   // Get file stat
-  if (!IsFileAccessible(kMcaFilePath.c_str())) {
+  std::uintmax_t mca_size = 0;
+  if (!IsFileAccessible(kMcaFilePath) ||
+      !GetFileSize(kMcaFilePath, &mca_size)) {
     return false;
   }
 
-  FileStat desc_mca_file_stat;
-  GetFileStat(kMcaFilePath.c_str(), &desc_mca_file_stat);
-
   // Read file
-  desc_bytearray.resize(desc_mca_file_stat.st_size);
-  if (!ReadFileBasic<ByteType>(kMcaFilePath.c_str(), &*desc_bytearray.begin(),
-                               desc_mca_file_stat.st_size)) {
+  desc_bytearray.resize(static_cast<std::size_t>(mca_size));
+  if (desc_bytearray.empty()) {
+    return false;
+  }
+  if (!ReadFileBasic<ByteType>(kMcaFilePath, &*desc_bytearray.begin(),
+                               desc_bytearray.size())) {
     return false;
   }
 
