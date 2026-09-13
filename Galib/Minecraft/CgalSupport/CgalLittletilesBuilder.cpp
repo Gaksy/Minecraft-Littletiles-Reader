@@ -24,12 +24,15 @@
 #include <filesystem>
 #include <iomanip>
 #include <limits>
+#include <memory>
+#include <optional>
 #include <utility>
 
 #include "Log/GalibLog.h"
 #include "Log/GalibText.h"
+#include "Minecraft/TextureSupport/AssetsPackage.h"
 #include "Minecraft/TextureSupport/BlockTextureTable.h"
-#include "Minecraft/TextureSupport/TextureBaker.h"
+#include "Minecraft/TextureSupport/MaterialManager.h"
 
 using std::cerr;
 using std::cout;
@@ -60,11 +63,11 @@ using galib::minecraft::littletiles::GridType;
 using galib::minecraft::littletiles::TileEntity;
 
 using galib::minecraft::texture_support::BlockFaceTextures;
-using galib::minecraft::texture_support::BlockTextureTable;
+using galib::minecraft::texture_support::AssetsPackage;
 using galib::minecraft::texture_support::ComputeFaceUv;
 using galib::minecraft::texture_support::FaceDirection;
 using galib::minecraft::texture_support::FaceDirectionFromNormal;
-using galib::minecraft::texture_support::TextureBaker;
+using galib::minecraft::texture_support::MaterialManager;
 
 using CGAL::SM_Vertex_index;
 
@@ -75,23 +78,25 @@ size_t addTilesFromBlockTilesEntities(
   size_t processed_tile_count = 0;
   // BlockTile -> BoxTile -> Tile
 
-  // For BlockTile 遍历 Block 中的所有 boxes
+  // For BlockTile: iterate over all boxes in the block
   for (BlockTileEntities::const_iterator box_it = kBlockTileEntities.cbegin();
        box_it != kBlockTileEntities.cend(); ++box_it) {
-    // Get BoxTile entities 获取每个 Box Tile
+    // Get BoxTile entities: get each Box Tile
     const BoxTileEnities& box_tile_entities = box_it->second;
 
-    // For BoxTile 对于 Box Tile 中的每个 Tile，构建他的面
+    // For BoxTile: for each Tile in the Box Tile, build its faces
     for (BoxTileEnities::const_iterator tile_it = box_tile_entities.cbegin();
          tile_it != box_tile_entities.cend(); ++tile_it) {
       // Get Tile entities
       const TileEntity& tile_lt_entity = *tile_it;
 
-      // 将 tile entities 转换为 cgal 网格
+      // Convert the tile entity into a CGAL mesh
       LtSurfaceMesh tile_cgal_mesh;
 
-      // 如有偏移且超出边界：用半空间裁剪（凸六面体 ∩ AABB），不再用 CGAL 布尔求交，
-      // 避免布尔运算在共面面上产生的大量碎三角形与多余边。
+      // If it has offsets and goes out of bounds: use half-space clipping (convex
+      // hexahedron intersected with an AABB) instead of a CGAL boolean intersection,
+      // avoiding the many sliver triangles and superfluous edges that boolean operations
+      // produce on coplanar faces.
       if (tile_lt_entity.is_offset_off_boundary()) {
         if (!ClipTileEntityToBox(tile_cgal_mesh, tile_lt_entity)) {
 #ifdef GALIB_DEBUG
@@ -150,34 +155,16 @@ void ChunkMesh::Clear() { this->tiles_in_world_.clear(); }
 
 namespace {
 
-// 每个导出面附加的信息：材质下标与面朝向（用哪个面的贴图）
+// Extra information attached to each exported face: material index and face direction
+// (which face's texture to use)
 struct ExportedFaceInfo {
   std::size_t material_index{0};
   FaceDirection direction{FaceDirection::kUp};
   bool has_material{false};
 };
 
-// 材质名 = 贴图 + 生物群系染色 + tile 颜色：
-//   blocks/grass_top + 0x91BD59 + 0xFFFFBE00 -> blocks_grass_top_t91bd59_cffffbe00
-std::string MakeMaterialName(const std::string& kTexturePath,
-                             const std::uint32_t kTintRgb,
-                             const std::uint32_t kTileColor) {
-  std::string name = kTexturePath;
-  std::replace(name.begin(), name.end(), '/', '_');
-  std::replace(name.begin(), name.end(), ':', '_');
-  char suffix[32] = {};
-  if (kTintRgb != 0x00FFFFFFu) {
-    std::snprintf(suffix, sizeof(suffix), "_t%06x", kTintRgb);
-    name += suffix;
-  }
-  if (kTileColor != 0xFFFFFFFFu) {
-    std::snprintf(suffix, sizeof(suffix), "_c%08x", kTileColor);
-    name += suffix;
-  }
-  return name;
-}
-
-// 由面的前三个顶点判定朝向（世界坐标；平移与等比缩放不改变方向）
+// Determine the direction from the face's first three vertices (world coordinates;
+// translation and uniform scaling do not change the direction)
 FaceDirection FaceDirectionOf(const SurfaceMeshType& kMesh,
                               const SurfaceMeshType::face_index kFace) {
   std::array<SurfaceMeshType::Point, 3> points{};
@@ -202,7 +189,7 @@ FaceDirection FaceDirectionOf(const SurfaceMeshType& kMesh,
   return FaceDirectionFromNormal(nx, ny, nz);
 }
 
-// vt 去重用的量化键
+// Quantized key used to deduplicate vt
 long long QuantizeUvKey(const double kU, const double kV) {
   const long long u = static_cast<long long>(std::llround(kU * 1e7));
   const long long v = static_cast<long long>(std::llround(kV * 1e7));
@@ -213,30 +200,41 @@ long long QuantizeUvKey(const double kU, const double kV) {
 
 struct ObjMeshBuilder::Impl {
   explicit Impl(const ObjExportOptions& kOptions)
-      : options(kOptions), baker(kOptions.assets_root) {
-    has_textures =
-        !options.assets_root.empty() &&
-        texture_table.LoadFromTsv(options.assets_root + "/block_textures.tsv");
+      : options(kOptions) {
+    // The assets root is the library's only assets entry point: path assembly, mapping
+    // table and tint all live in AssetsPackage. A failed open only degrades to "no
+    // materials written", with the reason left for the host to print (a missing assets
+    // directory is a common case).
+    if (!options.assets_root.empty()) {
+      package_ = AssetsPackage::Open(options.assets_root, &package_open_error_);
+      if (package_) {
+        materials_ = std::make_unique<MaterialManager>(*package_);
+      }
+    }
   }
 
-  // 把一张网格并入合并结果，并记录它的材质与逐面 UV 信息
+  // Merge one mesh into the combined result and record its material and per-face UV
+  // information
   void AddMesh(const LtSurfaceMesh& kMesh) {
     using Point = SurfaceMeshType::Point;
 
-    {  // 并入这一张网格
+    {  // merge this one mesh
       const SurfaceMeshType& current_mesh = kMesh.surface_mesh();
       const auto block_coord = kMesh.block_coord_in_world();
       const std::string block_id = kMesh.block_id();
-      // 网格若记录了逐顶点本地坐标就用它（一个网格含多个方块时必须靠它算 UV），
-      // 否则退化为"世界坐标 − 方块坐标"（LittleTiles 每个 tile 一个网格的情形）。
+      // If the mesh recorded per-vertex local positions, use them (essential for
+      // computing UVs when one mesh contains several blocks); otherwise fall back to
+      // "world coordinate - block coordinate" (the case where LittleTiles has one mesh
+      // per tile).
       const bool has_vertex_local = kMesh.has_vertex_local_positions();
 
       BlockFaceTextures face_textures;
       const bool has_block_textures =
-          has_textures && texture_table.Lookup(block_id, &face_textures) &&
+          package_ && package_->Lookup(block_id, &face_textures) &&
           !face_textures.empty();
 
-      // 首先为当前mesh的所有顶点在合并mesh中创建对应顶点
+      // First create a corresponding vertex in the merged mesh for every vertex of the
+      // current mesh
       std::vector<SurfaceMeshType::Vertex_index>
           current_mesh_vertices_in_marged;
       for (const SurfaceMeshType::vertex_index& v : current_mesh.vertices()) {
@@ -244,9 +242,10 @@ struct ObjMeshBuilder::Impl {
         SurfaceMeshType::Vertex_index new_vertex =
             marged_mesh.add_vertex(current_point);
         current_mesh_vertices_in_marged.push_back(new_vertex);
-        vertex_index_map[v] = new_vertex;  // 映射原始顶点索引到新顶点索引
-        // 记录"方块内本地坐标"：世界坐标 = 本地坐标 + 方块坐标。
-        // UV 必须用它来算，不能等导出归一化（居中/缩放）之后再从坐标反推。
+        vertex_index_map[v] = new_vertex;  // map the original vertex index to the new vertex index
+        // Record the "in-block local position": world coordinate = local coordinate +
+        // block coordinate. UVs must be computed from it, and it cannot be derived from
+        // coordinates after the export normalization (centring/scaling).
         if (has_vertex_local) {
           vertex_local_positions.push_back(kMesh.VertexLocalPosition(v));
         } else {
@@ -257,41 +256,43 @@ struct ObjMeshBuilder::Impl {
         }
       }
 
-      // 然后添加面到合并的mesh中
+      // Then add the faces to the merged mesh
       for (const SurfaceMeshType::face_index& f : current_mesh.faces()) {
         std::vector<SurfaceMeshType::Vertex_index> face_vertices;
 
-        // 获取当前面的所有顶点
+        // Get all vertices of the current face
         CGAL::Vertex_around_face_iterator<SurfaceMeshType> vbegin, vend;
         for (boost::tie(vbegin, vend) =
                  vertices_around_face(current_mesh.halfedge(f), current_mesh);
              vbegin != vend; ++vbegin) {
           SurfaceMeshType::Vertex_index original_vertex = *vbegin;
-          // 通过映射找到在合并mesh中的对应顶点
+          // Find the corresponding vertex in the merged mesh through the map
           auto it_vertex = vertex_index_map.find(original_vertex);
           if (it_vertex != vertex_index_map.end()) {
             face_vertices.push_back(it_vertex->second);
           }
         }
 
-        // 保留 n 边形：平面面片现在是四边形/多边形，不再强制拆成三角形
-        // （CGAL 的 Surface_mesh 支持多边形面，OBJ 也直接支持）
+        // Keep n-gons: planar patches are now quads/polygons and are no longer forced
+        // into triangles (CGAL's Surface_mesh supports polygon faces, and OBJ supports
+        // them directly too)
         if (face_vertices.size() >= 3) {
           const std::size_t faces_before = marged_mesh.number_of_faces();
-          // 使用try-catch防止添加无效的面
+          // Use try-catch to guard against adding an invalid face
           try {
             marged_mesh.add_face(face_vertices);
           } catch (...) {
 #ifdef GALIB_DEBUG
-            // 这条是"数据有问题"的警告，不随进度开关关闭
+            // This is a "data is broken" warning and is not silenced by the progress
+            // switch
             printf("%s",
-                   galib::Tr("警告: 无法添加面，可能是重复面或无效几何\n",
-                             "warning: cannot add face (duplicate or invalid "
+                   galib::Tr("warning: cannot add face (duplicate or invalid "
                              "geometry)\n"));
 #endif
           }
 
-          // 只有真正加进去的面才记录附加信息，保证与网格的面顺序对齐
+          // Only faces that were actually added get extra information recorded, keeping
+          // them aligned with the mesh's face order
           if (marged_mesh.number_of_faces() > faces_before) {
             ExportedFaceInfo info;
             if (has_block_textures) {
@@ -300,32 +301,24 @@ struct ObjMeshBuilder::Impl {
               if (texture_path.empty()) {
                 ++missing_texture_faces;
               } else {
-                // 生物群系染色：只有模型标了 tintindex 的面才需要
+                // Biome tint: only faces whose model declares a tintindex need it
                 std::uint32_t tint_rgb = 0x00FFFFFFu;
                 const int tint_index = face_textures.Tint(direction);
                 std::uint32_t tint_argb = 0;
                 if (tint_index >= 0 &&
-                    baker.ResolveTintColor(block_id, tint_index, &tint_argb)) {
+                    package_->TintOverride(block_id, tint_index, &tint_argb)) {
                   tint_rgb = tint_argb & 0x00FFFFFFu;
                 }
-                // tile 自带染色（LittleTiles 的彩色 tile）
+                // The tile's own tint (LittleTiles coloured tiles)
                 const std::uint32_t tile_color =
                     kMesh.has_tile_color()
                         ? static_cast<std::uint32_t>(kMesh.tile_color())
                         : 0xFFFFFFFFu;
 
-                const std::string name =
-                    MakeMaterialName(texture_path, tint_rgb, tile_color);
-                auto found = material_index.find(name);
-                if (found == material_index.end()) {
-                  found =
-                      material_index.emplace(name, material_names.size()).first;
-                  material_names.push_back(name);
-                  material_textures.push_back(texture_path);
-                  material_tints.push_back(tint_rgb);
-                  material_tile_colors.push_back(tile_color);
-                }
-                info.material_index = found->second;
+                // The dedup key is the structured (texture, tint, tile colour); the name
+                // is only used to write the MTL
+                info.material_index =
+                    materials_->Claim(texture_path, tint_rgb, tile_color);
                 info.direction = direction;
                 info.has_material = true;
               }
@@ -335,21 +328,22 @@ struct ObjMeshBuilder::Impl {
         }
       }
 
-      // 清理当前mesh的顶点映射，为下一个mesh准备
+      // Clear the current mesh's vertex map, preparing for the next mesh
       vertex_index_map.clear();
     }
   }
 
-  // 归一化（居中/缩放）并写出 OBJ、MTL 与贴图
+  // Normalize (centre/scale) and write the OBJ, MTL and textures
   bool WriteToFile(const char* const kFilename) {
     using Point = SurfaceMeshType::Point;
-    // 归一化：把包围盒中心平移到原点；如需要，再等比缩放到最长边 = 1
+    // Normalize: move the bounding-box centre to the origin; if requested, also
+    // uniformly scale so the longest edge = 1
     if (marged_mesh.number_of_vertices() > 0 &&
         (options.geom_center || options.normalize_scale)) {
       CGAL::Bbox_3 bbox;
       bool first = true;
 
-      // 计算所有顶点的包围盒
+      // Compute the bounding box of all vertices
       for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
         const Point& p = marged_mesh.point(v);
         if (first) {
@@ -360,7 +354,8 @@ struct ObjMeshBuilder::Impl {
         }
       }
 
-      // 计算包围盒中心与缩放系数（以最长边为基准，保持长宽比）
+      // Compute the bounding-box centre and scale factor (based on the longest edge,
+      // preserving the aspect ratio)
       const double center_x = (bbox.xmin() + bbox.xmax()) / 2.0;
       const double center_y = (bbox.ymin() + bbox.ymax()) / 2.0;
       const double center_z = (bbox.zmin() + bbox.zmax()) / 2.0;
@@ -373,7 +368,7 @@ struct ObjMeshBuilder::Impl {
         scale = 1.0 / extent;
       }
 
-      // 先平移到原点，再按需缩放
+      // Translate to the origin first, then scale if needed
       for (const SurfaceMeshType::vertex_index& v : marged_mesh.vertices()) {
         Point& p = marged_mesh.point(v);
         p = Point((p.x() - center_x) * scale, (p.y() - center_y) * scale,
@@ -382,26 +377,31 @@ struct ObjMeshBuilder::Impl {
     }
 
 #ifdef GALIB_DEBUG
-    // 检查合并后的网格
-    galib::ProgressPrintf(galib::Tr("合并后网格统计: ", "merged mesh: "));
-    galib::ProgressPrintf(galib::Tr("顶点数: %u\n", "vertices: %u\n"),
+    // Check the merged mesh
+    galib::ProgressPrintf(galib::Tr("merged mesh: "));
+    galib::ProgressPrintf(galib::Tr("vertices: %u\n"),
                           marged_mesh.number_of_vertices());
-    galib::ProgressPrintf(galib::Tr("面数: %u\n", "faces: %u\n"),
+    galib::ProgressPrintf(galib::Tr("faces: %u\n"),
                           marged_mesh.number_of_faces());
 #endif
 
-    // 导出为OBJ文件
-    // 注意：ofstream 不会创建目录，必须先把输出目录建出来，否则会直接失败
+    // Export to an OBJ file
+    // Note: ofstream does not create directories, so the output directory must be created
+    // first, otherwise this fails outright
     const std::filesystem::path output_path(kFilename);
     if (output_path.has_parent_path()) {
       std::error_code create_error;
       std::filesystem::create_directories(output_path.parent_path(),
                                           create_error);
       if (create_error) {
-        std::cerr << galib::Tr("无法创建输出目录: ",
-                               "cannot create output dir: ")
-                  << output_path.parent_path() << " : "
-                  << create_error.message() << std::endl;
+        stats_.error = "cannot create output dir: " +
+                       output_path.parent_path().string() + " : " +
+                       create_error.message();
+        if (!options.quiet) {
+          std::cerr << galib::Tr("cannot create output dir: ")
+                    << output_path.parent_path() << " : "
+                    << create_error.message() << std::endl;
+        }
         return false;
       }
     }
@@ -409,24 +409,34 @@ struct ObjMeshBuilder::Impl {
     std::ofstream out(output_path);
     if (!out) {
       std::error_code path_error;
-      std::cerr << galib::Tr("无法打开文件: ", "cannot open file: ")
-                << std::filesystem::weakly_canonical(output_path, path_error)
-                << std::endl;
+      stats_.error =
+          "cannot open file: " +
+          std::filesystem::weakly_canonical(output_path, path_error).string();
+      if (!options.quiet) {
+        std::cerr << galib::Tr("cannot open file: ")
+                  << std::filesystem::weakly_canonical(output_path, path_error)
+                  << std::endl;
+      }
       return false;
     }
 
-    // 输出顶点
-    // 提高精度：默认流精度只有 6 位有效数字，坐标在千级（未居中的世界坐标）时
-    // 量化步长可达 0.01 方块，会静默改变几何。
+    // Output vertices
+    // Increase precision: the default stream precision is only 6 significant digits, and
+    // with coordinates in the thousands (uncentred world coordinates) the quantization
+    // step can reach 0.01 blocks, silently changing the geometry.
     out << std::setprecision(9);
     const std::string obj_stem = output_path.stem().string();
     const std::string mtl_filename = obj_stem + ".mtl";
-    // 贴图统一放进 OBJ 旁边的同名子目录，避免几十上百张 PNG 和 OBJ 混在一起；
-    // MTL 仍与 OBJ 同级（Blender 按 mtllib 的路径找 MTL，map_Kd 再相对 MTL 解析）。
+    // Default destination of the textures: a same-named subdirectory next to the OBJ, so
+    // dozens or hundreds of PNGs do not get mixed in with the OBJ; the MTL stays next to
+    // the OBJ (Blender finds the MTL via the mtllib path and then resolves map_Kd
+    // relative to the MTL). The host can point elsewhere with
+    // ObjExportOptions::material_output_dir (see docs/assets-package.md section 4.3).
     const std::string texture_dir_name = obj_stem + "_textures";
-    // 只有材质与逐面信息都对齐时才写贴图坐标，否则退回纯几何输出
+    // Texture coordinates are written only when the materials and per-face information
+    // are both aligned; otherwise it falls back to geometry-only output
     const bool write_materials =
-        !material_names.empty() &&
+        materials_ != nullptr && materials_->size() > 0 &&
         face_infos.size() == marged_mesh.number_of_faces() &&
         vertex_local_positions.size() == marged_mesh.number_of_vertices();
     if (write_materials) {
@@ -438,10 +448,12 @@ struct ObjMeshBuilder::Impl {
       out << "v " << p.x() << " " << p.y() << " " << p.z() << "\n";
     }
 
-    // 逐面算出每个角的贴图坐标。UV 由"方块内本地坐标 + 面朝向"决定：
-    // 本地坐标在建网格时记录，不能用导出归一化之后的坐标反推。
+    // Compute the texture coordinate of each corner face by face. UVs are determined by
+    // "in-block local coordinate + face direction": the local coordinate is recorded
+    // while building the mesh and cannot be derived from coordinates after the export
+    // normalization.
     std::vector<std::vector<std::size_t>>
-        face_uv_indices;  // 每个角对应的 vt 下标（1 起）
+        face_uv_indices;  // the vt index each corner maps to (1-based)
     if (write_materials) {
       std::unordered_map<long long, std::size_t> uv_dedup;
       std::vector<std::pair<double, double>> uv_values;
@@ -457,7 +469,8 @@ struct ObjMeshBuilder::Impl {
             double uv_v = 0.0;
             ComputeFaceUv(info.direction, local.x(), local.y(), local.z(), &u,
                           &uv_v);
-            // OBJ 的 vt 以左下角为原点，而 v = 0 在贴图顶部，因此翻转一次
+            // OBJ vt has its origin at the bottom-left while v = 0 is at the top of the
+            // texture, so flip once
             const double vt_u = u;
             const double vt_v = 1.0 - uv_v;
             const long long key = QuantizeUvKey(vt_u, vt_v);
@@ -465,7 +478,7 @@ struct ObjMeshBuilder::Impl {
             if (found == uv_dedup.end()) {
               uv_values.emplace_back(vt_u, vt_v);
               found = uv_dedup.emplace(key, uv_values.size())
-                          .first;  // OBJ 下标从 1 开始
+                          .first;  // OBJ indices start at 1
             }
             uv_indices.push_back(found->second);
           }
@@ -477,14 +490,14 @@ struct ObjMeshBuilder::Impl {
       }
     }
 
-    // 输出面（按材质分组，切换材质时写 usemtl）
+    // Output faces (grouped by material; usemtl is written when the material changes)
     std::size_t face_index = 0;
     std::size_t current_material = std::numeric_limits<std::size_t>::max();
     for (const SurfaceMeshType::face_index& f : marged_mesh.faces()) {
       if (write_materials) {
         const ExportedFaceInfo& info = face_infos[face_index];
         if (info.has_material && info.material_index != current_material) {
-          out << "usemtl " << material_names[info.material_index] << "\n";
+          out << "usemtl " << materials_->Name(info.material_index) << "\n";
           current_material = info.material_index;
         }
       }
@@ -505,116 +518,99 @@ struct ObjMeshBuilder::Impl {
 
     out.close();
 
-    // 写 MTL：每个材质把 (贴图 × 生物群系染色 × tile 颜色) 烘焙成一张 PNG，
-    // 统一放到 OBJ 旁边的 <obj_stem>_textures/ 目录，保证输出可以整体搬走。
+    // Write the MTL and textures: materials are registered and baked by
+    // MaterialManager - one source texture is decoded only once and each tinted variant
+    // is baked from the decode cache; the products land in the host-specified output
+    // directory (the default is described above). The assets root is always read-only
+    // and products are never written back there.
     std::size_t baked_texture_count = 0;
+    std::string texture_dir_label = texture_dir_name;
     if (write_materials) {
       const std::filesystem::path mtl_path =
           output_path.parent_path() / mtl_filename;
       const std::filesystem::path texture_dir =
-          output_path.parent_path() / texture_dir_name;
-      std::error_code texture_dir_error;
-      std::filesystem::create_directories(texture_dir, texture_dir_error);
-      if (texture_dir_error) {
-        std::cerr << galib::Tr("无法创建贴图目录: ",
-                               "cannot create texture dir: ")
-                  << texture_dir << " : " << texture_dir_error.message()
-                  << std::endl;
-      }
-      std::ofstream mtl(mtl_path);
-      if (mtl) {
-        mtl << galib::Tr("# 由 LittleTilesReader 生成\n",
-                         "# Generated by LittleTilesReader\n");
-        for (std::size_t i = 0; i < material_names.size(); ++i) {
-          const std::string& texture_path = material_textures[i];
-          const std::string png_name = material_names[i] + ".png";
-          const std::filesystem::path target = texture_dir / png_name;
+          options.material_output_dir.empty()
+              ? output_path.parent_path() / texture_dir_name
+              : std::filesystem::path(options.material_output_dir);
 
-          // 无染色时直接复制原贴图，避免多做一次无意义的编解码
-          const bool needs_bake = material_tints[i] != 0x00FFFFFFu ||
-                                  material_tile_colors[i] != 0xFFFFFFFFu;
-          std::string bake_error;
-          bool texture_ready = false;
-          if (needs_bake) {
-            texture_ready = baker.Bake(texture_path, material_tints[i],
-                                       material_tile_colors[i], target.string(),
-                                       &bake_error);
-          }
-          if (!texture_ready) {
-            const std::filesystem::path source =
-                std::filesystem::path(options.assets_root) / "textures" /
-                (texture_path + ".png");
-            std::error_code copy_error;
-            if (std::filesystem::exists(source)) {
-              std::filesystem::copy_file(
-                  source, target,
-                  std::filesystem::copy_options::overwrite_existing,
-                  copy_error);
-              texture_ready = !copy_error;
-            }
-          }
-          if (texture_ready) {
-            ++baked_texture_count;
-          } else {
-            std::cerr << galib::Tr("警告: 贴图处理失败 ",
-                                   "warning: texture failed: ")
-                      << texture_path;
-            if (!bake_error.empty()) {
-              std::cerr << ": " << bake_error;
-            }
-            std::cerr << std::endl;
-          }
-          mtl << "\nnewmtl " << material_names[i] << "\n"
-              << "Ka 1.000 1.000 1.000\n"
-              << "Kd 1.000 1.000 1.000\n"
-              << "d 1.0\n"
-              << "map_Kd " << texture_dir_name << "/" << png_name << "\n";
+      // map_Kd is resolved relative to the MTL; the host-specified directory may not be
+      // under the OBJ's subtree, so a relative path is computed once
+      std::error_code relative_error;
+      const std::filesystem::path relative =
+          std::filesystem::relative(texture_dir, output_path.parent_path(),
+                                    relative_error);
+      std::string map_kd_prefix =
+          relative_error ? texture_dir.string() : relative.generic_string();
+      if (map_kd_prefix.empty()) {
+        map_kd_prefix = ".";
+      }
+      texture_dir_label = map_kd_prefix;
+
+      std::string material_error;
+      baked_texture_count =
+          materials_->WriteTextures(texture_dir.string(), &material_error);
+      materials_->WriteMtl(mtl_path.string(), map_kd_prefix, &material_error);
+      if (!material_error.empty() && !options.quiet) {
+        std::cerr << material_error;
+      }
+      if (!material_error.empty()) {
+        stats_.error += material_error;
+      }
+    }
+
+    if (!options.quiet) {
+      std::error_code path_error;
+      std::cout << galib::Tr("exported merged mesh to: ")
+                << std::filesystem::weakly_canonical(output_path, path_error)
+                << "\n";
+      if (write_materials) {
+        std::cout << galib::Tr("  materials ") << materials_->size()
+                  << galib::Tr(", textures written ") << baked_texture_count
+                  << galib::Tr(" into ") << texture_dir_label << "/"
+                  << galib::Tr(" (source textures decoded ")
+                  << materials_->decode_count() << galib::Tr(" times)");
+        if (missing_texture_faces > 0) {
+          std::cout << galib::Tr(" (") << missing_texture_faces
+                    << galib::Tr(" faces without texture)");
         }
-        mtl.close();
+        std::cout << std::endl;
+      } else if (!options.assets_root.empty()) {
+        // A failed open and "this block is not in the table" are two different
+        // things, so they are reported separately here
+        std::cout
+            << galib::Tr(
+                   "  no textures exported: check that the assets root has "
+                   "block_textures.tsv (")
+            << options.assets_root << ")";
+        if (!package_open_error_.empty()) {
+          std::cout << " : " << package_open_error_;
+        }
+        std::cout << std::endl;
       }
     }
-
-    std::error_code path_error;
-    std::cout << galib::Tr("合并的网格已导出到: ", "exported merged mesh to: ")
-              << std::filesystem::weakly_canonical(output_path, path_error)
-              << "\n";
-    if (write_materials) {
-      std::cout << galib::Tr("  材质 ", "  materials ") << material_names.size()
-                << galib::Tr(" 个，已写出贴图 ", ", textures written ")
-                << baked_texture_count << galib::Tr(" 张到 ", " into ")
-                << texture_dir_name << "/";
-      if (missing_texture_faces > 0) {
-        std::cout << galib::Tr("（另有 ", " (") << missing_texture_faces
-                  << galib::Tr(" 个面没解析到贴图）",
-                               " faces without texture)");
-      }
-      std::cout << std::endl;
-    } else if (!options.assets_root.empty()) {
-      std::cout
-          << galib::Tr(
-                 "  未导出贴图：请检查素材目录是否包含 block_textures.tsv（",
-                 "  no textures exported: check that the assets root has "
-                 "block_textures.tsv (")
-          << options.assets_root << "）" << std::endl;
-    }
+    stats_.vertices = marged_mesh.number_of_vertices();
+    stats_.faces = marged_mesh.number_of_faces();
+    stats_.materials = materials_ == nullptr ? 0 : materials_->size();
+    stats_.textures_written = baked_texture_count;
+    stats_.missing_texture_faces = missing_texture_faces;
+    stats_.wrote_materials = write_materials;
     return true;
   }
 
   ObjExportOptions options;
-  BlockTextureTable texture_table;
-  TextureBaker baker;
-  bool has_textures{false};
+  // The assets package is the only assets entry point; materials_ exists only when the
+  // package is valid
+  std::optional<AssetsPackage> package_;
+  std::unique_ptr<MaterialManager> materials_;
+  std::string package_open_error_;  // reason the assets package failed to open (for
+                                    // reporting to the host)
   SurfaceMeshType marged_mesh;
   unordered_map<SurfaceMeshType::Vertex_index, SurfaceMeshType::Vertex_index>
       vertex_index_map;
-  std::vector<std::string> material_names;
-  std::vector<std::string> material_textures;
-  std::vector<std::uint32_t> material_tints;
-  std::vector<std::uint32_t> material_tile_colors;
-  std::unordered_map<std::string, std::size_t> material_index;
   std::vector<ExportedFaceInfo> face_infos;
   std::vector<LtPoint3> vertex_local_positions;
   std::size_t missing_texture_faces{0};
+  ObjMeshBuilder::Stats stats_;  // filled by WriteToFile
 };
 
 ObjMeshBuilder::ObjMeshBuilder(const ObjExportOptions& kOptions)
@@ -628,6 +624,10 @@ void ObjMeshBuilder::AddMesh(const LtSurfaceMesh& kMesh) {
 
 bool ObjMeshBuilder::WriteToFile(const char* const kFilename) {
   return impl_->WriteToFile(kFilename);
+}
+
+const ObjMeshBuilder::Stats& ObjMeshBuilder::stats() const {
+  return impl_->stats_;
 }
 
 void galib::minecraft::cgal_support::MergeAndWriteToObj(
@@ -670,7 +670,8 @@ std::size_t galib::minecraft::cgal_support::AddStructureToObjBuilder(
   for (const littletiles::LtStructure::Group& group : kStructure.groups()) {
     for (const littletiles::TileEntity& tile : group.boxes) {
       LtSurfaceMesh tile_mesh;
-      // 与存档路径一致的裁剪策略：偏移后超出自身盒子时才裁
+      // The same clipping strategy as the save-file path: clip only when the offset goes
+      // outside its own box
       if (tile.is_offset_off_boundary()) {
         if (!ClipTileEntityToBox(tile_mesh, tile)) {
           continue;
@@ -681,8 +682,10 @@ std::size_t galib::minecraft::cgal_support::AddStructureToObjBuilder(
       tile_mesh.set_block_id(group.block_id);
       tile_mesh.set_tile_color(group.color, group.has_color);
 
-      // grid → 方块单位，并平移到结构原点；同时记录"所在单元内的相对坐标"（UV 用）。
-      // 结构里的网格会横跨多个方块单元，不能用网格级方块坐标反推，必须逐顶点记。
+      // grid -> block units, and translate to the structure origin; also record the
+      // "relative coordinate inside the cell it lies in" (for UVs). A mesh inside a
+      // structure spans several block cells, so the mesh-level block coordinate cannot be
+      // used to derive it and it must be recorded per vertex.
       SurfaceMeshType& mesh = tile_mesh.surface_mesh();
       for (const SurfaceMeshType::vertex_index& vertex : mesh.vertices()) {
         const LtPoint3 point = mesh.point(vertex);

@@ -67,56 +67,94 @@ class ChunkMesh {
 //
 // };
 
-// OBJ 导出选项。
+// OBJ export options.
 struct ObjExportOptions {
-  // 把包围盒中心平移到原点（默认开启）。
+  // Move the centre of the bounding box to the origin (enabled by default).
   bool geom_center{true};
-  // 在居中的基础上再等比缩放到"最长边 = 1"，便于第三方软件查看；
-  // 会丢失"1 单位 = 1 方块"的原始比例，因此默认关闭。
+  // On top of centring, uniformly scale so the longest edge = 1, which is convenient
+  // for viewing in third-party software; it loses the original "1 unit = 1 block"
+  // scale, so it is disabled by default.
   bool normalize_scale{false};
-  // 素材根目录（需包含 block_textures.tsv 与 textures/）。
-  // 留空则只导出几何，不写 vt / usemtl / mtl。
+  // Assets root (must contain block_textures.tsv and textures/, see AssetsPackage).
+  // Specified by the host; when empty only geometry is exported and no
+  // vt / usemtl / mtl is written.
   std::string assets_root;
+  // Output directory for the texture products (the PNGs land here).
+  // Empty = the default behaviour, a <obj name>_textures/ folder next to the OBJ.
+  // When set, the MTL's map_Kd is automatically written as the relative path from the
+  // MTL's directory to this one.
+  // The assets root is always read-only; products are never written back there.
+  std::string material_output_dir;
+  // Suppress this builder's own summary and warning output (stdout / stderr). A host
+  // that speaks a machine-readable protocol (the UI's NDJSON progress) sets this so
+  // human text never lands inside its stream; failures are still reported through the
+  // return value and Stats.
+  bool quiet{false};
 };
 
-// 合并所有 tile 网格并写出 OBJ（可选同时写出 MTL 与所需贴图）。
+// Merge all tile meshes and write an OBJ (optionally writing the MTL and the
+// required textures as well).
 void MergeAndWriteToObj(const std::vector<LtSurfaceMesh>& meshes,
                         const char* p_filename,
                         const ObjExportOptions& options = ObjExportOptions());
 
-// 增量式 OBJ 构建器：逐批 AddMesh（每批加入后即可释放），最后 WriteToFile。
-// 用途：大范围导出（几百个区块、几十万个 tile）时避免同时持有所有网格——
-// 先把网格全部收进 vector 再交给 MergeAndWriteToObj，会因内存占用过高被系统杀掉。
+// Incremental OBJ builder: AddMesh batch by batch (each batch can be released as
+// soon as it has been added) and finally WriteToFile.
+// Purpose: avoid holding all meshes at once during large-area exports (hundreds of
+// chunks, hundreds of thousands of tiles) - collecting every mesh into a vector first
+// and handing it to MergeAndWriteToObj would get the process killed for excessive
+// memory usage.
 class ObjMeshBuilder {
  public:
+  // What a call to WriteToFile actually produced. Lets a host (CLI, UI) report the
+  // result without parsing the human-readable log lines.
+  struct Stats {
+    std::size_t vertices{0};
+    std::size_t faces{0};
+    std::size_t materials{0};
+    std::size_t textures_written{0};
+    std::size_t missing_texture_faces{0};
+    bool wrote_materials{false};
+    // Why WriteToFile returned false. Empty on success. A host that silences the
+    // human-readable output (quiet) still needs to say what went wrong.
+    std::string error;
+  };
+
   explicit ObjMeshBuilder(const ObjExportOptions& kOptions);
   ~ObjMeshBuilder();
 
   ObjMeshBuilder(const ObjMeshBuilder&) = delete;
   ObjMeshBuilder& operator=(const ObjMeshBuilder&) = delete;
 
-  // 把一张网格并入结果（顶点、面、材质与逐面 UV 信息）
+  // Merge one mesh into the result (vertices, faces, materials and per-face UV information)
   void AddMesh(const LtSurfaceMesh& kMesh);
 
-  // 归一化并写出 OBJ（含 mtllib/vt/usemtl 与 MTL、贴图）
+  // Normalize and write the OBJ (including mtllib/vt/usemtl plus the MTL and textures)
   bool WriteToFile(const char* kFilename);
 
+  // Valid after WriteToFile.
+  const Stats& stats() const;
+
  private:
-  struct Impl;  // 定义在 .cpp 中
+  struct Impl;  // defined in the .cpp
   std::unique_ptr<Impl> impl_;
 };
 
 void WriteToOff(const std::vector<LtSurfaceMesh>& meshes,
                 const char* p_filename);
 
-// 把一份 LittleTiles 结构（SNBT 结构文件）转成网格并交给 OBJ 构建器。
+// Convert a LittleTiles structure (an SNBT structure file) into meshes and hand them
+// to the OBJ builder.
 //
-// 与存档路径走同一条几何链路（半空间裁剪 → 网格 → UV），差别只有坐标：
-// 结构用的是跨方块的结构空间 grid 坐标，这里做两件事——
-//   1. 按 grid 缩放到方块单位，并减去结构原点 min；
-//   2. 逐顶点记录"所在方块单元内的相对坐标"，供 UV 按位置裁剪取样
-//      （一个网格会横跨多个单元，不能像存档路径那样用网格级方块坐标反推）。
-// 子结构（children）已由 LtStructure 展开。返回并入的网格数。
+// It follows the same geometry chain as the save-file path (half-space clipping ->
+// mesh -> UV); only the coordinates differ: a structure uses structure-space grid
+// coordinates spanning many blocks, so two things are done here:
+//   1. Scale by grid into block units and subtract the structure origin min;
+//   2. Record, per vertex, the "relative coordinate inside the block cell it belongs
+//      to", so UVs can be sampled by position (one mesh spans several cells, so unlike
+//      the save-file path the mesh-level block coordinate cannot be used to derive it).
+// Child structures (children) have already been expanded by LtStructure. Returns the
+// number of meshes merged.
 std::size_t AddStructureToObjBuilder(
     const galib::minecraft::littletiles::LtStructure& kStructure,
     ObjMeshBuilder* p_desc_builder);

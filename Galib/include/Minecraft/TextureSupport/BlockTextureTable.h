@@ -24,7 +24,7 @@
 
 namespace galib::minecraft::texture_support {
 
-// 方块的六个面，命名与 Minecraft 模型规范一致。
+// The six faces of a block; the names match the Minecraft model specification.
 enum class FaceDirection : int {
   kDown = 0,
   kUp,
@@ -36,11 +36,12 @@ enum class FaceDirection : int {
 
 inline constexpr int kFaceCount = 6;
 
-// 一个方块六个面所用的贴图路径。
-// 路径相对 assets/textures，且不含 .png 后缀，例如 "blocks/stone_diorite"。
+// Texture paths used by the six faces of one block.
+// Paths are relative to assets/textures and exclude the .png suffix, for example
+// "blocks/stone_diorite".
 struct BlockFaceTextures {
   std::array<std::string, kFaceCount> paths{};
-  // 该面的 tintindex；-1 表示不染色（见 docs/texture-mapping.md）
+  // tintindex of that face; -1 means no tinting (see docs/texture-mapping.md)
   std::array<int, kFaceCount> tints{};
 
   bool empty() const;
@@ -48,24 +49,36 @@ struct BlockFaceTextures {
   int Tint(FaceDirection direction) const;
 };
 
-// 方块 -> 六面贴图 的映射表。
+// Block -> six-face textures mapping table.
 //
-// 数据由 tools/resolve_block_textures.py --table 生成（解析 vanilla 的
-// blockstates + models 得到），C++ 侧只读表，不引入 JSON 依赖。
-// TSV 每行:
-//   <block 或 block:meta>  <down>  <up>  <north>  <south>  <west>  <east>
+// The data is produced by the generator side's
+// tools/resolve_block_textures.py --table (by parsing vanilla blockstates +
+// models; that script is not distributed with the library).
+//
+// A plain TSV rather than JSON: it is tens of thousands of rows here, and reading
+// it needs no parsing code at all. (JSON is available - Boost.JSON is already a
+// dependency and is used for the manifest and job files - this is purely about
+// what suits bulk tabular data.)
+// Each TSV line:
+//   <block or block:meta>  <down>  <up>  <north>  <south>  <west>  <east>
 class BlockTextureTable {
  public:
   BlockTextureTable() = default;
 
-  // 加载失败时表为空（is_loaded() 为 false），调用方应据此跳过贴图导出。
+  // On load failure the table is empty (is_loaded() is false) and the caller should
+  // skip texture export accordingly.
   bool LoadFromTsv(const std::string& kTsvPath);
 
   bool is_loaded() const { return loaded_; }
   std::size_t size() const { return entries_.size(); }
 
-  // 先按原名（如 "minecraft:stone:3"）精确匹配，
-  // 未命中时退回去掉 meta 的名字（"minecraft:stone"）。
+  // All entries, for lint / statistics iteration (keys are "<block>" or "<block>:<meta>").
+  const std::unordered_map<std::string, BlockFaceTextures>& entries() const {
+    return entries_;
+  }
+
+  // First match the original name exactly (e.g. "minecraft:stone:3"); on a miss,
+  // fall back to the name with the meta stripped ("minecraft:stone").
   bool Lookup(const std::string& kBlockId,
               BlockFaceTextures* p_desc_textures) const;
 
@@ -74,17 +87,25 @@ class BlockTextureTable {
   bool loaded_{false};
 };
 
-// 计算"方块内归一化坐标"在指定面上的贴图坐标。
-// x/y/z 为该点在方块内的归一化坐标（x 西→东，y 下→上，z 北→南），
-// 返回的 v = 0 在贴图顶部；写 OBJ 的 vt 时需要再翻转一次（vt_v = 1 - v）。
+// Compute the texture coordinate of an "in-block normalized coordinate" on the
+// given face.
+// x/y/z is the normalized coordinate of the point inside the block (x west->east,
+// y down->up, z north->south); the returned v = 0 is at the top of the texture, so
+// it must be flipped once more when writing OBJ vt (vt_v = 1 - v).
 void ComputeFaceUv(FaceDirection direction, double x, double y, double z,
                    double* p_desc_u, double* p_desc_v);
 
-// 由面法线判断朝向（取绝对值最大的那个轴；法线不必归一化）。
+// Determine the direction from a face normal (the axis with the largest absolute
+// value wins; the normal need not be normalized).
 FaceDirection FaceDirectionFromNormal(double nx, double ny, double nz);
 
-// 与 FaceDirection 对应的名字（表文件的列名），用于调试输出。
+// Name corresponding to a FaceDirection (the table file's column names), used for
+// debug output.
 const char* FaceDirectionName(FaceDirection direction);
+
+// Strip ":meta" from "namespace:name:meta"; returns the input unchanged when there
+// is no meta.
+std::string StripBlockMeta(const std::string& kBlockId);
 
 }  // namespace galib::minecraft::texture_support
 

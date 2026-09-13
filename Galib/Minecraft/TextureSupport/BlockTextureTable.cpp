@@ -25,7 +25,8 @@ namespace galib::minecraft::texture_support {
 
 namespace {
 
-// 表的列顺序（与 tools/resolve_block_textures.py 的 FACES 一致）
+// Column order of the table (matching FACES in the generator side's
+// tools/resolve_block_textures.py)
 constexpr FaceDirection kColumnOrder[kFaceCount] = {
     FaceDirection::kDown,  FaceDirection::kUp,   FaceDirection::kNorth,
     FaceDirection::kSouth, FaceDirection::kWest, FaceDirection::kEast,
@@ -41,8 +42,9 @@ std::vector<std::string> SplitTab(const std::string& kLine) {
   return fields;
 }
 
-// "minecraft:stone:3" -> "minecraft:stone"；没有 meta 时返回原串
-std::string StripMeta(const std::string& kBlockId) {
+}  // namespace
+
+std::string StripBlockMeta(const std::string& kBlockId) {
   const std::size_t first = kBlockId.find(':');
   if (first == std::string::npos) {
     return kBlockId;
@@ -50,8 +52,6 @@ std::string StripMeta(const std::string& kBlockId) {
   const std::size_t second = kBlockId.find(':', first + 1);
   return second == std::string::npos ? kBlockId : kBlockId.substr(0, second);
 }
-
-}  // namespace
 
 bool BlockFaceTextures::empty() const {
   for (const std::string& path : paths) {
@@ -95,7 +95,8 @@ bool BlockTextureTable::LoadFromTsv(const std::string& kTsvPath) {
       textures.paths[static_cast<std::size_t>(kColumnOrder[i])] =
           value == "-" ? "" : value;
     }
-    // tintindex 列可选：旧版表只有 7 列，此时全部视为不染色
+    // The tintindex columns are optional: older tables only have 7 columns, in
+    // which case everything is treated as untinted
     for (int i = 0; i < kFaceCount; ++i) {
       const std::size_t column = static_cast<std::size_t>(i) + 1 + kFaceCount;
       int tint = -1;
@@ -119,17 +120,18 @@ bool BlockTextureTable::Lookup(const std::string& kBlockId,
 
   auto found = entries_.find(kBlockId);
   if (found == entries_.end()) {
-    // NBT 里的方块名可能不带 meta。带 meta 家族的方块（羊毛、染色玻璃…）
-    // 在表里只有 "<名字>:<meta>" 形式的键，而 blockstate 文件是按颜色命名的
-    // （white_stained_glass 等），所以这里补一次 ":0" 的尝试。
+    // The block name in NBT may carry no meta. Blocks with a meta family
+    // (wool, stained glass, ...) only have "<name>:<meta>" keys in the table,
+    // while blockstate files are named by colour (white_stained_glass etc.), so
+    // one extra ":0" attempt is made here.
     if (kBlockId.find(':') != std::string::npos &&
         kBlockId.find(':', kBlockId.find(':') + 1) == std::string::npos) {
       found = entries_.find(kBlockId + ":0");
     }
   }
   if (found == entries_.end()) {
-    // 表里没有带 meta 的键时，退回该方块的基础名
-    found = entries_.find(StripMeta(kBlockId));
+    // When the table has no meta-qualified key, fall back to the block's base name
+    found = entries_.find(StripBlockMeta(kBlockId));
   }
   if (found == entries_.end()) {
     return false;
@@ -142,7 +144,8 @@ bool BlockTextureTable::Lookup(const std::string& kBlockId,
 void ComputeFaceUv(const FaceDirection direction, const double x,
                    const double y, const double z, double* const p_desc_u,
                    double* const p_desc_v) {
-  // 下表的依据见 docs/texture-mapping.md：MC 模型规范里每个面的 u/v 轴与方向。
+  // The basis for the table below is documented in docs/texture-mapping.md: the
+  // u/v axes and direction of each face in the MC model specification.
   double u = 0.0;
   double v = 0.0;
   switch (direction) {
