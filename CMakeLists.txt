@@ -35,7 +35,7 @@ elseif(WIN32)
     message(FATAL_ERROR "VCPKG_ROOT is not found, and there is no Homebrew fallback on Windows")
 endif()
 
-project(LittleTilesReader)
+project(LittleTilesReader VERSION 0.2.0 LANGUAGES CXX)
 
 # Release channel for the version string; the default lives in Galib/include/Version.h.
 # A CI job can build a test build without touching the header:

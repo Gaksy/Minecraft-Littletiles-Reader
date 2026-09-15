@@ -3,6 +3,11 @@ build/
 cmake-build-debug/
 cmake-build-debug-visual-studio/
 cmake-build-msbuild/
+cmake-build-release/
+cmake-build-release-ninja/
+
+# 发布产物（打成 tar.gz/zip 后是 GitHub Release 的附件，不进仓库）
+/dist/
 
 # ignore doc
 **/~$*.docx
