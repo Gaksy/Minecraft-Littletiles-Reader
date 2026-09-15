@@ -309,7 +309,7 @@ bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,
 #ifdef _WIN32
       boxes_pos.push_back(nbt::value_initializer(
           kBoxesTilesNbt.at("box").as<tag_int_array>().clone()));
-#elif __APPLE__
+#elif defined(__APPLE__) || defined(__linux__)
       boxes_pos.push_back(
           nbt::value_initializer(static_cast<const nbt::tag_array<int32_t>&>(
                                      kBoxesTilesNbt.at("box").get())
@@ -328,7 +328,7 @@ bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,
         TileEntity temp;
         auto& inner_tag = it->get();
         // Cast
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__linux__)
         const auto& int_array =
             static_cast<const nbt::tag_array<int32_t>&>(inner_tag);
 #elif _WIN32

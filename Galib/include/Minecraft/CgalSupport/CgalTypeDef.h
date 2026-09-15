@@ -34,7 +34,7 @@ using LtKernel = CGAL::Simple_cartesian<FloatType>;
 using LtPoint3 = CGAL::Point_3<LtKernel>;
 using LtVector3 = CGAL::Vector_3<LtKernel>;
 using SurfaceMeshType = CGAL::Surface_mesh<CGAL::Point_3<LtKernel>>;
-#elif __APPLE__
+#elif defined(__APPLE__) || defined(__linux__)
 using FloatType = double;
 using LtKernel = CGAL::Simple_cartesian<FloatType>;
 using LtPoint3 = CGAL::Point_3<LtKernel>;
