@@ -63,3 +63,11 @@ Get-FileHash .\LittleTilesReader-0.2.0-beta-windows-x64.zip -Algorithm SHA256   
 
 - 问题与建议：<https://www.inception.work/feedback?module=littletiles>
 - 使用说明与下载页：<https://www.inception.work/littletiles>
+
+## 源码与许可
+
+二进制按 GPL-3.0-or-later 分发，对应源码随时可取：
+
+- 核心库（本仓库）：<https://github.com/Gaksy/Minecraft-Littletiles-Reader>（分支 `v2ForLLM`，tag `v0.2.0-beta`）
+- 桌面客户端：<https://github.com/Gaksy/Minecraft-Littletiles-Reader-App>
+- 第三方依赖清单与许可全文：包内 `THIRD-PARTY-NOTICES.txt`、`LICENSE-GPL-3.0`
