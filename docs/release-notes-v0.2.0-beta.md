@@ -36,6 +36,10 @@ Get-FileHash .\LittleTilesReader-0.2.0-beta-windows-x64.zip -Algorithm SHA256   
 > ⚠️ 许可证：本程序链接了 **CGAL**（GPL-3.0-or-later），因此**二进制以 GPL-3.0-or-later 分发**；
 > Boost / zlib / libnbt++ 等其它依赖的许可见 `THIRD-PARTY-NOTICES.txt`。
 
+> 源码基线：三平台都从 `v2ForLLM` 的 `dcbdb5c` 构建；Linux 包另外包含 `f2de641` 的 Linux 平台分支
+> （只改 `#ifdef` 平台判断与 Linux 的浮点类型，macOS / Windows 的输出不受影响）。
+> 本 tag `v0.2.0-beta` 指向 `f2de641`。
+
 ## 这个版本能做什么
 
 - 读 `.mca` 区域文件，按区块坐标 + 半径导出；也能直接读 LittleTiles 导出的 **SNBT**
