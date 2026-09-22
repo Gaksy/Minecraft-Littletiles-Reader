@@ -26,7 +26,7 @@
 // Bump MAJOR for a breaking change to the public headers or the job/package
 // contracts, MINOR for new functionality, PATCH for fixes.
 #define GALIB_VERSION_MAJOR 0
-#define GALIB_VERSION_MINOR 2
+#define GALIB_VERSION_MINOR 3
 #define GALIB_VERSION_PATCH 0
 
 // Release channel: exactly one of "stable" or "beta". It is part of the version

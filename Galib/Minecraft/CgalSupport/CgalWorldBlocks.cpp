@@ -31,7 +31,6 @@ namespace galib::minecraft::cgal_support {
 namespace {
 
 constexpr int kChunkSizeBlocks = 16;
-constexpr int kWorldHeight = 256;
 
 // The cube's six faces: local offsets of the 4 corners (the order determines the
 // normal direction, consistent with the tile winding)
@@ -65,14 +64,30 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
   // culled across chunks
   const int size_x = kChunkSizeX * kChunkSizeBlocks;
   const int size_z = kChunkSizeZ * kChunkSizeBlocks;
+  // The vertical range comes from the chunk layout: 1.12.2 covers y 0..255, 1.18+
+  // covers y -64..319 (the "new world has -64" case), and both must work.
+  const int min_y = kChunks.front().min_y();
+  const int world_height = kChunks.front().size_y();
   const std::size_t plane = static_cast<std::size_t>(size_x) * size_z;
-  std::vector<ChunkBlocks::State> grid(plane * kWorldHeight);
-  const auto index_of = [size_x, plane](const int kX, const int kY,
-                                        const int kZ) {
+  std::vector<ChunkBlocks::State> grid(plane * world_height);
+  const auto index_of = [size_x, plane, min_y](const int kX, const int kY,
+                                               const int kZ) {
     return static_cast<std::size_t>(kX) +
            static_cast<std::size_t>(kZ) * size_x +
-           static_cast<std::size_t>(kY) * plane;
+           static_cast<std::size_t>(kY - min_y) * plane;
   };
+
+  /*
+   * Block names: the 1.18+ layout already stores the flattened name per block
+   * state, the 1.12.2 one a numeric id that block_ids.tsv (the assets package)
+   * turns into a name. Names are copied into one region-wide table while
+   * flattening, so a State stays a plain index and the grid below is
+   * self-contained.
+   */
+  const bool names_layout = !kChunks.front().needs_id_table();
+  std::vector<std::string> region_names;
+  region_names.push_back(std::string());
+  std::map<std::string, std::uint16_t> region_name_index;
 
   for (int chunk_z = 0; chunk_z < kChunkSizeZ; ++chunk_z) {
     for (int chunk_x = 0; chunk_x < kChunkSizeX; ++chunk_x) {
@@ -82,12 +97,31 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
         continue;
       }
       const ChunkBlocks& chunk = kChunks[chunk_index];
-      for (int y = 0; y < kWorldHeight; ++y) {
+      for (int y = min_y; y < min_y + world_height; ++y) {
         for (int z = 0; z < kChunkSizeBlocks; ++z) {
           for (int x = 0; x < kChunkSizeBlocks; ++x) {
-            const ChunkBlocks::State& state = chunk.At(x, y, z);
+            ChunkBlocks::State state = chunk.At(x, y, z);
             if (state.is_air() && !state.little_tiles_host()) {
               continue;
+            }
+            if (names_layout) {
+              // Re-index into the region-wide name table (the chunk's own table
+              // only lives as long as that chunk does).
+              const std::string& name = chunk.BlockName(state);
+              if (state.is_air()) {
+                state.block_id = 0;  // a LittleTiles host that is air otherwise
+              } else if (!name.empty()) {
+                const auto found = region_name_index.find(name);
+                if (found != region_name_index.end()) {
+                  state.block_id = found->second;
+                } else {
+                  const auto index =
+                      static_cast<std::uint16_t>(region_names.size());
+                  region_names.push_back(name);
+                  region_name_index.emplace(name, index);
+                  state.block_id = index;
+                }
+              }
             }
             grid[index_of(chunk_x * kChunkSizeBlocks + x, y,
                           chunk_z * kChunkSizeBlocks + z)] = state;
@@ -97,12 +131,12 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
     }
   }
 
-  const auto state_at = [&grid, &index_of, size_x, size_z](
+  const auto state_at = [&grid, &index_of, size_x, size_z, min_y, world_height](
                             const int kX, const int kY,
                             const int kZ) -> const ChunkBlocks::State& {
     static const ChunkBlocks::State kAir{};
-    if (kX < 0 || kY < 0 || kZ < 0 || kX >= size_x || kY >= kWorldHeight ||
-        kZ >= size_z) {
+    if (kX < 0 || kY < min_y || kZ < 0 || kX >= size_x ||
+        kY >= min_y + world_height || kZ >= size_z) {
       return kAir;
     }
     return grid[index_of(kX, kY, kZ)];
@@ -122,12 +156,12 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
     }
     ProgressPrintf(
         Tr("[worldblocks] grid %dx%dx%d: %zu solid blocks, %zu LT hosts\n"),
-        size_x, kWorldHeight, size_z, filled, hosts);
+        size_x, world_height, size_z, filled, hosts);
   }
 #endif
 
-  // 2. Group by (block id, meta), one mesh per group
-  std::map<std::pair<std::uint16_t, std::uint8_t>, std::size_t> group_index;
+  // 2. Group by block name, one mesh per group
+  std::map<std::string, std::size_t> group_index;
 #ifdef GALIB_DEBUG
   std::size_t emitted_blocks = 0;
   std::size_t emitted_faces = 0;
@@ -136,7 +170,7 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
   // When add_face fails CGAL throws no exception and only returns null_face; it must
   // be counted here, otherwise faces are silently dropped
   std::size_t rejected_faces = 0;
-  for (int y = 0; y < kWorldHeight; ++y) {
+  for (int y = min_y; y < min_y + world_height; ++y) {
     for (int z = 0; z < size_z; ++z) {
       for (int x = 0; x < size_x; ++x) {
         const ChunkBlocks::State& state = grid[index_of(x, y, z)];
@@ -150,18 +184,20 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
         // make a missing block_ids.tsv look like "the plain-block option does
         // nothing".
         std::string block_name =
-            kBlockIdTable.BlockName(state.block_id, state.meta);
+            names_layout ? (state.block_id < region_names.size()
+                                ? region_names[state.block_id]
+                                : std::string())
+                         : kBlockIdTable.BlockName(state.block_id, state.meta);
         if (block_name.empty()) {
           block_name = "unknown_id_" + std::to_string(state.block_id) + "_" +
                        std::to_string(state.meta);
         }
 
-        const auto key = std::make_pair(state.block_id, state.meta);
-        auto found = group_index.find(key);
+        auto found = group_index.find(block_name);
         if (found == group_index.end()) {
           LtSurfaceMesh mesh;
           mesh.set_block_id(block_name);
-          found = group_index.emplace(key, p_desc_meshes->size()).first;
+          found = group_index.emplace(block_name, p_desc_meshes->size()).first;
           p_desc_meshes->push_back(std::move(mesh));
         }
         LtSurfaceMesh& mesh = (*p_desc_meshes)[found->second];

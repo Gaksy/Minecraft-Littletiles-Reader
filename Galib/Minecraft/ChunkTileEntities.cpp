@@ -85,16 +85,22 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadChunkNbt(
 
 ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
     const tag_compound& kChunkLevelNbt, size_type* p_boxes_count) {
-  // Chenk TileEnities is exist
-  if (!kChunkLevelNbt.has_key("TileEntities")) {
+  // 1.12.2 keeps the block entities in "TileEntities", 1.18+ in "block_entities"
+  const char* const kTileEntitiesKey =
+      kChunkLevelNbt.has_key("TileEntities")
+          ? "TileEntities"
+          : (kChunkLevelNbt.has_key("block_entities") ? "block_entities"
+                                                      : nullptr);
+  if (kTileEntitiesKey == nullptr) {
     throw LittleTilesException(LittleTilesErrorCode::lt_tage_not_exist,
-                               "The NBT \"TileEntities\" tag does not exist",
+                               "The NBT \"TileEntities\" / \"block_entities\" "
+                               "tag does not exist",
                                "ChunkTiles");
   }
 
   // Get TileEnities
   const tag_list& tiles_entities =
-      kChunkLevelNbt.at("TileEntities").as<tag_list>();
+      kChunkLevelNbt.at(kTileEntitiesKey).as<tag_list>();
   container block_tile_entities;
 
   size_type tile_count = 0;
@@ -121,9 +127,7 @@ ChunkTileEntities::size_type ChunkTileEntities::ReadTileEntities(
     }
 #else
     catch (const std::exception& e) {
-      printf("%s%s\n",
-             Tr("ChunkTileEntities::ReadChunk error: "),
-             e.what());
+      printf("%s%s\n", Tr("ChunkTileEntities::ReadChunk error: "), e.what());
     }
 #endif
   }

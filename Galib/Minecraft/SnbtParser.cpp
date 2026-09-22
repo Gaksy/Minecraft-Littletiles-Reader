@@ -18,6 +18,7 @@
 
 #include <cctype>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <stdexcept>
 
@@ -32,6 +33,114 @@ bool IsUnquotedChar(const char kCh) {
          kCh == '.' || kCh == '+' || kCh == '-';
 }
 
+// Whether a compound key or a string may be written without quotes. Quoting is
+// always legal in SNBT, but keeping `min` / `grid` bare makes the output look the
+// way LittleTiles writes it.
+bool IsPlainKey(const std::string& kText) {
+  if (kText.empty()) {
+    return false;
+  }
+  if (std::isdigit(static_cast<unsigned char>(kText.front())) != 0 ||
+      kText.front() == '+' || kText.front() == '-') {
+    return false;
+  }
+  for (const char ch : kText) {
+    if (IsUnquotedChar(ch)) {
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+std::string EscapeString(const std::string& kText) {
+  std::string out = "\"";
+  for (const char ch : kText) {
+    switch (ch) {
+      case '"':
+        out += "\\\"";
+        break;
+      case '\\':
+        out += "\\\\";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default:
+        out.push_back(ch);
+        break;
+    }
+  }
+  out.push_back('"');
+  return out;
+}
+
+void AppendNumber(const Value& kValue, std::string* p_desc_out) {
+  std::ostringstream text;
+  if (kValue.kind() == Value::Kind::kInt) {
+    text << kValue.as_int();
+  } else {
+    // 'f' literals went through a float, so 9 significant digits round-trip
+    // them exactly; doubles need the full 17.
+    text << std::setprecision(kValue.number_suffix() == 'f' ? 9 : 17)
+         << kValue.as_double();
+  }
+  *p_desc_out += text.str();
+  if (kValue.number_suffix() != '\0') {
+    p_desc_out->push_back(kValue.number_suffix());
+  }
+}
+
+void AppendValue(const Value& kValue, std::string* p_desc_out) {
+  switch (kValue.kind()) {
+    case Value::Kind::kInt:
+    case Value::Kind::kFloat:
+      AppendNumber(kValue, p_desc_out);
+      return;
+    case Value::Kind::kString:
+      *p_desc_out += EscapeString(kValue.as_string());
+      return;
+    case Value::Kind::kList: {
+      *p_desc_out += '[';
+      if (kValue.array_type() != '\0') {
+        p_desc_out->push_back(kValue.array_type());
+        *p_desc_out += ';';
+      }
+      bool first = true;
+      for (const Value& item : kValue.items()) {
+        if (!first) {
+          *p_desc_out += ',';
+        }
+        first = false;
+        AppendValue(item, p_desc_out);
+      }
+      *p_desc_out += ']';
+      return;
+    }
+    case Value::Kind::kCompound: {
+      *p_desc_out += '{';
+      bool first = true;
+      for (const auto& [key, member] : kValue.members()) {
+        if (!first) {
+          *p_desc_out += ',';
+        }
+        first = false;
+        *p_desc_out += IsPlainKey(key) ? key : EscapeString(key);
+        *p_desc_out += ':';
+        AppendValue(member, p_desc_out);
+      }
+      *p_desc_out += '}';
+      return;
+    }
+  }
+}
+
 }  // namespace
 
 std::vector<std::int64_t> Value::AsIntArray() const {
@@ -41,6 +150,20 @@ std::vector<std::int64_t> Value::AsIntArray() const {
     result.push_back(value.as_int());
   }
   return result;
+}
+
+Value Value::MakeString(std::string kText) {
+  Value value;
+  value.kind_ = Kind::kString;
+  value.text_ = std::move(kText);
+  return value;
+}
+
+Value Value::MakeCompound(std::map<std::string, Value> kMembers) {
+  Value value;
+  value.kind_ = Kind::kCompound;
+  value.members_ = std::move(kMembers);
+  return value;
 }
 
 // Recursive-descent parser. A LittleTiles structure file is a single-line gigantic
@@ -273,11 +396,13 @@ class Parser {
       const char ch = text_[position_];
       if (ch == 'b' || ch == 'B' || ch == 's' || ch == 'S' || ch == 'l' ||
           ch == 'L' || ch == 'f' || ch == 'F' || ch == 'd' || ch == 'D') {
-        suffix = ch;
+        suffix =
+            static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
         ++position_;
       }
     }
     Value result;
+    result.suffix_ = suffix;
     if (is_real || suffix == 'f' || suffix == 'F' || suffix == 'd' ||
         suffix == 'D') {
       result.kind_ = Value::Kind::kFloat;
@@ -309,6 +434,12 @@ Value ParseFile(const std::string& kPath) {
   std::ostringstream buffer;
   buffer << input.rdbuf();
   return Parse(buffer.str());
+}
+
+std::string ToSnbt(const Value& kValue) {
+  std::string text;
+  AppendValue(kValue, &text);
+  return text;
 }
 
 }  // namespace galib::minecraft::snbt

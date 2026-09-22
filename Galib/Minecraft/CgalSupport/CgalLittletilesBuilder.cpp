@@ -63,8 +63,8 @@ using galib::minecraft::littletiles::ChunkTileEntities;
 using galib::minecraft::littletiles::GridType;
 using galib::minecraft::littletiles::TileEntity;
 
-using galib::minecraft::texture_support::BlockFaceTextures;
 using galib::minecraft::texture_support::AssetsPackage;
+using galib::minecraft::texture_support::BlockFaceTextures;
 using galib::minecraft::texture_support::ComputeFaceUv;
 using galib::minecraft::texture_support::FaceDirection;
 using galib::minecraft::texture_support::FaceDirectionFromNormal;
@@ -200,8 +200,7 @@ long long QuantizeUvKey(const double kU, const double kV) {
 }  // namespace
 
 struct ObjMeshBuilder::Impl {
-  explicit Impl(const ObjExportOptions& kOptions)
-      : options(kOptions) {
+  explicit Impl(const ObjExportOptions& kOptions) : options(kOptions) {
     // The assets root is the library's only assets entry point: path assembly, mapping
     // table and tint all live in AssetsPackage. A failed open only degrades to "no
     // materials written", with the reason left for the host to print (a missing assets
@@ -243,7 +242,8 @@ struct ObjMeshBuilder::Impl {
         SurfaceMeshType::Vertex_index new_vertex =
             marged_mesh.add_vertex(current_point);
         current_mesh_vertices_in_marged.push_back(new_vertex);
-        vertex_index_map[v] = new_vertex;  // map the original vertex index to the new vertex index
+        vertex_index_map[v] =
+            new_vertex;  // map the original vertex index to the new vertex index
         // Record the "in-block local position": world coordinate = local coordinate +
         // block coordinate. UVs must be computed from it, and it cannot be derived from
         // coordinates after the export normalization (centring/scaling).
@@ -412,10 +412,9 @@ struct ObjMeshBuilder::Impl {
     std::ofstream out(output_path);
     if (!out) {
       std::error_code path_error;
-      stats_.error =
-          "cannot open file: " +
-          galib::Utf8String(
-              std::filesystem::weakly_canonical(output_path, path_error));
+      stats_.error = "cannot open file: " +
+                     galib::Utf8String(std::filesystem::weakly_canonical(
+                         output_path, path_error));
       if (!options.quiet) {
         std::cerr << galib::Tr("cannot open file: ")
                   << galib::Utf8String(std::filesystem::weakly_canonical(
@@ -548,18 +547,17 @@ struct ObjMeshBuilder::Impl {
       // absolute - and gives the wanted "same folder -> plain name" result.
       const std::filesystem::path relative =
           texture_dir.lexically_relative(output_path.parent_path());
-      std::string map_kd_prefix =
-          relative.empty() ? galib::Utf8GenericString(texture_dir)
-                           : galib::Utf8GenericString(relative);
+      std::string map_kd_prefix = relative.empty()
+                                      ? galib::Utf8GenericString(texture_dir)
+                                      : galib::Utf8GenericString(relative);
       if (map_kd_prefix.empty()) {
         map_kd_prefix = ".";
       }
       texture_dir_label = map_kd_prefix;
 
       std::string material_error;
-      baked_texture_count =
-          materials_->WriteTextures(galib::Utf8String(texture_dir),
-                                    &material_error);
+      baked_texture_count = materials_->WriteTextures(
+          galib::Utf8String(texture_dir), &material_error);
       materials_->WriteMtl(galib::Utf8String(mtl_path), map_kd_prefix,
                            &material_error);
       if (!material_error.empty() && !options.quiet) {
@@ -573,9 +571,8 @@ struct ObjMeshBuilder::Impl {
     if (!options.quiet) {
       std::error_code path_error;
       std::cout << galib::Tr("exported merged mesh to: ")
-                << galib::Utf8String(
-                       std::filesystem::weakly_canonical(output_path,
-                                                         path_error))
+                << galib::Utf8String(std::filesystem::weakly_canonical(
+                       output_path, path_error))
                 << "\n";
       if (write_materials) {
         std::cout << galib::Tr("  materials ") << materials_->size()
@@ -616,8 +613,9 @@ struct ObjMeshBuilder::Impl {
   // package is valid
   std::optional<AssetsPackage> package_;
   std::unique_ptr<MaterialManager> materials_;
-  std::string package_open_error_;  // reason the assets package failed to open (for
-                                    // reporting to the host)
+  std::string
+      package_open_error_;  // reason the assets package failed to open (for
+                            // reporting to the host)
   SurfaceMeshType marged_mesh;
   unordered_map<SurfaceMeshType::Vertex_index, SurfaceMeshType::Vertex_index>
       vertex_index_map;
@@ -675,14 +673,17 @@ std::size_t galib::minecraft::cgal_support::AddStructureToObjBuilder(
   if (p_desc_builder == nullptr) {
     return 0;
   }
-  const double grid = static_cast<double>(kStructure.grid());
   const double origin_x = static_cast<double>(kStructure.min().x);
   const double origin_y = static_cast<double>(kStructure.min().y);
   const double origin_z = static_cast<double>(kStructure.min().z);
   std::size_t mesh_count = 0;
 
-  for (const littletiles::LtStructure::Group& group : kStructure.groups()) {
-    for (const littletiles::TileEntity& tile : group.boxes) {
+  kStructure.VisitGroups([&](const littletiles::LtStructure::Group& kGroup) {
+    // Every level carries its own grid (a child structure may be finer or
+    // coarser than its parent), so the scale is taken per group instead of once
+    // for the whole structure.
+    const double grid = static_cast<double>(kGroup.grid);
+    for (const littletiles::TileEntity& tile : kGroup.boxes) {
       LtSurfaceMesh tile_mesh;
       // The same clipping strategy as the save-file path: clip only when the offset goes
       // outside its own box
@@ -693,8 +694,8 @@ std::size_t galib::minecraft::cgal_support::AddStructureToObjBuilder(
       } else {
         CreateMeshFromTileEntity(tile_mesh, tile);
       }
-      tile_mesh.set_block_id(group.block_id);
-      tile_mesh.set_tile_color(group.color, group.has_color);
+      tile_mesh.set_block_id(kGroup.block_id);
+      tile_mesh.set_tile_color(kGroup.color, kGroup.has_color);
 
       // grid -> block units, and translate to the structure origin; also record the
       // "relative coordinate inside the cell it lies in" (for UVs). A mesh inside a
@@ -714,6 +715,6 @@ std::size_t galib::minecraft::cgal_support::AddStructureToObjBuilder(
       p_desc_builder->AddMesh(tile_mesh);
       ++mesh_count;
     }
-  }
+  });
   return mesh_count;
 }

@@ -1,0 +1,9 @@
+{s:{b:[I;],id:"fixed",n:"Legacy Sample",speed:2.5},
+t:{"kirosblocks:colored_brick_light_block":[[I;-1],[I;4,4,4,6,6,6]],
+"minecraft:diorite":[[I;-1],[I;0,0,0,16,16,16]],
+"minecraft:lime_wool":[[I;-13487566],[I;0,0,0,8,8,8],[I;8,8,8,16,16,16]],
+"minecraft:spruce_log[axis=y]":[[I;-1],[I;30,287,318,32,288,320,-2133103178,1900386,-917408,1834850,-982944,1900386,-917408,1834850,-982944]]},
+grid:32,min:[I;30,0,28],size:[I;64,32,32],tiles:6,boxes:7,
+c:[{dynamic:1b,s:{id:"ladder"},t:{"minecraft:acacia_planks":[[I;-1],[I;16,0,0,24,8,8]]},grid:32,
+c:[{s:{id:"ladder"},t:{"minecraft:white_wool":[[I;-1],[I;24,0,0,32,8,8]]},grid:32}]}],
+trans:1b}

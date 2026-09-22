@@ -30,17 +30,33 @@ class ChunkTileEntities;
 
 namespace galib::minecraft {
 
-// The "plain blocks" of a chunk (Level.Sections[].Blocks/Data/Add).
-// LittleTiles tile entities are attached to plain blocks, and the appearance of
-// those blocks is expressed by the tiles, so they must be excluded when exporting
-// full blocks (see MarkLittleTilesHosts).
+// The "plain blocks" of a chunk. LittleTiles tile entities are attached to plain
+// blocks, and the appearance of those blocks is expressed by the tiles, so they
+// must be excluded when exporting full blocks (see MarkLittleTilesHosts).
+//
+// Two chunk layouts are supported:
+//
+//   kIds12     1.12.2: `Sections[].Blocks` byte array (+ `Data` metadata nibbles
+//              and the `Add` high bits); a block is a numeric registry id, which
+//              the assets package turns into a name (see BlockIdTable).
+//   kNames118  1.18+ (1.20): `sections[].block_states` palette + packed long
+//              array; a block already is its (flattened) name, and the id table is
+//              not involved.
+//
+// The vertical range differs as well: 1.12.2 chunks cover y 0..255, 1.18+ ones
+// y -64..319 (min_y()/size_y() report which one this chunk uses).
 class ChunkBlocks {
  public:
   static constexpr int kSizeX = 16;
-  static constexpr int kSizeY = 256;
   static constexpr int kSizeZ = 16;
-  static constexpr std::size_t kBlockCount =
-      static_cast<std::size_t>(kSizeX) * kSizeY * kSizeZ;
+  // Tallest layout (1.18+, 384 rows); older chunks use fewer rows
+  static constexpr int kMaxSizeY = 384;
+
+  enum class Layout {
+    kNone,     // nothing read yet
+    kIds12,    // 1.12.2: numeric ids + metadata
+    kNames118  // 1.18+: flattened block names from the section palette
+  };
 
   struct State {
     // bit0: LittleTiles host position; bit1..bit6: whether each of the 6 faces at
@@ -83,6 +99,21 @@ class ChunkBlocks {
   // there is no Sections tag.
   bool ReadFromChunkLevel(const nbt::tag_compound& kChunkLevel);
 
+  [[nodiscard]] Layout layout() const { return layout_; }
+  // Whether block ids have to be resolved through block_ids.tsv
+  [[nodiscard]] bool needs_id_table() const {
+    return layout_ == Layout::kIds12;
+  }
+
+  // World Y of row 0 and the number of rows (1.12.2: 0/256, 1.18+: -64/384).
+  [[nodiscard]] int min_y() const { return min_y_; }
+  [[nodiscard]] int size_y() const { return size_y_; }
+
+  // 1.18+ only: the flattened name a State refers to (empty in the id layout or
+  // when the index is out of range). In the id layout the caller resolves the
+  // name through the assets package instead.
+  [[nodiscard]] const std::string& BlockName(const State& kState) const;
+
   // Mark the blocks where LittleTiles tile entities live.
   // Note: in 1.12 the tile entity's x/y/z are **world coordinates**, so the chunk
   // coordinate is needed to convert them to in-chunk coordinates; getting the
@@ -101,7 +132,18 @@ class ChunkBlocks {
   const State& At(int kX, int kY, int kZ) const;
 
  private:
-  std::vector<State> states_{kBlockCount};
+  [[nodiscard]] std::size_t Index(int kX, int kY, int kZ) const;
+  bool ReadIds12(const nbt::tag_compound& kChunkLevel);
+  bool ReadNames118(const nbt::tag_compound& kChunkLevel);
+
+  Layout layout_{Layout::kNone};
+  // World Y of row 0 and the number of rows this chunk covers
+  int min_y_{0};
+  int size_y_{256};
+  // kNames118: block_state palette of the whole chunk; State::block_id is an index
+  // into it. Kept per chunk (a palette is a few dozen names), never duplicated.
+  std::vector<std::string> names_;
+  std::vector<State> states_{static_cast<std::size_t>(kSizeX) * 256 * kSizeZ};
 };
 
 }  // namespace galib::minecraft

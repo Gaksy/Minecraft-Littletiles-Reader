@@ -31,13 +31,13 @@
 
 using galib::coord::Coord2DToString;
 
+using galib::Utf8Path;
+using galib::Utf8String;
 using galib::file::FormatFolderPath;
 using galib::file::GetFileSize;
 using galib::file::IsFileAccessible;
 using galib::file::IsFolderAccessible;
 using galib::file::ReadFileBasic;
-using galib::Utf8Path;
-using galib::Utf8String;
 
 using galib::exception::MinecraftErrorCode;
 using galib::exception::MinecraftException;
@@ -192,11 +192,16 @@ AnvilReader::ChunkDataReference AnvilReader::GetChunkDataReference(
     }
   }
 
-  return {p_chunk_cache->chunk_info, p_chunk_cache->chunk_root.get(),
-          &p_chunk_cache->chunk_root.get()
-               ->at("Level")
-               .get()
-               .as<nbt::tag_compound>()};
+  // Before 1.12.2 the chunk data sits under "Level"; 1.18+ flattened the level
+  // onto the chunk root (it carries "sections" / "block_entities" directly), in
+  // which case the root itself is the level. Without this an old save and a new
+  // one of the same build cannot be exported through the same code path.
+  nbt::tag_compound& chunk_root = *p_chunk_cache->chunk_root.get();
+  nbt::tag_compound* p_chunk_level =
+      chunk_root.has_key("Level")
+          ? &chunk_root.at("Level").get().as<nbt::tag_compound>()
+          : &chunk_root;
+  return {p_chunk_cache->chunk_info, &chunk_root, p_chunk_level};
 }
 
 void AnvilReader::Clear() {
@@ -210,9 +215,8 @@ std::filesystem::path AnvilReader::BuildMcaFilePath(
     const RegionCoordinate& kRegionCoord) {
   // The file name itself is plain ASCII, so appending it as a narrow string is
   // safe even on Windows; the folder part carries the user's characters.
-  return kRegionFolderPath /
-         ("r." + to_string(kRegionCoord.x) + "." + to_string(kRegionCoord.z) +
-          ".mca");
+  return kRegionFolderPath / ("r." + to_string(kRegionCoord.x) + "." +
+                              to_string(kRegionCoord.z) + ".mca");
 }
 
 bool AnvilReader::ReadMcaFile(const std::filesystem::path& kMcaFilePath,

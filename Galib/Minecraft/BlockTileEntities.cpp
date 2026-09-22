@@ -73,9 +73,6 @@ BlockTileEntities::size_type BlockTileEntities::ReadBlockTileNbt(
     // Get ID
     string little_tiles_id = kBlockTilesNBT.at("id").as<tag_string>();
 
-    // Get tiles list
-    auto tiles = kBlockTilesNBT.at("content").at("tiles").as<tag_list>();
-
     // Process block tiles
     container box_tile_enities_map;
     size_type tile_count = 0;
@@ -87,11 +84,37 @@ BlockTileEntities::size_type BlockTileEntities::ReadBlockTileNbt(
                          kBlockTilesNBT.at("z").as<tag_int>().get()};
 
 #ifdef GALIB_DEBUG
-    ProgressPrintf(
-        Tr("BlockTileEntities::ReadBlockTileNbt block: %d %d %d\n"),
-        block_coordinate_.x, block_coordinate_.y, block_coordinate_.z);
+    ProgressPrintf(Tr("BlockTileEntities::ReadBlockTileNbt block: %d %d %d\n"),
+                   block_coordinate_.x, block_coordinate_.y,
+                   block_coordinate_.z);
 #endif
 
+    // Two save layouts carry the tiles:
+    //   1.12.2   content.tiles = [ { block, meta?, color?, boxes|box }, ... ] with
+    //            one entry per (block, colour) and plain LittleBox arrays;
+    //   1.18+    content.tiles = { "block state": [colour, box, colour, box...] }
+    //            where every box carries the face cache in front of its
+    //            coordinates (LittleBox.getArrayTagExtended).
+    const nbt::value& tiles_value = kBlockTilesNBT.at("content").at("tiles");
+    if (tiles_value.get_type() == nbt::tag_type::Compound) {
+      ReadModernTilesNbt(tiles_value.as<tag_compound>(), &box_tile_enities_map,
+                         &tile_count, &boxes_count);
+      grid_ = grid_type;
+      box_tile_entities_map_.swap(box_tile_enities_map);
+      little_tiles_id_.swap(little_tiles_id);
+#ifdef GALIB_DEBUG
+      ProgressPrintf(Tr("BlockTileEntities::ReadBlockTileNbt (1.18+ layout) "
+                        "%zu groups, %zu "
+                        "tiles\n"),
+                     boxes_count, tile_count);
+#endif
+      if (p_boxes_count) {
+        *p_boxes_count = boxes_count;
+      }
+      return tile_count;
+    }
+
+    auto tiles = tiles_value.as<tag_list>();
     for (auto it = tiles.begin(); it != tiles.cend(); ++it) {
       tag_compound* p_boxes = &it->as<tag_compound>();  // Get boxes
 
@@ -292,6 +315,113 @@ std::uint8_t BlockTileEntities::covered_face_mask() const {
   return mask;
 }
 
+bool BlockTileEntities::DecodeBoxArray(const tag_int_array& kBoxArray,
+                                       TileEntity* const p_desc_tile) {
+  const auto& values = kBoxArray.get();
+  if (values.size() < 6) {
+    return false;  // a box is two vertices at least
+  }
+  TileEntity tile;
+  if (values.size() > 6) {  // > 6 means angle offsets and flip bits follow
+    AngleOffset angle_offset_data[8];
+    Flipped flipped_data;
+    if (!SetAngleOffsetStateData(kBoxArray, angle_offset_data, &flipped_data)) {
+      return false;
+    }
+    tile.set_flipped_data(flipped_data);
+    tile.set_offset_data(angle_offset_data);
+  }
+  LittleTilesCoord pos_1, pos_2;
+  pos_1.x = values[0];
+  pos_1.y = values[1];
+  pos_1.z = values[2];
+  pos_2.x = values[3];
+  pos_2.y = values[4];
+  pos_2.z = values[5];
+  tile.set_pos(pos_1, pos_2);
+  *p_desc_tile = tile;
+  return true;
+}
+
+bool BlockTileEntities::DecodeExtendedBoxArray(const tag_int_array& kBoxArray,
+                                               TileEntity* const p_desc_tile) {
+  const auto& values = kBoxArray.get();
+  if (values.size() < 7) {
+    return false;  // face cache + two vertices
+  }
+  // Everything behind the face cache is the classic encoding, so one decoder
+  // serves the 1.12.2 saves, the 1.18+ saves and every SNBT structure.
+  tag_int_array plain(
+      std::vector<std::int32_t>(values.begin() + 1, values.end()));
+  return DecodeBoxArray(plain, p_desc_tile);
+}
+
+void BlockTileEntities::ReadModernTilesNbt(
+    const tag_compound& kTilesNbt, container* const p_desc_container,
+    size_type* const p_desc_tile_count, size_type* const p_desc_boxes_count) {
+  for (auto entry = kTilesNbt.begin(); entry != kTilesNbt.end(); ++entry) {
+    const std::string& block_state = entry->first;
+    const nbt::value& stream_value = entry->second;
+    if (stream_value.get_type() != nbt::tag_type::List) {
+      continue;
+    }
+    const tag_list& stream = stream_value.as<tag_list>();
+
+    // LittleCollection.save writes a one-element colour array in front of every
+    // tile, so the stream is colour -> boxes -> colour -> boxes. Tiles sharing a
+    // colour are collected here and emitted as one group, which is exactly the
+    // grouping the 1.12.2 layout (and the caller's material map) expects.
+    std::map<std::int32_t, BoxTileEnities> by_color;
+    std::int32_t color = -1;
+    for (auto it = stream.begin(); it != stream.end(); ++it) {
+      try {
+        const auto& array = it->as<tag_int_array>();
+        if (array.size() == 1) {
+          color = array[0];
+          by_color.try_emplace(color);
+          continue;
+        }
+        TileEntity tile;
+        if (!DecodeExtendedBoxArray(array, &tile)) {
+          continue;
+        }
+        by_color[color].push_back(tile);
+        ++(*p_desc_tile_count);
+      } catch (const std::exception& e) {
+        std::cerr << "Error parsing a 1.18+ tile box: " << e.what()
+                  << std::endl;
+      }
+    }
+
+    for (auto group = by_color.begin(); group != by_color.end(); ++group) {
+      BoxTileEnities& boxes = group->second;
+      if (boxes.empty()) {
+        continue;
+      }
+      TileMaterial material;
+      material.block_id = block_state;
+      // -1 is LittleTiles' white, i.e. "not dyed" (LittleElement.isColored() is
+      // `color != ColorUtils.WHITE`), so no colour is recorded for it.
+      if (group->first != -1) {
+        material.color = group->first;
+        material.has_color = true;
+        for (TileEntity& tile : boxes) {
+          tile.set_color(material.color, true);
+        }
+      }
+      const auto found = p_desc_container->find(material);
+      if (found == p_desc_container->end()) {
+        p_desc_container->insert(container_pair(material, boxes));
+        ++(*p_desc_boxes_count);
+        continue;
+      }
+      // The same block state can appear again with the same colour in one tile
+      // entity (two tiles of it are written as two markers): keep both.
+      found->second.insert(found->second.end(), boxes.begin(), boxes.end());
+    }
+  }
+}
+
 bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,
                                           BoxTileEnities& desc_box_tile_enities,
                                           size_type& tile_count) {
@@ -335,29 +465,9 @@ bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,
         const auto& int_array = it->as<tag_int_array>();
 #endif
 
-        if (int_array.size() < 6) {
+        if (!DecodeBoxArray(int_array, &temp)) {
           continue;
-        }  // pos must have 6 num (two vertices)
-        if (int_array.size() > 6) {  // if > 6 , then have offset and flipped
-          AngleOffset angle_offset_data[8];
-          Flipped flipped_data;
-          if (!SetAngleOffsetStateData(int_array, angle_offset_data,
-                                       &flipped_data)) {
-            continue;
-          }
-          temp.set_flipped_data(flipped_data);
-          temp.set_offset_data(angle_offset_data);
         }
-
-        LittleTilesCoord pos_1, pos_2;
-        pos_1.x = int_array[0];
-        pos_1.y = int_array[1];
-        pos_1.z = int_array[2];
-        pos_2.x = int_array[3];
-        pos_2.y = int_array[4];
-        pos_2.z = int_array[5];
-        temp.set_pos(pos_1, pos_2);
-
         box_tile_enity_array.push_back(temp);
         ++tile_count;
       } catch (const std::exception& e) {

@@ -1,0 +1,11 @@
+{tiles:[
+{boxes:[[I;0,0,0,8,8,8],[I;8,8,8,16,16,16]],tile:{block:"minecraft:wool:5",color:-13487566}},
+{bBox:[I;0,0,0,16,16,16],tile:{block:"minecraft:stone:3"}},
+{boxes:[[I;30,287,318,32,288,320,-2133103178,1900386,-917408,1834850,-982944,1900386,-917408,1834850,-982944]],tile:{block:"minecraft:log",meta:1}},
+{boxes:[[I;4,4,4,6,6,6]],tile:{block:"kirosblocks:colored_brick_light_block",color:-1,tID:"littletiles:test"}}
+],grid:32,count:5,min:[I;30,0,28],size:[I;64,32,32],
+structure:{name:"Legacy Sample",id:"fixed",blocks:[I;],speed:2.5},
+children:[
+{tiles:[{boxes:[[I;16,0,0,24,8,8]],tile:{block:"minecraft:planks:4"}}],count:1,dynamic:1b,structure:{id:"ladder"},
+children:[{tiles:[{boxes:[[I;24,0,0,32,8,8]],tile:{block:"minecraft:wool"}}],count:1,structure:{id:"ladder"}}]}
+]}

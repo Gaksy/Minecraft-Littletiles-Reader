@@ -35,7 +35,9 @@ elseif(WIN32)
     message(FATAL_ERROR "VCPKG_ROOT is not found, and there is no Homebrew fallback on Windows")
 endif()
 
-project(LittleTilesReader VERSION 0.2.0 LANGUAGES CXX)
+# Keep in sync with Galib/include/Version.h (the library header is the single
+# source of truth for the version string; this one only feeds CMake/packaging).
+project(LittleTilesReader VERSION 0.3.0 LANGUAGES CXX)
 
 # Release channel for the version string; the default lives in Galib/include/Version.h.
 # A CI job can build a test build without touching the header:
@@ -75,6 +77,14 @@ add_subdirectory(Galib)
 # Define the executable target: the CLI is just one consumer of the core library
 add_executable(${CMAKE_PROJECT_NAME} main.cpp)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE galib)
+
+# Unit tests (ctest); -DGALIB_BUILD_TESTS=OFF skips them, which is useful when the
+# repository is built as a dependency of the desktop app.
+option(GALIB_BUILD_TESTS "Build the unit tests" ON)
+if(GALIB_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 if(WIN32)
     add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD

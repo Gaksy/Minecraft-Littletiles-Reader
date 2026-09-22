@@ -156,6 +156,21 @@ using BoxTileEnities = std::vector<TileEntity>;
 bool DecodeBoxAngleData(const std::vector<std::int32_t>& kBoxArray,
                         AngleOffset kOffsets[8], Flipped* p_desc_flipped);
 
+// Inverse of DecodeBoxAngleData: rebuild the int array of a `box`/`boxes` entry.
+//
+// A tile without angle data yields the plain 6-entry form. A transformable tile
+// yields [x1,y1,z1,x2,y2,z2, indicator, packed16...], where the indicator holds
+// the per-corner enable bits in 0..23, the flip bits in 24..29 and
+// LittleTiles' sign marker in bit 31 (LittleBox.create only treats an array
+// whose index 6 is negative as transformable), and the offsets are packed two
+// per int with the first value in the high half - the exact layout
+// LittleTransformableBox.getArray() / getData() write and read.
+//
+// Note: the legacy slice format (a 7- or 11-entry array with a non-negative
+// index 6) carries no information beyond the plain box, so it comes back as the
+// 6-entry form; LittleTiles reads both as the same box.
+[[nodiscard]] std::vector<std::int32_t> EncodeBoxArray(const TileEntity& kTile);
+
 class BlockTileEntities {
  public:
   using const_iterator = std::map<TileMaterial, BoxTileEnities>::const_iterator;
@@ -195,6 +210,25 @@ class BlockTileEntities {
   [[nodiscard]] static bool ReadBoxesTilesNbt(
       const nbt::tag_compound& kBoxesTilesNbt,
       BoxTileEnities& desc_box_tile_enities, size_type& tile_count);
+
+  // One box array of the classic layout: [x1,y1,z1,x2,y2,z2, angle data...]
+  // (1.12.2 saves and every SNBT structure). Returns false when the array is not
+  // a box.
+  [[nodiscard]] static bool DecodeBoxArray(const nbt::tag_int_array& kBoxArray,
+                                           TileEntity* p_desc_tile);
+
+  // The 1.18+ save layout puts the face cache in front of every box
+  // (LittleBox.getArrayTagExtended); strip it and reuse DecodeBoxArray.
+  [[nodiscard]] static bool DecodeExtendedBoxArray(
+      const nbt::tag_int_array& kBoxArray, TileEntity* p_desc_tile);
+
+  // 1.18+ save layout: `content.tiles` is a compound mapping a block state to a
+  // stream of int arrays, where a 1-element array is the colour of the tile
+  // groups after it and every other array is a box.
+  static void ReadModernTilesNbt(const nbt::tag_compound& kTilesNbt,
+                                 container* p_desc_container,
+                                 size_type* p_desc_tile_count,
+                                 size_type* p_desc_boxes_count);
 
   [[nodiscard]] static bool SetAngleOffsetStateData(
       const nbt::tag_int_array& offset_nbt, AngleOffset* p_offset_data,

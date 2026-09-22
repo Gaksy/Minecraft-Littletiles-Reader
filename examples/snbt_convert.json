@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "mode": "snbt_convert",
+  "input": {
+    "snbt": {
+      "path": "<region 根>/snbt/test_snbt/SHB_05_Contemporary_Style_House_v1.1.txt"
+    }
+  },
+  "output": {
+    "dir": "",
+    "name": ""
+  },
+  "options": {
+    "target": "1.20"
+  }
+}

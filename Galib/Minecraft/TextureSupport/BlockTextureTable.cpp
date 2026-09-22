@@ -17,11 +17,15 @@
 #include "Minecraft/TextureSupport/BlockTextureTable.h"
 
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <sstream>
 #include <vector>
 
 #include "File/Utf8Path.h"
+#include "Log/GalibLog.h"
+#include "Log/GalibText.h"
+#include "Minecraft/BlockStateMap.h"
 
 namespace galib::minecraft::texture_support {
 
@@ -42,6 +46,68 @@ std::vector<std::string> SplitTab(const std::string& kLine) {
     fields.push_back(field);
   }
   return fields;
+}
+
+// Block names that a pack may still carry in an older spelling than the save /
+// structure uses (or the other way around). The packs are built from a 1.12.2
+// resource pack, so a few families kept their 1.12 name even though everything
+// else is flattened ("silver_concrete" instead of "light_gray_concrete",
+// "*_stained_hardened_clay" instead of "*_terracotta", "grass" instead of
+// "grass_block", ...). These are only tried **after** the exact lookups, so a
+// pack that does have the modern name always wins.
+enum class AliasKind { kExact, kPrefix, kSuffix };
+
+struct NameAlias {
+  AliasKind kind;
+  const char* from;
+  const char* to;
+};
+
+constexpr NameAlias kNameAliases[] = {
+    // 1.13 renamed silver to light_gray; old packs still say silver
+    {AliasKind::kPrefix, "minecraft:light_gray_", "minecraft:silver_"},
+    // 1.13 renamed *_stained_hardened_clay to *_terracotta
+    {AliasKind::kSuffix, "_terracotta", "_stained_hardened_clay"},
+    {AliasKind::kExact, "minecraft:terracotta", "minecraft:hardened_clay"},
+    {AliasKind::kExact, "minecraft:grass_block", "minecraft:grass"},
+    {AliasKind::kExact, "minecraft:dirt_path", "minecraft:grass_path"},
+    {AliasKind::kExact, "minecraft:bricks", "minecraft:brick_block"},
+    {AliasKind::kExact, "minecraft:nether_bricks", "minecraft:nether_brick"},
+    {AliasKind::kExact, "minecraft:red_nether_bricks",
+     "minecraft:red_nether_brick"},
+    {AliasKind::kExact, "minecraft:end_stone_bricks", "minecraft:end_bricks"},
+    {AliasKind::kExact, "minecraft:slime_block", "minecraft:slime"},
+    {AliasKind::kExact, "minecraft:melon", "minecraft:melon_block"},
+    {AliasKind::kExact, "minecraft:jack_o_lantern", "minecraft:lit_pumpkin"},
+    {AliasKind::kExact, "minecraft:snow_block", "minecraft:snow"},
+};
+
+// Every way this one name could be spelled in the other era
+void AppendAliases(const std::string& kName,
+                   std::vector<std::string>* const p_desc_out) {
+  for (const NameAlias& alias : kNameAliases) {
+    const std::size_t length = std::strlen(alias.from);
+    switch (alias.kind) {
+      case AliasKind::kExact:
+        if (kName == alias.from) {
+          p_desc_out->push_back(alias.to);
+        }
+        break;
+      case AliasKind::kPrefix:
+        if (kName.size() > length &&
+            kName.compare(0, length, alias.from) == 0) {
+          p_desc_out->push_back(std::string(alias.to) + kName.substr(length));
+        }
+        break;
+      case AliasKind::kSuffix:
+        if (kName.size() > length &&
+            kName.compare(kName.size() - length, length, alias.from) == 0) {
+          p_desc_out->push_back(kName.substr(0, kName.size() - length) +
+                                alias.to);
+        }
+        break;
+    }
+  }
 }
 
 }  // namespace
@@ -121,27 +187,66 @@ bool BlockTextureTable::Lookup(const std::string& kBlockId,
     return false;
   }
 
-  auto found = entries_.find(kBlockId);
-  if (found == entries_.end()) {
-    // The block name in NBT may carry no meta. Blocks with a meta family
-    // (wool, stained glass, ...) only have "<name>:<meta>" keys in the table,
-    // while blockstate files are named by colour (white_stained_glass etc.), so
-    // one extra ":0" attempt is made here.
-    if (kBlockId.find(':') != std::string::npos &&
-        kBlockId.find(':', kBlockId.find(':') + 1) == std::string::npos) {
-      found = entries_.find(kBlockId + ":0");
+  // One spelling of the name: the exact key, then "<name>:0" (blocks with a meta
+  // family such as wool only have meta-qualified keys, while blockstate files are
+  // named by colour), then the meta-less base name.
+  const auto try_name = [this,
+                         p_desc_textures](const std::string& kName) -> bool {
+    auto found = entries_.find(kName);
+    if (found == entries_.end()) {
+      const std::size_t first = kName.find(':');
+      if (first != std::string::npos &&
+          kName.find(':', first + 1) == std::string::npos) {
+        found = entries_.find(kName + ":0");
+      }
     }
-  }
-  if (found == entries_.end()) {
-    // When the table has no meta-qualified key, fall back to the block's base name
-    found = entries_.find(StripBlockMeta(kBlockId));
-  }
-  if (found == entries_.end()) {
-    return false;
+    if (found == entries_.end()) {
+      found = entries_.find(StripBlockMeta(kName));
+    }
+    if (found == entries_.end()) {
+      return false;
+    }
+    *p_desc_textures = found->second;
+    return true;
+  };
+
+  if (try_name(kBlockId)) {
+    return true;
   }
 
-  *p_desc_textures = found->second;
-  return true;
+  /*
+   * Cross-version fallbacks. A save / structure of one generation may name a
+   * block differently from the era the pack was built in:
+   *
+   *   1.20 "minecraft:polished_granite"  <-> 1.12.2 "minecraft:stone:2"
+   *   1.20 "minecraft:light_gray_concrete" <-> old pack "minecraft:silver_concrete"
+   *
+   * The block table that LittleTiles ships translates the first case, a small
+   * alias table (above) covers the second. Both are fallbacks only.
+   */
+  const BlockStateMap& map = BlockStateMap::Instance();
+  const std::string legacy = map.ToLegacy(kBlockId);
+  std::vector<std::string> candidates;
+  if (legacy != kBlockId) {
+    candidates.push_back(legacy);
+  }
+  AppendAliases(kBlockId, &candidates);
+  AppendAliases(legacy, &candidates);
+  // One more round, so combinations work: "light_gray_terracotta" needs both the
+  // colour rename and the terracotta rename.
+  const std::size_t first_round = candidates.size();
+  for (std::size_t i = 0; i < first_round; ++i) {
+    AppendAliases(candidates[i], &candidates);
+  }
+
+  for (const std::string& candidate : candidates) {
+    if (try_name(candidate)) {
+      ProgressPrintf(Tr("[texture] %s -> %s\n"), kBlockId.c_str(),
+                     candidate.c_str());
+      return true;
+    }
+  }
+  return false;
 }
 
 void ComputeFaceUv(const FaceDirection direction, const double x,

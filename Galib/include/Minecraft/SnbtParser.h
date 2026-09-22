@@ -31,8 +31,10 @@ namespace galib::minecraft::snbt {
 // Only the parts that LittleTiles structure exports actually use need to be
 // covered: compound, list, typed arrays (`[I;...]`), strings, integers, floats.
 // Type suffixes (`1b`/`1.0f`/`2d`) are normalized to integers or floats during
-// parsing and the original type is not preserved - there is currently no case
-// that needs to distinguish byte/short/int.
+// parsing, but the suffix itself is remembered (see number_suffix()) because the
+// NBT *type* is part of the data: a structure carries `right:1b` (byte) and a
+// reader calling getBoolean() on an integer tag would silently read false. The
+// converter therefore has to write the suffix back out unchanged.
 class Value {
  public:
   enum class Kind {
@@ -57,6 +59,9 @@ class Value {
   [[nodiscard]] std::int64_t as_int() const { return integer_; }
   [[nodiscard]] double as_double() const { return real_; }
   [[nodiscard]] const std::string& as_string() const { return text_; }
+  // Original numeric type suffix: 'b'/'s'/'l' (integer) or 'f'/'d' (float);
+  // '\0' when the literal had no suffix. Case is normalized to lower case.
+  [[nodiscard]] char number_suffix() const { return suffix_; }
   [[nodiscard]] const std::vector<Value>& items() const { return items_; }
   [[nodiscard]] const std::map<std::string, Value>& members() const {
     return members_;
@@ -80,11 +85,18 @@ class Value {
   // Take every element of a list/array as an integer (used for `[I;...]`)
   [[nodiscard]] std::vector<std::int64_t> AsIntArray() const;
 
+  // Factories for code that builds a tag instead of parsing one (the structure
+  // converter copies members of a compound it does not model).
+  [[nodiscard]] static Value MakeString(std::string kText);
+  [[nodiscard]] static Value MakeCompound(
+      std::map<std::string, Value> kMembers);
+
  private:
   friend class Parser;
 
   Kind kind_{Kind::kInt};
   char array_type_{'\0'};
+  char suffix_{'\0'};
   std::int64_t integer_{0};
   double real_{0.0};
   std::string text_;
@@ -100,6 +112,14 @@ class Value {
 // Read from a file and parse (the whole file is read into memory; a measured
 // 800 KB house structure takes about 0.1 s).
 [[nodiscard]] Value ParseFile(const std::string& kPath);
+
+// Serialize a value back into SNBT text.
+//
+// Used to carry parts of a structure through a version conversion unchanged:
+// everything the converter does not model itself (structure metadata such as
+// door animations, message lines, particle settings, ...) is re-emitted from the
+// parsed tree, with numeric suffixes and typed arrays preserved.
+[[nodiscard]] std::string ToSnbt(const Value& kValue);
 
 }  // namespace galib::minecraft::snbt
 

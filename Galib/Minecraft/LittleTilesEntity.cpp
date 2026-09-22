@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cinttypes>
+#include <vector>
 
 #include "Exception/LittleTilesException.h"
 #include "GalibNamespaceDef.h"
@@ -199,4 +200,86 @@ bool TileEntity::is_offset_off_boundary() const {
     }
   }
   return false;
+}
+
+std::vector<std::int32_t> galib::minecraft::littletiles::EncodeBoxArray(
+    const TileEntity& kTile) {
+  std::vector<std::int32_t> array;
+  array.reserve(6 + 1 + 8 * 3 / 2);
+  array.push_back(static_cast<std::int32_t>(kTile.pos_1().x));
+  array.push_back(static_cast<std::int32_t>(kTile.pos_1().y));
+  array.push_back(static_cast<std::int32_t>(kTile.pos_1().z));
+  array.push_back(static_cast<std::int32_t>(kTile.pos_2().x));
+  array.push_back(static_cast<std::int32_t>(kTile.pos_2().y));
+  array.push_back(static_cast<std::int32_t>(kTile.pos_2().z));
+
+  const Flipped& flipped = kTile.flipped_data();
+  std::uint32_t indicator = 0;
+  // Flip bits 24..29, in Facing order (down, up, north, south, west, east), plus
+  // LittleTiles' sign marker in bit 31 so that LittleBox.create recognises the
+  // array as a transformable box.
+  if (flipped.down) {
+    indicator |= 0x1u << 24;
+  }
+  if (flipped.up) {
+    indicator |= 0x2u << 24;
+  }
+  if (flipped.north) {
+    indicator |= 0x4u << 24;
+  }
+  if (flipped.south) {
+    indicator |= 0x1u << 27;
+  }
+  if (flipped.west) {
+    indicator |= 0x2u << 27;
+  }
+  if (flipped.east) {
+    indicator |= 0x4u << 27;
+  }
+
+  // Offsets, in the order the decoder consumes them: corner (AngleID) ascending,
+  // and inside a corner x -> y -> z. They are packed two per int, the first value
+  // in the high 16 bits.
+  std::vector<std::int32_t> packed_values;
+  for (std::size_t corner = 0; corner < 8; ++corner) {
+    const AngleOffset offset =
+        kTile.GetAngleOffset(static_cast<AngleID>(corner));
+    const std::uint8_t bits = static_cast<std::uint8_t>(corner * 3);
+    if (offset.x_enable) {
+      indicator |= 0x1u << bits;
+      packed_values.push_back(offset.x_offset);
+    }
+    if (offset.y_enable) {
+      indicator |= 0x2u << bits;
+      packed_values.push_back(offset.y_offset);
+    }
+    if (offset.z_enable) {
+      indicator |= 0x4u << bits;
+      packed_values.push_back(offset.z_offset);
+    }
+  }
+
+  if (packed_values.empty() && indicator == 0) {
+    // A plain box: no angle data at all.
+    return array;
+  }
+  // Both layouts start with the indicator (flip bits only: an array of 7
+  // entries; with offsets: the packed values follow), and both carry the sign
+  // marker in bit 31, so that reading the file back recognises the box as
+  // transformable and keeps the flip bits.
+  indicator |= 0x80000000u;
+  array.push_back(static_cast<std::int32_t>(indicator));
+  for (std::size_t index = 0; index < packed_values.size(); index += 2) {
+    const std::uint32_t high =
+        static_cast<std::uint32_t>(
+            static_cast<std::uint16_t>(packed_values[index]))
+        << 16;
+    const std::uint32_t low =
+        index + 1 < packed_values.size()
+            ? static_cast<std::uint32_t>(
+                  static_cast<std::uint16_t>(packed_values[index + 1]))
+            : 0u;
+    array.push_back(static_cast<std::int32_t>(high | low));
+  }
+  return array;
 }

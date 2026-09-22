@@ -1,3 +1,4 @@
+#include <boost/json.hpp>
 #include <cctype>
 #include <chrono>
 #include <cstdio>
@@ -9,8 +10,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <boost/json.hpp>
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -49,6 +48,7 @@ using galib::minecraft::cgal_support::MergeAndWriteToObj;
 using galib::minecraft::cgal_support::ObjExportOptions;
 using galib::minecraft::cgal_support::ObjMeshBuilder;
 using galib::minecraft::littletiles::ChunkTileEntities;
+using galib::minecraft::littletiles::DialectName;
 using galib::minecraft::littletiles::LtStructure;
 using galib::minecraft::texture_support::AssetsPackage;
 
@@ -58,6 +58,34 @@ using std::to_string;
 namespace {
 
 using Clock = std::chrono::steady_clock;
+
+// Write a text file, creating its parent directories first (ofstream does not).
+bool WriteTextFile(const std::string& kPath, const std::string& kText,
+                   std::string* const p_desc_error) {
+  const std::filesystem::path path = galib::Utf8Path(kPath);
+  if (path.has_parent_path() && !path.parent_path().empty()) {
+    std::error_code create_error;
+    std::filesystem::create_directories(path.parent_path(), create_error);
+    if (create_error) {
+      *p_desc_error =
+          "cannot create output dir: " + galib::Utf8String(path.parent_path()) +
+          " : " + create_error.message();
+      return false;
+    }
+  }
+  std::ofstream output(path, std::ios::binary);
+  if (!output) {
+    *p_desc_error = "cannot open file: " + kPath;
+    return false;
+  }
+  output << kText;
+  if (!output) {
+    *p_desc_error = "cannot write file: " + kPath;
+    return false;
+  }
+  output.close();
+  return true;
+}
 
 // Seconds between two time points (used for the timing output, printed to 1 decimal
 // place)
@@ -101,8 +129,8 @@ std::filesystem::path ProgramDirectory(const char* const kProgramPath) {
   // non-ASCII characters would come out as mojibake; ask the OS instead.
   std::vector<wchar_t> buffer(MAX_PATH);
   for (;;) {
-    const DWORD length = GetModuleFileNameW(
-        nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    const DWORD length = GetModuleFileNameW(nullptr, buffer.data(),
+                                            static_cast<DWORD>(buffer.size()));
     if (length == 0) {
       break;
     }
@@ -146,7 +174,8 @@ std::string DetectAssetsRoot(const std::filesystem::path& kProgramDir) {
     candidates.push_back("../data/assets/" + pack);
     if (!kProgramDir.empty()) {
       candidates.push_back(kProgramDir / "data" / "assets" / pack);
-      candidates.push_back(kProgramDir.parent_path() / "data" / "assets" / pack);
+      candidates.push_back(kProgramDir.parent_path() / "data" / "assets" /
+                           pack);
     }
   }
   for (const std::filesystem::path& candidate : candidates) {
@@ -174,7 +203,8 @@ std::string AskAssetsRoot(const std::filesystem::path& kProgramDir) {
 
   char line[512];
   if (!fgets(line, sizeof(line), stdin)) {
-    return DetectAssetsRoot(kProgramDir);  // non-interactive (piped) input goes straight to auto-detect
+    return DetectAssetsRoot(
+        kProgramDir);  // non-interactive (piped) input goes straight to auto-detect
   }
   std::string path(line);
   const std::string kSpaces = " \t\r\n";
@@ -238,9 +268,11 @@ struct ChunkRange {
 struct Job {
   bool from_json{false};
   bool is_snbt{false};
-  std::string input_path;      // SNBT file, or the resolved region folder
-  std::string world_root;      // region mode: the save folder (for logs / events)
+  bool is_convert{false};  // SNBT -> SNBT instead of SNBT -> OBJ
+  std::string input_path;  // SNBT file, or the resolved region folder
+  std::string world_root;  // region mode: the save folder (for logs / events)
   std::string dimension{"overworld"};
+  std::string convert_target;  // "1.20" / "1.12.2" (see ParseDialect)
   ChunkRange range;
   bool include_world_blocks{true};
   bool cull_hidden_faces{true};
@@ -248,12 +280,16 @@ struct Job {
   bool normalize_scale{false};
   bool show_progress{true};
   std::string assets_root;
-  std::string output_dir;      // empty = the historical relative defaults
-  std::string output_name;     // empty = derive from the input
+  std::string output_dir;   // empty = the historical relative defaults
+  std::string output_name;  // empty = derive from the input
+  std::string output_path;  // an explicit output file (wins over dir + name)
 };
 
 struct CommandLine {
   std::string job_path;        // --job <file.json> : non-interactive
+  std::string convert_target;  // --convert <1.20|1.12.2> : SNBT -> SNBT
+  std::string convert_input;   // --input <file> : the structure to convert
+  std::string convert_output;  // --out <file> : where to write it
   bool json_progress{false};   // --progress json
   bool help{false};
   bool version{false};
@@ -271,6 +307,18 @@ CommandLine ParseCommandLine(const int kArgc, char** const kArgv) {
       parsed.json_progress = std::string(kArgv[++i]) == "json";
     } else if (argument.rfind("--progress=", 0) == 0) {
       parsed.json_progress = argument.substr(11) == "json";
+    } else if (argument == "--convert" && i + 1 < kArgc) {
+      parsed.convert_target = kArgv[++i];
+    } else if (argument.rfind("--convert=", 0) == 0) {
+      parsed.convert_target = argument.substr(10);
+    } else if (argument == "--input" && i + 1 < kArgc) {
+      parsed.convert_input = kArgv[++i];
+    } else if (argument.rfind("--input=", 0) == 0) {
+      parsed.convert_input = argument.substr(8);
+    } else if (argument == "--out" && i + 1 < kArgc) {
+      parsed.convert_output = kArgv[++i];
+    } else if (argument.rfind("--out=", 0) == 0) {
+      parsed.convert_output = argument.substr(6);
     } else if (argument == "--help" || argument == "-h") {
       parsed.help = true;
     } else if (argument == "--version" || argument == "-V") {
@@ -463,7 +511,8 @@ bool ParseChunkRange(const boost::json::object& kChunks, ChunkRange* p_desc_out,
   return true;
 }
 
-bool LoadJob(const std::string& kPath, Job* p_desc_out, std::string* p_desc_error) {
+bool LoadJob(const std::string& kPath, Job* p_desc_out,
+             std::string* p_desc_error) {
   std::string text;
   if (!ReadFileToString(kPath, &text, p_desc_error)) {
     return false;
@@ -509,9 +558,24 @@ bool LoadJob(const std::string& kPath, Job* p_desc_out, std::string* p_desc_erro
     }
     job.is_snbt = true;
     job.input_path = path;
+  } else if (mode == "snbt_convert") {
+    // SNBT -> SNBT: rewrite a structure in the other Minecraft generation's
+    // dialect instead of exporting a model.
+    const boost::json::object* const snbt = ObjectAt(*input, "snbt");
+    const std::string path = snbt == nullptr ? "" : StringAt(*snbt, "path");
+    if (path.empty()) {
+      if (p_desc_error) {
+        *p_desc_error = "snbt_convert mode needs input.snbt.path";
+      }
+      return false;
+    }
+    job.is_snbt = true;
+    job.is_convert = true;
+    job.input_path = path;
   } else if (mode == "region") {
     const boost::json::object* const world = ObjectAt(*input, "world");
-    const std::string root_dir = world == nullptr ? "" : StringAt(*world, "root");
+    const std::string root_dir =
+        world == nullptr ? "" : StringAt(*world, "root");
     if (root_dir.empty()) {
       if (p_desc_error) {
         *p_desc_error = "region mode needs input.world.root";
@@ -570,6 +634,20 @@ bool LoadJob(const std::string& kPath, Job* p_desc_out, std::string* p_desc_erro
     job.cull_hidden_faces = BoolAt(*options, "cull_hidden_faces", true);
     job.center = BoolAt(*options, "center", true);
     job.normalize_scale = BoolAt(*options, "normalize_scale", false);
+    if (job.is_convert) {
+      // The target dialect is the one thing a conversion cannot guess.
+      job.convert_target = StringAt(*options, "target");
+      LtStructure::Dialect target;
+      if (!ParseDialect(job.convert_target, &target)) {
+        if (p_desc_error) {
+          *p_desc_error = job.convert_target.empty()
+                              ? "snbt_convert mode needs options.target "
+                                "(\"1.20\" or \"1.12.2\")"
+                              : "unknown options.target: " + job.convert_target;
+        }
+        return false;
+      }
+    }
   }
   if (job.is_snbt) {
     job.include_world_blocks = false;
@@ -586,9 +664,20 @@ int RunTilesReader(int argc, char** argv) {
         "%s\n"
         "\n"
         "usage: LittleTilesReader [--job <file.json>] [--progress json]\n"
+        "       LittleTilesReader --convert <1.20|1.12.2> --input <file.txt>\n"
+        "                          [--out <file.txt>] [--progress json]\n"
         "\n"
         "  no --job : interactive prompts (the original behaviour)\n"
         "  --job    : run a job file once and exit, without asking anything\n"
+        "  --convert: rewrite a LittleTiles structure in the other Minecraft\n"
+        "             generation's SNBT dialect (1.20 <-> 1.12.2) instead of\n"
+        "             exporting a model\n"
+        "  --input  : the structure to convert (with --convert); .txt is what\n"
+        "             LittleTiles writes, .struct (1.20 blueprints) also "
+        "works\n"
+        "  --out    : where to write the converted structure (optional; a "
+        "name\n"
+        "             without extension gets .txt)\n"
         "  --progress json : emit one JSON event per line on stdout\n"
         "  --version : print the version and exit\n",
         galib::VersionLine().c_str());
@@ -607,6 +696,25 @@ int RunTilesReader(int argc, char** argv) {
       std::fprintf(stderr, "error: bad job file: %s\n", job_error.c_str());
       return EXIT_FAILURE;
     }
+  } else if (!command_line.convert_target.empty() ||
+             !command_line.convert_input.empty()) {
+    // --convert on the command line: the same shape as a snbt_convert job file.
+    LtStructure::Dialect target;
+    if (!ParseDialect(command_line.convert_target, &target)) {
+      std::fprintf(
+          stderr, "error: --convert needs a target version (1.20 or 1.12.2)\n");
+      return EXIT_FAILURE;
+    }
+    if (command_line.convert_input.empty()) {
+      std::fprintf(stderr, "error: --convert needs --input <file>\n");
+      return EXIT_FAILURE;
+    }
+    job.from_json = true;
+    job.is_snbt = true;
+    job.is_convert = true;
+    job.input_path = command_line.convert_input;
+    job.convert_target = command_line.convert_target;
+    job.output_path = command_line.convert_output;
   }
   const bool json_progress = command_line.json_progress;
   // In JSON mode stdout carries nothing but the event stream: a host that pipes
@@ -639,10 +747,9 @@ int RunTilesReader(int argc, char** argv) {
   // "surrounding plain blocks" do not apply.
   std::error_code path_error_code;
   const bool is_structure_file =
-      job.from_json
-          ? job.is_snbt
-          : std::filesystem::is_regular_file(
-                galib::Utf8Path(region_folder), path_error_code);
+      job.from_json ? job.is_snbt
+                    : std::filesystem::is_regular_file(
+                          galib::Utf8Path(region_folder), path_error_code);
 
   ChunkCoordinate::NumericType chunk_x = 0;
   ChunkCoordinate::NumericType chunk_z = 0;
@@ -672,6 +779,48 @@ int RunTilesReader(int argc, char** argv) {
     }
   }
 
+  // A structure file can either be exported as a model or rewritten in the other
+  // generation's SNBT dialect; everything else below is shared by both modes.
+  if (interactive && is_structure_file &&
+      askYesNo(galib::Tr("Convert the structure to another Minecraft version "
+                         "(SNBT) instead of exporting a model?"),
+               false)) {
+    job.is_convert = true;
+    printf("%s", galib::Tr("target version (1.20 / 1.12.2) [1.20]: "));
+    char target_buffer[64] = {};
+    if (fgets(target_buffer, sizeof(target_buffer), stdin) != nullptr) {
+      std::string target(target_buffer);
+      while (!target.empty() &&
+             (target.back() == '\n' || target.back() == '\r' ||
+              target.back() == ' ')) {
+        target.pop_back();
+      }
+      job.convert_target = target.empty() ? "1.20" : target;
+    } else {
+      job.convert_target = "1.20";
+    }
+    LtStructure::Dialect target;
+    if (!ParseDialect(job.convert_target, &target)) {
+      std::fprintf(stderr, "error: unknown target version: %s\n",
+                   job.convert_target.c_str());
+      return EXIT_FAILURE;
+    }
+    printf("%s", galib::Tr("output file .txt (blank = next to the input): "));
+    char output_buffer[512] = {};
+    if (fgets(output_buffer, sizeof(output_buffer), stdin) != nullptr) {
+      std::string output(output_buffer);
+      while (!output.empty() &&
+             (output.back() == '\n' || output.back() == '\r' ||
+              output.back() == ' ')) {
+        output.pop_back();
+      }
+      if (output.size() >= 2 && output.front() == '"' && output.back() == '"') {
+        output = output.substr(1, output.size() - 2);
+      }
+      job.output_path = output;
+    }
+  }
+
   const bool include_world_blocks =
       interactive
           ? (is_structure_file
@@ -691,17 +840,16 @@ int RunTilesReader(int argc, char** argv) {
   // Centring: move the bounding-box centre to the origin (recommended; after importing
   // into third-party software, Frame Selected shows it immediately)
   const bool is_need_geometry_center =
-      interactive ? askYesNo(galib::Tr("Move the model center to the origin?"),
-                             true)
-                  : job.center;
+      interactive && !job.is_convert
+          ? askYesNo(galib::Tr("Move the model center to the origin?"), true)
+          : job.center;
   // Unit scaling: compresses the longest edge to 1, losing the real "1 unit = 1 block"
   // size, so it is off by default
   const bool is_need_normalize_scale =
-      interactive
-          ? askYesNo(
-                galib::Tr(
-                    "Also scale the longest edge to 1 unit (changes the real size)?"),
-                false)
+      interactive && !job.is_convert
+          ? askYesNo(galib::Tr("Also scale the longest edge to 1 unit (changes "
+                               "the real size)?"),
+                     false)
           : job.normalize_scale;
   // Progress output and timing statistics share one switch: both are "watch the
   // process" features that are usually unwanted when scripting / running as a service.
@@ -715,7 +863,8 @@ int RunTilesReader(int argc, char** argv) {
   // AskAssetsRoot already normalizes to an absolute path when it finds one: the later
   // reads (block_ids.tsv / block_textures.tsv / textures) all build on this string.
   std::string assets_root = job.assets_root;
-  if (interactive) {
+  if (interactive && !job.is_convert) {
+    // A conversion never writes materials, so a texture package is not asked for.
     assets_root = AskAssetsRoot(program_dir);
     printf(galib::Tr("assets root: %s\n"),
            assets_root.empty() ? galib::Tr("(not found, geometry only)")
@@ -734,21 +883,23 @@ int RunTilesReader(int argc, char** argv) {
       if (json_progress) {
         EmitEvent(true, "warning", {JsonField("message", package_error)});
       } else {
-        printf(galib::Tr("warning: assets package unusable (%s), geometry only\n"),
-               package_error.c_str());
+        printf(
+            galib::Tr("warning: assets package unusable (%s), geometry only\n"),
+            package_error.c_str());
       }
     } else {
       const galib::minecraft::texture_support::AssetsPackageInfo& info =
           package->info();
       if (json_progress) {
-        EmitEvent(true, "assets",
-                  {JsonField("format_version",
-                             static_cast<long long>(info.format_version)),
-                   JsonField("blocks", static_cast<long long>(info.block_count)),
-                   JsonField("textures",
-                             static_cast<long long>(info.texture_ref_count)),
-                   JsonField("missing",
-                             static_cast<long long>(info.missing_texture_count))});
+        EmitEvent(
+            true, "assets",
+            {JsonField("format_version",
+                       static_cast<long long>(info.format_version)),
+             JsonField("blocks", static_cast<long long>(info.block_count)),
+             JsonField("textures",
+                       static_cast<long long>(info.texture_ref_count)),
+             JsonField("missing",
+                       static_cast<long long>(info.missing_texture_count))});
       } else {
         printf(galib::Tr("assets package: format_version %d, %zu blocks, %zu "
                          "textures referenced\n"),
@@ -764,21 +915,165 @@ int RunTilesReader(int argc, char** argv) {
     }
   }
 
-  EmitEvent(json_progress, "start",
-            {JsonField("mode", std::string(is_structure_file ? "snbt"
-                                                             : "region")),
-             // The host records this, so an export can always be traced back to
-             // the build that produced it.
-             JsonField("library", galib::VersionString()),
-             JsonField("chunks",
-                       static_cast<long long>(is_structure_file ? 0
-                                                                : range.Count())),
-             JsonField("world", job.world_root),
-             JsonField("dimension", job.dimension), JsonField("assets", assets_root)});
+  EmitEvent(
+      json_progress, "start",
+      {JsonField("mode",
+                 std::string(is_structure_file
+                                 ? (job.is_convert ? "snbt_convert" : "snbt")
+                                 : "region")),
+       // The host records this, so an export can always be traced back to
+       // the build that produced it.
+       JsonField("library", galib::VersionString()),
+       JsonField("chunks",
+                 static_cast<long long>(is_structure_file ? 0 : range.Count())),
+       JsonField("world", job.world_root),
+       JsonField("dimension", job.dimension), JsonField("assets", assets_root),
+       JsonField("target",
+                 job.is_convert ? job.convert_target : std::string())});
 
   // Timing starts here: everything before this is human input and is not counted as
   // processing time.
   const Clock::time_point process_start = Clock::now();
+
+  // ---- LittleTiles structure conversion (SNBT -> SNBT across generations) ----
+  if (is_structure_file && job.is_convert) {
+    LtStructure::Dialect target;
+    if (!ParseDialect(job.convert_target, &target)) {
+      std::fprintf(stderr, "error: unknown target version: %s\n",
+                   job.convert_target.c_str());
+      return EXIT_FAILURE;
+    }
+
+    EmitEvent(json_progress, "stage", {JsonField("name", "parse")});
+    const LtStructure structure = LtStructure::FromSnbtFile(region_folder);
+    const LtStructure::Dialect source = structure.dialect();
+
+    EmitEvent(json_progress, "stage", {JsonField("name", "convert")});
+    LtStructure::ConvertReport report;
+    const std::string converted =
+        structure.ToSnbt(target, LtStructure::ConvertOptions{}, &report);
+
+    // Output path: an explicit file wins, then the host's directory + name, and
+    // otherwise the converted file lands next to the input. LittleTiles reads
+    // and writes these structures as plain `.txt` (the 1.20 blueprint export uses
+    // `.struct`), so that is the extension a name without one gets.
+    constexpr const char* const kStructureExtension = ".txt";
+    std::string convert_path = job.output_path;
+    if (convert_path.empty()) {
+      std::string out_name = job.output_name;
+      if (out_name.empty()) {
+        // Derived from the structure / file name, so it may hold anything a title
+        // can hold; keep it to characters a file name can carry.
+        out_name = galib::Utf8String(galib::Utf8Path(region_folder).stem()) +
+                   "_" + DialectName(target);
+        for (char& ch : out_name) {
+          const bool is_ok =
+              std::isalnum(static_cast<unsigned char>(ch)) != 0 ||
+              static_cast<unsigned char>(ch) >= 0x80 || ch == '_' || ch == '-';
+          if (!is_ok) {
+            ch = '_';
+          }
+        }
+      }
+      const std::filesystem::path directory =
+          job.output_dir.empty() ? galib::Utf8Path(region_folder).parent_path()
+                                 : galib::Utf8Path(job.output_dir);
+      convert_path = galib::Utf8GenericString(
+          directory / galib::Utf8Path(out_name + kStructureExtension));
+    } else {
+      // `--out result` and `--out house_1.20` both mean a .txt file: the second
+      // one has an "extension" as far as the filesystem is concerned (".20"), but
+      // it is part of the name. Only the known structure extensions are left
+      // alone, because those the caller clearly chose.
+      std::string extension =
+          galib::Utf8String(galib::Utf8Path(convert_path).extension());
+      std::transform(extension.begin(), extension.end(), extension.begin(),
+                     [](const unsigned char kCh) {
+                       return static_cast<char>(std::tolower(kCh));
+                     });
+      if (extension != kStructureExtension && extension != ".struct" &&
+          extension != ".snbt") {
+        convert_path += kStructureExtension;
+      }
+    }
+
+    if (!json_progress) {
+      printf(
+          galib::Tr("structure: %s, %s dialect, grid=%d, %zu boxes, %zu tile "
+                    "groups, %d child structures\n"),
+          structure.name().empty() ? "(unnamed)" : structure.name().c_str(),
+          DialectName(source), structure.grid(), structure.BoxCount(),
+          structure.TileCount(), structure.child_group_count());
+    }
+
+    EmitEvent(json_progress, "stage", {JsonField("name", "write")});
+    std::string write_error;
+    if (!WriteTextFile(convert_path, converted, &write_error)) {
+      EmitEvent(json_progress, "error", {JsonField("message", write_error)});
+      if (text_output) {
+        std::fprintf(stderr, "error: %s\n", write_error.c_str());
+      }
+      return EXIT_FAILURE;
+    }
+    const double seconds = ElapsedSeconds(process_start, Clock::now());
+
+    // The host (and a human) must be able to see what could not be translated.
+    std::size_t unmapped_total = 0;
+    std::string unmapped_examples;
+    for (const auto& [name, count] : report.unmapped_blocks) {
+      unmapped_total += count;
+      if (report.unmapped_blocks.size() <= 5 ||
+          unmapped_examples.size() < 200) {
+        unmapped_examples += (unmapped_examples.empty() ? "" : ", ") + name;
+      }
+    }
+    EmitEvent(
+        json_progress, "done",
+        {JsonField("snbt", convert_path),
+         JsonField("from", std::string(DialectName(source))),
+         JsonField("to", std::string(DialectName(target))),
+         JsonField("boxes", static_cast<long long>(report.boxes)),
+         JsonField("tiles", static_cast<long long>(report.groups)),
+         JsonField("levels", static_cast<long long>(report.levels)),
+         JsonField("renamed_blocks",
+                   static_cast<long long>(report.renamed_blocks)),
+         JsonField("unmapped_names",
+                   static_cast<long long>(report.unmapped_blocks.size())),
+         JsonField("unmapped_tiles", static_cast<long long>(unmapped_total)),
+         JsonField("seconds", seconds)});
+    if (show_progress && text_output) {
+      printf(galib::Tr("converted %s -> %s: %zu boxes, %zu tile groups, %d "
+                       "levels, %zu block names translated\n"),
+             DialectName(source), DialectName(target), report.boxes,
+             report.groups, static_cast<int>(report.levels),
+             report.renamed_blocks);
+      printf(galib::Tr("SNBT written: %s (%.1f s)\n"), convert_path.c_str(),
+             seconds);
+    }
+    if (!unmapped_examples.empty()) {
+      if (json_progress) {
+        EmitEvent(true, "warning",
+                  {JsonField("message",
+                             std::string("block names without a counterpart in "
+                                         "the target version (") +
+                                 std::to_string(unmapped_total) +
+                                 " tiles): " + unmapped_examples)});
+      } else {
+        printf(galib::Tr("warning: %zu block names have no counterpart in %s "
+                         "(they keep their base name), e.g.: %s\n"),
+               report.unmapped_blocks.size(), DialectName(target),
+               unmapped_examples.c_str());
+      }
+    }
+    for (const std::string& note : report.notes) {
+      if (json_progress) {
+        EmitEvent(true, "warning", {JsonField("message", note)});
+      } else {
+        printf(galib::Tr("note: %s\n"), note.c_str());
+      }
+    }
+    return EXIT_SUCCESS;
+  }
 
   ObjExportOptions export_options;
   export_options.geom_center = is_need_geometry_center;
@@ -800,11 +1095,20 @@ int RunTilesReader(int argc, char** argv) {
     const LtStructure structure = LtStructure::FromSnbtFile(region_folder);
     if (!json_progress) {
       printf(
-          galib::Tr("structure: %s, grid=%d, %zu boxes, %zu material groups, %d "
-                    "child structures\n"),
+          galib::Tr("structure: %s, %s dialect, grid=%d, %zu boxes, %zu tile "
+                    "groups, %d child structures\n"),
           structure.name().empty() ? "(unnamed)" : structure.name().c_str(),
-          structure.grid(), structure.BoxCount(), structure.groups().size(),
+          DialectName(structure.dialect()), structure.grid(),
+          structure.BoxCount(), structure.TileCount(),
           structure.child_group_count());
+      if (structure.child_grid_count() > 0) {
+        // A child structure may be finer or coarser than its parent; each group is
+        // scaled by its own grid, so this only reports that it happened.
+        printf(
+            galib::Tr("note: %d child level(s) use a different grid than their "
+                      "parent\n"),
+            structure.child_grid_count());
+      }
     }
 
     EmitEvent(json_progress, "stage", {JsonField("name", "mesh")});
@@ -818,15 +1122,14 @@ int RunTilesReader(int argc, char** argv) {
         !job.output_name.empty()
             ? job.output_name
             : (structure.name().empty()
-                   ? galib::Utf8String(
-                         galib::Utf8Path(region_folder).stem())
+                   ? galib::Utf8String(galib::Utf8Path(region_folder).stem())
                    : structure.name());
     for (char& ch : out_name) {
       // Bytes >= 0x80 are kept: they belong to a multi-byte UTF-8 character (a
       // Chinese structure name, say), which is a perfectly legal file name.
-      const bool is_ok =
-          std::isalnum(static_cast<unsigned char>(ch)) != 0 ||
-          static_cast<unsigned char>(ch) >= 0x80 || ch == '_' || ch == '-';
+      const bool is_ok = std::isalnum(static_cast<unsigned char>(ch)) != 0 ||
+                         static_cast<unsigned char>(ch) >= 0x80 || ch == '_' ||
+                         ch == '-';
       if (!is_ok) {
         ch = '_';
       }
@@ -845,8 +1148,8 @@ int RunTilesReader(int argc, char** argv) {
       // non-zero exit code.
       const std::string reason = structure_builder.stats().error;
       EmitEvent(json_progress, "error",
-                {JsonField("message",
-                           reason.empty() ? std::string("failed to write OBJ")
+                {JsonField("message", reason.empty()
+                                          ? std::string("failed to write OBJ")
                                           : reason)});
       if (text_output) {
         std::fprintf(stderr, "error: %s\n",
@@ -893,8 +1196,8 @@ int RunTilesReader(int argc, char** argv) {
                                   range.min_z + offset_z};
       ++chunk_index;
       if (show_progress && text_output) {
-        printf(galib::Tr("[progress] chunk (%d, %d) - %d/%d\n"),
-               coord.x, coord.z, chunk_index, span_x * span_z);
+        printf(galib::Tr("[progress] chunk (%d, %d) - %d/%d\n"), coord.x,
+               coord.z, chunk_index, span_x * span_z);
       }
       EmitEvent(json_progress, "chunk",
                 {JsonField("index", static_cast<long long>(chunk_index)),
@@ -906,7 +1209,8 @@ int RunTilesReader(int argc, char** argv) {
       try {
         reference = anvil_reader.GetChunkDataReference(coord);
       } catch (const std::exception&) {
-        has_chunk = false;  // the chunk does not exist, or its region file is missing
+        has_chunk =
+            false;  // the chunk does not exist, or its region file is missing
       }
       if (!has_chunk) {
         ++missing_chunks;
@@ -933,11 +1237,18 @@ int RunTilesReader(int argc, char** argv) {
       // Plain blocks
       if (include_world_blocks && reference.p_chunk_level) {
         ChunkBlocks& blocks =
-            world_blocks[static_cast<std::size_t>(offset_z) * span_x + offset_x];
+            world_blocks[static_cast<std::size_t>(offset_z) * span_x +
+                         offset_x];
         blocks.ReadFromChunkLevel(*reference.p_chunk_level);
+        // 1.12.2 keeps the block entities in "TileEntities", 1.18+ in
+        // "block_entities" (the section palette layout comes with them).
         if (reference.p_chunk_level->has_key("TileEntities")) {
           blocks.MarkLittleTilesHosts(
               reference.p_chunk_level->at("TileEntities").as<nbt::tag_list>(),
+              coord);
+        } else if (reference.p_chunk_level->has_key("block_entities")) {
+          blocks.MarkLittleTilesHosts(
+              reference.p_chunk_level->at("block_entities").as<nbt::tag_list>(),
               coord);
         }
         // Which faces are fully covered by tiles - neighbour culling of full blocks
@@ -995,8 +1306,8 @@ int RunTilesReader(int argc, char** argv) {
     // only shape the old CLI could produce, and every existing baseline and document
     // refers to those names. A real rectangle (a new capability) is named by its
     // corners instead, since it has no centre-and-radius equivalent.
-    const bool is_square = range.count_x == range.count_z &&
-                           range.count_x % 2 == 1;
+    const bool is_square =
+        range.count_x == range.count_z && range.count_x % 2 == 1;
     if (is_square) {
       const int radius = range.count_x / 2;
       const int center_x = range.min_x + radius;
@@ -1031,8 +1342,9 @@ int RunTilesReader(int argc, char** argv) {
   if (!written) {
     const std::string reason = obj_builder.stats().error;
     EmitEvent(json_progress, "error",
-              {JsonField("message", reason.empty() ? std::string("failed to write OBJ")
-                                                   : reason)});
+              {JsonField("message", reason.empty()
+                                        ? std::string("failed to write OBJ")
+                                        : reason)});
     if (text_output) {
       std::fprintf(stderr, "error: %s\n",
                    reason.empty() ? "failed to write OBJ" : reason.c_str());
@@ -1042,33 +1354,32 @@ int RunTilesReader(int argc, char** argv) {
 
   if (json_progress) {
     const ObjMeshBuilder::Stats stats = obj_builder.stats();
-    EmitEvent(true, "done",
-              {JsonField("obj", obj_file_path),
-               JsonField("ok", written),
-               JsonField("chunks_found", static_cast<long long>(found_chunks)),
-               JsonField("chunks_missing", static_cast<long long>(missing_chunks)),
-               JsonField("tiles", static_cast<long long>(total_tiles)),
-               JsonField("vertices", static_cast<long long>(stats.vertices)),
-               JsonField("faces", static_cast<long long>(stats.faces)),
-               JsonField("materials", static_cast<long long>(stats.materials)),
-               JsonField("textures_written",
-                         static_cast<long long>(stats.textures_written)),
-               JsonField("missing_texture_faces",
-                         static_cast<long long>(stats.missing_texture_faces)),
-               JsonField("seconds",
-                         ElapsedSeconds(process_start, write_end))});
+    EmitEvent(
+        true, "done",
+        {JsonField("obj", obj_file_path), JsonField("ok", written),
+         JsonField("chunks_found", static_cast<long long>(found_chunks)),
+         JsonField("chunks_missing", static_cast<long long>(missing_chunks)),
+         JsonField("tiles", static_cast<long long>(total_tiles)),
+         JsonField("vertices", static_cast<long long>(stats.vertices)),
+         JsonField("faces", static_cast<long long>(stats.faces)),
+         JsonField("materials", static_cast<long long>(stats.materials)),
+         JsonField("textures_written",
+                   static_cast<long long>(stats.textures_written)),
+         JsonField("missing_texture_faces",
+                   static_cast<long long>(stats.missing_texture_faces)),
+         JsonField("seconds", ElapsedSeconds(process_start, write_end))});
   }
 
   // The total time includes writing the file (in large-area exports, writing the OBJ
   // often takes a considerable share)
   if (show_progress && text_output) {
-    printf(
-        galib::Tr("total: %.1f s (read & mesh %.1f s, plain blocks %.1f s, write "
-            "%.1f s)\n"),
-        ElapsedSeconds(process_start, write_end),
-        ElapsedSeconds(process_start, read_end),
-        ElapsedSeconds(read_end, build_end),
-        ElapsedSeconds(build_end, write_end));
+    printf(galib::Tr(
+               "total: %.1f s (read & mesh %.1f s, plain blocks %.1f s, write "
+               "%.1f s)\n"),
+           ElapsedSeconds(process_start, write_end),
+           ElapsedSeconds(process_start, read_end),
+           ElapsedSeconds(read_end, build_end),
+           ElapsedSeconds(build_end, write_end));
   }
   return EXIT_SUCCESS;
 }
