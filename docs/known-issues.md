@@ -285,6 +285,10 @@ if (!neighbor.is_air() && !neighbor.little_tiles_host) { /* 剔除 */ }
 
 ## 3. 输出非确定性（重要）
 
+> 结构互转（SNBT → SNBT）另有一组**有意为之**的差异（组的顺序可能变、显式 `color:-1`
+> 跨代转换会归一化为"无颜色"、1.12.2 的 `tID` 类私有键在 1.20 无处安放等），
+> 逐条列在 [`snbt-format.md` §5.1](snbt-format.md)。那些不是缺陷，改代码前先读那一节。
+
 同一输入、同一个二进制，**OBJ 输出有两种形式，每次进程运行随机二选一**：
 
 ```
@@ -339,3 +343,31 @@ README 现分为两份内容相同的文档：[`README.md`](../README.md)（Engl
 | 2 | 示例 SNBT 使用 `bBox` / `tile` / `min` / `size` / `count` 键 | 解析器读的是 `content.tiles[].block` + `boxes`/`box`，**没有**这些键。该 SNBT 喂给 Reader 会失败，它只服务于 MATLAB 辅助脚本 —— README 现已把它放在"Matlab 支持"一节下，不再暗示它是 Reader 的输入 |
 | 3 | 依赖表写 CGAL 5.6；语言写 C++14 | 实测 CGAL 6.2.1；代码实际需要 C++17 —— **已修正** |
 | 4 | 处理流程止于"OBJ 构建器" | 未提及 1.12 专有的 `Level` 硬编码、无 `DataVersion` 校验、只支持 zlib 压缩类型 —— README 新增"已知限制"一节说明 |
+
+## 6. 存档两代布局的支持与已知差异
+
+1.18+（1.20）的存档现在也能导出：`AnvilReader` 认扁平化的区块根，
+`ChunkTileEntities` 读 `block_entities`，`BlockTileEntities` 读映射式的 `content.tiles`，
+`ChunkBlocks` 读 `sections[].block_states` 调色板并把世界高度按 -64~319（384 层）处理。
+细节见 [`nbt-format.md`](nbt-format.md)。
+
+用同一份建筑在 1.12.2 与 1.20.1 两个存档里实测（chunk (-1,0)，同一套导出参数）：
+
+| 项目 | 结果 |
+|---|---|
+| LT 方块实体 | 82 个，位置完全一致；tile 内容（方块、颜色、盒子）**逐项一致** |
+| 每层 grid | 4 个实体记录的 grid 不同（1.12.2 写 1、1.20.1 写 2），几何换算到方块单位后一致 |
+| 普通方块 | 1.12.2 有 217 个、1.20.1 有 216 个：**只差 1 个**（世界 (-2,4,13) 处 1.12.2 是抛光花岗岩、1.20.1 是空气） |
+| 导出 OBJ | 包围盒完全一致；面数 1325 vs 1321（差值 = 那个方块自身 5 面 − 它挡住邻居的 1 面） |
+
+素材包的旧命名（`silver_concrete`、只有 `minecraft:stone:2`）已经由
+`BlockTextureTable::Lookup` 的跨版本兜底解决：先按 1.20 名字查，查不到就用
+`BlockStateMap` 反查回 1.12.2 名字，再查 1.13 之前的旧拼写别名（见
+[`texture-mapping.md`](texture-mapping.md) §6.4）。实测 1.20 侧的面数与材质集合已与
+1.12.2 侧对齐。
+
+**仍然存在、但不是本次引入的问题**：
+
+- 真的没有贴图的网格（例如模组方块）不会写 `usemtl`：OBJ 里它们会**沿用前一个
+  `usemtl`**，在 Blender 里可能被套上相邻材质。可行修法是把无材质的网格排到最前，
+  或给它们写一个纯白的默认材质。

@@ -13,9 +13,15 @@
 ## 当前状态
 
 - 读取 region 存档（`.mca`）→ 区块 NBT → LittleTiles tile entity
-- 读取 LittleTiles 结构文件（SNBT `.txt`/`.struct`）——见
+- 读取 LittleTiles 结构文件（SNBT `.txt`/`.struct`），**两代方言都读**：
+  1.12.2 的 `tiles` 列表与 1.20 / 1.21 的 `t` 映射——见
   [`docs/snbt-format.md`](docs/snbt-format.md)；第一个问题直接填文件路径即可，
   不用填 region 目录
+- 结构**跨版本互转**（1.20 ↔ 1.12.2）：
+  `LittleTilesReader --convert 1.20 --input House.txt`，或 job 文件里的
+  `"mode": "snbt_convert"`。tile、染色、每一层的 grid 全部重写；方块名走
+  LittleTiles 自己那张映射表（`minecraft:wool:5` ↔ `minecraft:lime_wool`、
+  `minecraft:log:1` ↔ `minecraft:spruce_log[axis=y]`）
 - 提供裸 NBT 入口（`ChunkTileEntities::ReadChunkNbt`），不经过 mca 文件也能解析
 - 重建 tile 几何，含 LittleTiles 的逐角角度偏移与越界 tile（按方块盒裁剪）
 - 普通方块（非 LittleTiles）导出为完整立方体，可选剔除被邻居挡住的面
@@ -25,8 +31,10 @@
 
 ## 测试环境
 
-- **Minecraft 1.12.2**
-- **Little Tiles 1.5.66**
+- **Minecraft 1.12.2** + **Little Tiles 1.5.66**
+- **Minecraft 1.20 / 1.21** 结构（用
+  [lt3d](https://github.com/LeekZhangx/lt3d) 的示例蓝图与 LittleTiles 1.20 源码核对，
+  见 [`docs/reference-lt3d-1.20-snbt.md`](docs/reference-lt3d-1.20-snbt.md)）
 
 ## 测试存档
 
@@ -50,6 +58,17 @@
 # （给的是结构文件 .txt/.struct 时，跳过坐标与半径那三问）
 # <region 根> = 测试数据包里的 data/ 目录
 printf "<region 根>/regions/test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
+```
+
+结构跨版本互转（不给 `--out` 时输出写在输入文件旁边；job 文件写法见
+[`examples/snbt_convert.json`](examples/snbt_convert.json)）：
+
+```sh
+# 1.12.2 结构 -> 1.20
+./LittleTilesReader --convert 1.20 --input House.txt
+
+# 1.20 蓝图 -> 1.12.2
+./LittleTilesReader --convert 1.12.2 --input House.struct --out House_112.txt
 ```
 
 界面的提示、进度与结果行**只输出英文**（避免终端编码导致的乱码）。所有可见文案都走
@@ -157,7 +176,13 @@ cmake --build cmake-build-debug
 - **跨平台浮点精度**：`FloatType` 目前在 Windows 上是 `float`、macOS 上是 `double`
   （`CgalTypeDef.h`），因此两个平台的几何结果可能存在细微差异。
   服务器化前应统一为 `double`，保证"同一输入 → 同一输出"。
-- 仅支持 1.12 的存档结构（`Level` 下的 `Sections`、zlib 压缩类型）。
+- 存档路径**两代都支持**：1.12.2 的 `Level → Sections → Blocks/Data`，以及 1.18+ 的
+  扁平化区块（`sections[].block_states` 调色板、`block_entities`、世界高度
+  -64~319 共 384 层）；结构文件路径同样两代都支持。压缩只支持 zlib，且仍**没有
+  `DataVersion` 校验**。
+- 结构互转时，**门（door / advancedDoor / slidingDoor / doorActivator）的动画与开关参数
+  只做透传**：几何、结构 id 与名字会正确转换，模板参数可能需要进游戏重设
+  （命令行会给 note 提示，见 [`docs/snbt-format.md`](docs/snbt-format.md) §5）。
 - 材质包里的 MCPatcher/CTM 连接纹理暂不支持，用的是连接纹理的基础贴图。
 
 ## Matlab 支持

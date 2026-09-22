@@ -317,3 +317,34 @@ LittleTiles 的 tile entity 是**挂在普通方块上**的（实测 25/25、112
 3. 大范围导出必须**增量合并**：先把所有网格收进 vector 会因内存占用过高被系统杀掉
    （实测 121 个区块在 22 秒时被 kill）；改成逐批合并后内存稳定在 ~70 MB；
 4. 别把贴图表放进逐网格的循环里——那会把 TSV 重读几十万次（实测 6 分钟 → 44 秒）。
+
+### 6.4 名字查表与跨版本兜底（已实现）
+
+`BlockTextureTable::Lookup` 按下面的顺序找，**先精确后兜底**（兜底命中会打印
+`[texture] <存档里的名字> -> <实际用的名字>`，方便发现素材包缺什么）：
+
+| 顺序 | 尝试 | 解决的典型情况 |
+|---|---|---|
+| 1 | 原样 | 名字与表里一致 |
+| 2 | `<名字>:0` | 表里只有 `minecraft:wool:0` 这类元数据键，而数据侧写的是 `minecraft:wool` |
+| 3 | 去掉 `:meta` | 表里只有基础键 |
+| 4 | **1.20 名字 → 1.12.2 名字**（`BlockStateMap::ToLegacy`） | 存档写 `minecraft:polished_granite`，素材包只有 `minecraft:stone:2` |
+| 5 | **1.13 之前的旧拼写别名**（见下） | 存档写 `minecraft:light_gray_concrete`，素材包只有 `minecraft:silver_concrete` |
+| 6 | 4 与 5 的组合（两轮） | `light_gray_terracotta` 需要同时改颜色名与 `terracotta`→`stained_hardened_clay` |
+
+别名表（`BlockTextureTable.cpp` 的 `kNameAliases`）覆盖的是"素材包用的是 1.12/1.13 旧名"
+这一现实，当前规则：
+
+| 现代名 | 旧名 |
+|---|---|
+| `light_gray_*` | `silver_*` |
+| `*_terracotta` | `*_stained_hardened_clay` |
+| `terracotta` | `hardened_clay` |
+| `grass_block` / `dirt_path` | `grass` / `grass_path` |
+| `bricks` / `nether_bricks` / `red_nether_bricks` / `end_stone_bricks` | `brick_block` / `nether_brick` / `red_nether_brick` / `end_bricks` |
+| `slime_block` / `melon` / `jack_o_lantern` / `snow_block` | `slime` / `melon_block` / `lit_pumpkin` / `snow` |
+
+实测（同一建筑在 1.12.2 与 1.20.1 两个存档中的同一个区块）：
+加兜底前 1.20 侧有 60 个面查不到贴图（抛光花岗岩），加兜底后两侧的材质集合与面数分布
+完全对齐（`stone` / `stone_diorite` / `stone_granite_smooth`），1.12.2 侧结果不变
+（精确命中优先）。

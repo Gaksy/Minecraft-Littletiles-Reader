@@ -86,7 +86,8 @@ job 文件的字段含义见 [job.md](job.md)；SNBT 格式见 [snbt-format.md](
 
 ## 五、怎么重新构建三平台
 
-详版在 [release-and-licensing.md](release-and-licensing.md)，以及两份构建报告（在发布目录）：
+**逐命令的详版见 [build-guide.md](build-guide.md)**（唯一的构建口径）。许可证依据见
+[release-and-licensing.md](release-and-licensing.md)，另有两份构建报告在发布目录：
 `FINAL-REPORT.md`（Linux 虚拟机）与 `SMOKE-TEST-windows-x64.txt`（Windows 本机）。要点：
 
 | 平台 | 关键点 |
@@ -182,7 +183,8 @@ gh release create v0.2.1-beta \
 | [assets-package.md](assets-package.md) · [texture-mapping.md](texture-mapping.md) | 素材包与贴图映射 |
 | [benchmark.md](benchmark.md) | 各测试存档的基准数字 |
 | [known-issues.md](known-issues.md) | 已知问题 |
-| [release-and-licensing.md](release-and-licensing.md) | 三平台构建 / 发布 / 许可证分析 |
+| **[build-guide.md](build-guide.md)** | **三平台构建与发版操作手册（唯一的构建口径）** |
+| [release-and-licensing.md](release-and-licensing.md) | 许可证与合规依据、发布说明模板 |
 | [release-notes-v0.2.0-beta.md](release-notes-v0.2.0-beta.md) | 本次发布的对外说明 |
 | `D:\DevelopmentProject\ltr-release\{FINAL-REPORT.md, SMOKE-TEST-windows-x64.txt}` | Linux 与 Windows 的构建＋冒烟实测报告 |
 | `inception-work/docs/ai/模型共享-需求清单.md` | 网站侧模型共享的需求与验收口径（那条线的唯一口径） |

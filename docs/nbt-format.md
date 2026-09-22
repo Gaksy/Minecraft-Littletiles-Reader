@@ -30,11 +30,37 @@ chunk(from block)  = CoordSwap2D(block.xz, 16)
 
 ## 2. chunk NBT
 
-- **1.12**（本项目测试数据）：`root → "Level" → "TileEntities"`
-- **1.18+**：level 内容摊平到根上
+- **1.12**：`root → "Level" → "TileEntities"`
+- **1.18+**：level 内容摊平到根上（`root → "block_entities"` / `"sections"`）；
+  区块的 `Y` 范围也从 0~255 变成 **-64~319**（384 层）
 
-当前 `AnvilReader` **硬编码** `.at("Level")`（`Anvil.cpp`），只支持 1.12 结构；
-新增的 `ReadChunkNbt` 已同时兼容两种结构。**没有任何 `DataVersion` 校验**，版本不符会静默误解析。
+`AnvilReader::GetChunkDataReference` 现在两种都认（有 `Level` 用 `Level`，没有就把根当
+level）；`ChunkTileEntities::ReadTileEntities` 相应地读 `TileEntities` 或 `block_entities`。
+**仍然没有任何 `DataVersion` 校验**，版本不符会静默误解析（已知问题）。
+
+### 2.1 LittleTiles 方块实体的两种载荷
+
+| | 1.12.2 | 1.18+（1.20） |
+|---|---|---|
+| 实体 id | `minecraft:littletilestileentity` | `littletiles:tiles` |
+| `content.tiles` | **列表**：`[{block, meta?, color?, boxes|box}, ...]` | **映射**：`{ "方块状态": [颜色, 盒子, 颜色, 盒子, ...] }` |
+| 盒子数组 | `[x1,y1,z1,x2,y2,z2, 角度数据...]` | `[面缓存, x1,y1,z1,x2,y2,z2, 角度数据...]`（`LittleBox.getArrayTagExtended`，多出来的那个值只是渲染缓存） |
+
+两种都会被 `BlockTileEntities::ReadBlockTileNbt` 归一到同一个 `(方块, 颜色) -> 盒子`
+结构，所以后面的几何/材质链路完全共用：1.18+ 的载荷由 `ReadModernTilesNbt` 解析，
+盒子由 `DecodeExtendedBoxArray` 去掉面缓存后交给同一个 `DecodeBoxArray`。
+
+### 2.2 普通方块（`Sections` vs `sections`）
+
+| | 1.12.2 | 1.18+（1.20） |
+|---|---|---|
+| 键 | `Sections`（章节 `Y` 是 TAG_Byte） | `sections`（章节 `Y` 是 TAG_Int） |
+| 方块 | `Blocks` 字节数组 + `Data` 元数据 nibble + `Add` 高位 nibble（数字 id） | `block_states.palette`（扁平化名字 + 方块状态）+ `data` 打包长整型 |
+| 名字来源 | 素材包的 `block_ids.tsv`（id+meta → 名字） | 调色板里就已经是名字，**不需要 id 表** |
+| 世界高度 | 0~255 | -64~319 |
+
+两种布局分别由 `ChunkBlocks::ReadIds12` / `ReadNames118` 读入，后者把整块的调色板并成
+一张按 chunk 的名字表（`State::block_id` 是它的下标），这样跨区块拼大网格时下标依然有效。
 
 ## 3. LittleTiles tile entity
 

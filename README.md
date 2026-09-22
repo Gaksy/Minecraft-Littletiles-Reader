@@ -15,9 +15,16 @@ and other modelling tools.
 ## Current Status
 
 - Reads region archives (`.mca`) → chunk NBT → LittleTiles tile entities
-- Reads LittleTiles structure files (SNBT `.txt`/`.struct`) — see
+- Reads LittleTiles structure files (SNBT `.txt`/`.struct`) in **both dialects**:
+  1.12.2 (`tiles` list) and 1.20 / 1.21 (`t` map) — see
   [`docs/snbt-format.md`](docs/snbt-format.md); just answer the first prompt with
   the file path instead of a region folder
+- Converts structures between the two generations
+  (`LittleTilesReader --convert 1.20 --input House.txt`, or `"mode":
+  "snbt_convert"` in a job file): the tiles, colours and every level's grid are
+  rewritten, and block names go through the block table LittleTiles itself uses
+  (`minecraft:wool:5` ↔ `minecraft:lime_wool`, `minecraft:log:1` ↔
+  `minecraft:spruce_log[axis=y]`)
 - Raw NBT entry point (`ChunkTileEntities::ReadChunkNbt`), so data that never
   went through an mca file can be parsed as well
 - Rebuilds tile geometry, including LittleTiles' per-corner angle offsets and
@@ -30,8 +37,11 @@ and other modelling tools.
 
 ## Tested Environment
 
-- **Minecraft 1.12.2**
-- **Little Tiles 1.5.66**
+- **Minecraft 1.12.2** with **Little Tiles 1.5.66**
+- **Minecraft 1.20 / 1.21** structures (verified against
+  [lt3d](https://github.com/LeekZhangx/lt3d)'s sample blueprints and the
+  LittleTiles 1.20 sources; see
+  [`docs/reference-lt3d-1.20-snbt.md`](docs/reference-lt3d-1.20-snbt.md))
 
 ## Test Data
 
@@ -57,6 +67,18 @@ parameters and records the result; past runs are kept in
 # (for a structure file .txt/.struct the three coordinate/radius questions are skipped)
 # <region root> = the data/ folder of the test-data package
 printf "<region root>/regions/test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | ./LittleTilesReader
+```
+
+Converting a structure between the two generations (the result lands next to the
+input unless `--out` says otherwise, and the job-file equivalent is
+[`examples/snbt_convert.json`](examples/snbt_convert.json)):
+
+```sh
+# 1.12.2 structure -> 1.20
+./LittleTilesReader --convert 1.20 --input House.txt
+
+# 1.20 blueprint -> 1.12.2
+./LittleTilesReader --convert 1.12.2 --input House.struct --out House_112.txt
 ```
 
 All prompts, progress and result lines are **English only** (to avoid mojibake from
@@ -174,8 +196,16 @@ commit so builds stay reproducible.
   and `double` on macOS (`CgalTypeDef.h`), so geometry may differ slightly
   between the two platforms. It should be unified to `double` before
   server-side use, so that the same input always yields the same output.
-- Only the 1.12 save layout is supported (`Sections` under `Level`, zlib
-  compression type).
+- On the save-file path both the 1.12.2 layout (`Level` → `Sections` with `Blocks`
+  + `Data`) and the 1.18+ one (flattened chunk, `sections[].block_states` palette,
+  `block_entities`, world height -64..319 → 384 rows) are supported, and structure
+  files are read in both generations as well. Only zlib-compressed chunks are
+  accepted, and there is still no `DataVersion` check.
+- When converting a structure, the **animation and switch payload of a door**
+  (`door` / `advancedDoor` / `slidingDoor` / `doorActivator`) is passed through
+  unchanged: geometry, structure id and name are converted, but the template
+  parameters may have to be set again in game (the CLI prints a note, see
+  [`docs/snbt-format.md`](docs/snbt-format.md) §5).
 - MCPatcher/CTM connected textures inside a resource pack are not supported yet;
   the base texture of the connected block is used.
 

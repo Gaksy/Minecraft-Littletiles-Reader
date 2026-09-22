@@ -5,12 +5,16 @@ CLI 有两种模式：不带参数时是原来那套交互式提问；带 `--job
 
 ```sh
 LittleTilesReader --job <file.json> [--progress json]
+LittleTilesReader --convert <1.20|1.12.2> --input <file.txt> [--out <file.txt>]
 LittleTilesReader --help
 ```
 
 | 参数 | 作用 |
 |---|---|
 | `--job <file.json>` | 读 job 文件跑一次，不再交互 |
+| `--convert <版本>` | 结构 SNBT 互转（1.20 ↔ 1.12.2），不导出模型 |
+| `--input <文件>` | 要转换的结构文件（配合 `--convert`），`.txt`（1.20 蓝图 `.struct` 同样可读） |
+| `--out <文件>` | 转换后的输出文件（可省略，默认写在输入文件旁边；不带扩展名时补 `.txt`） |
 | `--progress json` | stdout 只输出 NDJSON 事件（一行一个 JSON），不再输出人看的文本 |
 | `--help` | 用法 |
 
@@ -46,8 +50,12 @@ builder 的摘要也通过 `ObjExportOptions::quiet` 静音，宿主不需要过
 
 | 值 | 含义 | 需要的 input |
 |---|---|---|
-| `"region"` | 从存档导出 | `input.world` + `input.chunks` |
+| `"region"` | 从存档导出（1.12.2 与 1.18+ / 1.20 两种区块布局都支持，见 [`nbt-format.md`](nbt-format.md)） | `input.world` + `input.chunks` |
 | `"snbt"` | 从 LittleTiles 结构文件导出 | `input.snbt.path` |
+| `"snbt_convert"` | 结构 SNBT 互转（1.20 ↔ 1.12.2），不导出模型 | `input.snbt.path` + `options.target` |
+
+`snbt` 与 `snbt_convert` 都是**自动识别方言**的：1.12.2 的 `tiles` 列表与 1.20 的
+`t` 映射都能直接读（见 [`snbt-format.md`](snbt-format.md)）。
 
 ### input.world —— 存档**根目录**，不是 region 目录
 
@@ -102,6 +110,15 @@ builder 的摘要也通过 `ObjExportOptions::quiet` 静音，宿主不需要过
 | `cull_hidden_faces` | `true` | 剔除被相邻方块挡住的面 |
 | `center` | `true` | 把包围盒中心移到原点 |
 | `normalize_scale` | `false` | 再等比缩放到最长边 = 1（会丢失真实尺寸） |
+| `target` | 无（`snbt_convert` 必填） | 目标版本：`"1.20"`（也可 `1.21`/`modern`/`new`）或 `"1.12.2"`（也可 `1.12`/`legacy`/`old`） |
+
+### snbt_convert 的输出
+
+`output.dir` / `output.name` 与 `snbt` 模式同义（`name` 不含扩展名，固定写 **`.txt`** ——
+LittleTiles 的结构文件就是纯文本 `.txt`）。
+两者都留空时，默认写在**输入文件旁边**，名字为 `<输入名>_<目标版本>.txt`。
+转换**不读素材包**：方块名映射用的是库内嵌的 LittleTiles 表（见
+[`snbt-format.md`](snbt-format.md) §5）。
 
 ## 2. 进度事件
 
@@ -112,12 +129,16 @@ builder 的摘要也通过 `ObjExportOptions::quiet` 静音，宿主不需要过
 |---|---|
 | `assets` | `format_version`, `blocks`, `textures`, `missing` |
 | `warning` | `message`（例如素材包打不开） |
-| `start` | `mode`, `chunks`, `world`, `dimension`, `assets` |
+| `start` | `mode`（`region` / `snbt` / `snbt_convert`）, `chunks`, `world`, `dimension`, `assets`, `target`（转换模式的目标版本，其它模式为空串） |
 | `chunk` | `index`, `total`, `x`, `z` |
-| `stage` | `name`：snbt 模式下为 `parse` / `mesh` / `write` |
+| `stage` | `name`：snbt 模式为 `parse` / `mesh` / `write`；snbt_convert 模式为 `parse` / `convert` / `write` |
 | `done` | `obj`, `ok`, `chunks_found`, `chunks_missing`, `tiles`, `vertices`, `faces`, `materials`, `textures_written`, `missing_texture_faces`, `seconds` |
 
 snbt 模式的 `done` 只有 `obj` / `meshes` / `seconds`。
+snbt_convert 模式的 `done` 是 `snbt`（产物路径）/ `from` / `to` / `boxes` / `tiles` /
+`levels` / `renamed_blocks`（被改写的 tile 数）/ `unmapped_names`（没有对应方块名的
+**种类**数）/ `unmapped_tiles`（涉及多少个 tile）/ `seconds`；转换过程中无法翻译的内容
+（模组方块名、门的行为参数等）以 `warning` 事件给出，人读模式下是 `warning:` / `note:` 行。
 进度条吃 `chunk` 的 `index`/`total` 即可；`assets` 与 `done` 用于展示统计。
 
 ## 3. 可直接跑的示例
@@ -128,6 +149,9 @@ LittleTilesReader --job examples/region.json --progress json
 
 # 结构文件
 LittleTilesReader --job examples/snbt.json --progress json
+
+# 结构互转（1.12.2 -> 1.20）
+LittleTilesReader --job examples/snbt_convert.json --progress json
 ```
 
 （本仓库的测试数据在兄弟仓库 `minecraft-littletiles-reader-data`，

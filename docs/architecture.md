@@ -23,7 +23,7 @@ CLI / Web Server（消费者）
 | `galib::minecraft::littletiles` | `LittleTilesCoord` / `GridType` / `OffsetType` / `TileEntity` / `BlockTileEntities` / `ChunkTileEntities` |
 | `galib::minecraft::cgal_support` | `LtSurfaceMesh` / `ChunkMesh` / mesh 构建与 OBJ 写出 |
 
-## 2. 两条入口
+## 2. 三条入口
 
 ### 2.1 Anvil 路径（文件 → 模型）
 
@@ -36,7 +36,8 @@ main()
     └ GetChunkConstIterator  解析 8KiB 索引 + 2KiB 头                  Anvil.cpp,206
     └ DecompressChunkBinaryData  boost::iostreams zlib（仅类型 2）      Anvil.cpp,264
     └ DecompressChunkBinaryNbtData  libnbt++ stream_reader              Anvil.cpp,293
-    └ 返回 {chunk_info, p_chunk_root, p_chunk_level=&root.at("Level")}   Anvil.cpp
+    └ 返回 {chunk_info, p_chunk_root, p_chunk_level}                     Anvil.cpp
+       （有 "Level" 就用它，1.18+ 没有则用 root 自身）
  └ ChunkTileEntities::ReadChunk(ChunkDataReference&)            ChunkTileEntities.cpp
  └ ChunkMesh::AddTilesFromChunkTileEntities(ChunkTileEntities&)  CgalLittletilesBuilder.cpp
  └ MergeAndWriteToObj(meshes, path, geom_center)                CgalLittletilesBuilder.cpp
@@ -67,6 +68,9 @@ addTilesFromBlockTilesEntities       CgalLittletilesBuilder.cpp
 
 ### 2.2 裸 NBT 路径（NBT → 模型）
 
+两种区块布局（1.12.2 与 1.18+）与两种 tile 载荷（列表 / 映射）的细节见
+[`nbt-format.md`](nbt-format.md)。
+
 `ChunkTileEntities::ReadChunkNbt(const nbt::tag_compound&)`（`LittleTiles.h`，
 实现 `ChunkTileEntities.cpp`）不经过 Anvil / 文件系统：
 
@@ -76,6 +80,29 @@ addTilesFromBlockTilesEntities       CgalLittletilesBuilder.cpp
 
 块级入口早已存在：`BlockTileEntities::ReadBlockTileNbt(const tag_compound&, size_type*)`
 （`LittleTiles.h`），可直接吃单个 block tile entity 的 compound。
+
+### 2.3 结构 SNBT 路径（SNBT → 模型 / SNBT → SNBT）
+
+```
+LtStructure::FromSnbtFile(path)          LtStructure.cpp
+ └ DetectDialect（tiles 是列表 = 1.12.2 / 是整数或存在 t = 1.20）
+ └ ReadNode（递归：每层 grid / min / size / 结构元数据 / 子结构）
+    └ ReadLegacyGroups：tiles[] 的 {tile, boxes|bBox|box}
+    └ ReadModernGroups：t[] 的 [颜色] 标记 + 盒子流
+ └ 分组内每个盒子 → DecodeBoxAngleData（BlockTileEntities.cpp）
+
+AddStructureToObjBuilder(structure, builder)   CgalLittletilesBuilder.cpp
+ └ VisitGroups：**按分组自己的 grid** 缩放到方块单位并减去根 min
+
+LtStructure::ToSnbt(target, options, report)   LtStructureWriter.cpp
+ └ 1.20：s / t / grid / c（+ 根的 min/size/tiles/boxes/trans）
+ └ 1.12.2：structure / grid / min / size / tiles / count / pos / children
+ └ BlockStateMap（BlockStateMap.cpp）：方块名跨版本映射
+ └ EncodeBoxArray（LittleTilesEntity.cpp）：盒子的逆编码
+```
+
+两代方言的字段表、互转规则与实测见 [`snbt-format.md`](snbt-format.md)，
+格式的上游依据见 [`reference-lt3d-1.20-snbt.md`](reference-lt3d-1.20-snbt.md)。
 
 ## 3. 类型与 ownership
 

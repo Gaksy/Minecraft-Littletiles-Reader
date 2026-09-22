@@ -15,6 +15,11 @@
    一旦对外分发二进制，**整个程序（包括你自己的 MIT 代码）必须按 GPL-3.0+ 分发**。（见 §3）
 3. 所以建议的顺序是：**先决定 §3 走哪条路 → 再按 §4 打包 → 最后才点发布。**
 
+> **✅ 已定：走「出路 A」**（2026-09-14）
+> 理由：本项目**长期开源、公开**，A 的代价（挡住闭源二次开发）对本项目不构成代价；
+> 而 A 的义务（提供完整对应源码）已被公开仓库天然满足。
+> → 后续按 **§3.6 的实际合规动作清单**执行，注意 **§3.7 与 app 仓库的边界**。
+
 ---
 
 ## 1. Releases 与 Packages 是什么
@@ -51,6 +56,7 @@
 | Boost (iostreams, json) | **1.89.0** | BSL-1.0 | 保留版权声明与许可文本 | 无 |
 | zlib | **1.3.1** | Zlib | 保留声明；不得冒名 | 无 |
 | libnbt++ | commit `687e4303`（**PrismLauncher fork**） | **LGPL-3.0-or-later** | 动态链接即可；提供许可文本 + 允许替换该 DLL + 指向源码 | 低（已是 DLL） |
+| LittleTiles `1.12.2.txt`（方块映射表，内嵌为 `Galib/Minecraft/BlockStateMapData.cpp`） | 分支 `1.20`，commit `c5694e1` | **LGPL-3.0-or-later**（与本库相同） | 保留版权与许可声明（见下方第三方声明） | 无 |
 | GMP | 6.3.0 | **LGPL-3.0+ / GPL-2.0+ 双许可** | 选 LGPL 分支，动态链接 | 低（已是 DLL） |
 | MPFR | 4.2.2 | LGPL-3.0+ | 同上（**当前未被链接**，见 §4.3） | 低 |
 | liblzma (xz) | 5.8.1 | **0BSD** | **无任何义务** | 无 |
@@ -146,6 +152,205 @@ GPL-3.0 的传染性作用于"基于该程序的作品"，所以你的 exe 整�
 **只发源码、不发二进制**，就完全不触发 GPL 的分发义务。
 但你的场景是"别的程序通过命令行调用"，对方需要可执行文件——
 除非你让每个使用者自己按 README 编译，否则这条路不适用。
+
+### 3.5 常见追问：换成动态链接库能不能解决？
+
+**不能。** 这是看到 GPL 结论后最容易产生的误解，单独说清。
+
+**GPL 里没有"动态链接豁免"这条。** 那条豁免是 **LGPL 独有**的
+（LGPL-3.0 §4(d)(1)：使用合适的共享库机制即可满足重链接要求）。
+GPL-3.0 只区分"基于该程序的作品"和"单纯聚合（aggregate）"，
+**函数调用进一个 GPL 的 DLL 仍然构成合并作品**，传染性照旧。
+CGAL 官方 FAQ 的措辞也是 *"based on GPLed CGAL **data structures**"* ——
+触发点是"你用了它"，与链接方式无关。
+
+而且对 CGAL 来说，这个问题还有个更前置的障碍：
+
+| 层级 | 有没有 DLL 可动态链接？ |
+|---|---|
+| CGAL 5.0+ 整体 | **没有。** 它是 header-only，模板在调用点实例化 → 代码直接进你的 `.obj` |
+| 若强行自己包一个 DLL | 那个 DLL 也得由你的代码实例化模板，而且调用它**仍然是 linking**，不算隔离 |
+
+唯一在结构上真正能隔开的是**独立进程 + 通用接口**（管道 / 命令行 / socket），
+即"调用一个独立程序"而非"链接一个库"。但这里 `Surface_mesh` 是贯穿整个几何层的
+**核心数据结构**，拆进程意味着重写架构、把最值钱的部分整个开源，
+只为保住外面那层 CLI 壳闭源 —— **收益为负，不建议。**
+
+**所以：动态链接是"打包维度"的选择，不是"许可维度"的解药。**
+按部署便利性去选打包方式，别指望换成 DLL 能改变 §3 的结论。
+
+**那动态链接到底还有用吗？有用，但只对非 GPL 的依赖起作用：**
+
+| 依赖 | 许可 | 动态链接的作用 |
+|---|---|---|
+| libnbt++ | LGPL-3.0+ | ✅ 已是 `nbt++.dll`，这正是它最舒服的形态 |
+| GMP | LGPL-3.0+ / GPL-2.0+ 双许可 | ✅ 选 LGPL 分支 + 已是 `gmp-10.dll` |
+| Boost / zlib / bzip2 / liblzma / zstd / expat | 宽松 | 无所谓，怎么链都行 |
+| CGAL `Kernel_23` | LGPL-3.0+ | ⚠️ header-only，没有 DLL 可链；LGPL-3.0 §3 是专门给这种情况开的门 |
+| CGAL `Surface Mesh` / PMP | **GPL-3.0+** | ❌ 无豁免，动态静态都一样 |
+
+> ⚠️ 两个值得知道的灰区（不是明文的绿灯，但也通常不构成障碍）：
+> - **LGPL-3.0 §3**（目标代码含库头文件材料）允许"按你选择的条款"分发，
+>   但要求显著标注 + 附 GPL/LGPL 全文；它**是否同时免除 §4(d) 的重链接义务，
+>   法律界有争议**（FSF 倾向认为未免除）。所以 header-only + LGPL 想保持闭源是个灰区。
+> - **LGPL-3.0 §4(d)(1)** 要求共享库是"用户机器上**已有**的副本"，
+>   严格读**不包括你自己塞进 zip 的那个 DLL**。实务上大家照做，但严格说是灰区。
+>
+> 以上两条在**出路 A（二进制已经 GPL）下全部失效** —— 你交出的东西已经远超 LGPL 的要求。
+
+### 3.6 走 A 路线后，实际要做的合规动作
+
+**A 路线 ≠ 零工作。**「我本来就开源」只满足了义务的一半，下面这些是**必须主动做**的：
+
+| # | 动作 | 依据 | 说明 |
+|---|---|---|---|
+| 1 | 仓库根加 **`LICENSE-GPL-3.0`**（GPL-3.0 全文） | GPL-3.0 §4/§5 | 分发的二进制整体受 GPL-3.0 |
+| 2 | 再放一份 **`LICENSE-LGPL-3.0`**（LGPL-3.0 全文 **+ GPL-3.0 全文**） | LGPL-3.0 §3(b)/§4(b) | ⚠️ LGPL-3.0 **不是完整许可**，它靠引用纳入 GPL-3.0，**两份都得给** |
+| 3 | 显著声明：**「本程序使用 CGAL，且整体按 GPL-3.0+ 分发」** | GPL-3.0 §5 / LGPL-3.0 §3(a)/§4(a) | 放 README 的 License 段 + 发布页 + 包内 `THIRD-PARTY-NOTICES.txt` |
+| 4 | 提供 **Corresponding Source**（完整对应源码） | GPL-3.0 §6 | 含 `CMakeLists.txt` 等构建脚本，让别人能重建出一模一样的二进制 |
+| 5 | 说明**源码 MIT、二进制 GPL-3.0+** 的关系 | — | 你拥有版权，可对自己代码授 MIT；但**合并后的二进制**只能是 GPL |
+
+> 第 5 条容易被误解成"冲突"。不是冲突：**MIT → GPL 是单向兼容的**，
+> MIT 代码可以放进 GPL 作品再分发，反过来不行。所以这个组合合法且自洽，
+> 唯一要求是**说清楚**，别让根目录那份只写 MIT 的 `LICENSE` 误导人。
+
+**第 6 条（隐性但致命）：不得添加与 GPL 冲突的附加限制。**（GPL-3.0 §10）
+
+GPL-3.0 §10 明确禁止对下游施加额外限制。下面这些写法**都会让你违约**，
+即使你本意是好的：
+
+| ❌ 不要写 | 为什么 |
+|---|---|
+| 「禁止商业使用」 | GPL **允许**商业分发，禁止商业化就是附加限制 |
+| 「禁止再分发」 | GPL 的核心权利就是再分发 |
+| 「必须保留原作者署名 / 加 LOGO」 | 超出 GPL 要求的额外条件 |
+| 「下载前必须接受本 EULA」 | 构成附加限制；GPL 作品不能要求额外界定条款 |
+| 「源码仅供阅读，禁止修改」 | GPL 明确允许修改 |
+
+✅ **可以做的**：对二进制**收费**（GPL 允许卖钱）、提供付费支持/担保、
+要求保留版权声明与许可文本。
+
+> 一句话：**GPL 不管你怎么赚钱，只管你不能给下游加绳子。**
+
+### 3.6.1 双渠道分发（自己的网站 + GitHub Releases）的额外要求
+
+**这是走 A 路线最容易踩的坑。** GPL-3.0 §6(d) 对"以提供下载的方式分发"要求：
+提供对象代码时，必须**"通过同一个地方（through the same place）、以同样的方式、
+不再额外收费"**地提供对应源码。
+
+落实到你的场景：
+
+- **网站下载页上必须有显著、等价的源码入口** —— 不能只写在 README 角落，也不能只放
+  GitHub 链接就完事（严格读法不认"跳去另一个地方"）。
+- **最稳妥：在你自己的站点上也镜像一份源码包**（tag 对应的 `Source code (zip)` 转存即可）。
+  理由不只是合规读法 —— 如果哪天 GitHub 仓库改名/私有化/删除，而你的网站还在发 exe，
+  源码链接就断了，那是实打实的违规。
+- **源码不能收费、不能要求注册**。exe 免费，源码也必须同等免费可得。
+- **两个渠道的义务是各自独立的**：网站发的 exe 要满足 §6(d)，GitHub Release 也要满足。
+  同一个版本、同一份源码，两个地方都要挂。
+- **建议做法**：Release 附件里同时放 `LittleTilesReader-0.1.0-win-x64.zip`（二进制）
+  和 `LittleTilesReader-0.1.0-source.zip`（对应源码快照）。这样两个渠道都能"就地"满足义务，
+  不依赖任何外部链接。
+
+### 3.7 与 app 仓库（`minecraft-littletiles-reader-app`）的边界
+
+**好消息：边界是干净的，app 可以继续是 MIT。**
+
+已核实 app 仓库的调用方式：
+
+| 检查项 | 结果 |
+|---|---|
+| app 的许可 | **MIT**（`Copyright (c) 2026 FU Hongren`） |
+| 调用方式 | **`subprocess` / `QProcess` 启动 `LittleTilesReader.exe`** |
+| `ctypes` / `cffi` / `CDLL` / `LoadLibrary` | **零命中** |
+| `pybind11` / 链接 `galib` | **零命中** |
+
+**为什么这很重要**：GPL 的传染边界是"**是否构成一个作品**"。
+app 通过**进程边界 + 命令行参数**调用 reader，两者是**独立程序**在
+"arm's length"（一臂之遥）地通信 —— 这**不构成合并作品**，
+所以 **app 的 MIT 不受 reader 的 GPL 影响**。
+
+> 你当初把库设计成「别的程序调用命令行就能运行」，**恰好选对了架构**。
+> 这不是运气，是 CLI 化带来的真实法律收益。
+
+**⚠️ 必须守住的线：绝对不要为了"方便"改成链接。**
+
+| 做法 | 后果 |
+|---|---|
+| `subprocess` / `QProcess` 调用 exe | ✅ 独立程序，app 保持 MIT |
+| `ctypes.CDLL("nbt++.dll")` 之类 | ❌ 变成链接 → app 成为 GPL 衍生作品 |
+| `pybind11` / 静态链接 `galib` | ❌ 同上，app 必须整体 GPL |
+| 把两者打包进同一个 zip 分发 | ✅ **允许**（GPL-3.0 §5 "单纯聚合 / mere aggregation"），前提是**仍是两个独立程序** |
+
+**"同一个 zip ≠ 同一个作品。"** 把 GPL 的 exe 和 MIT 的 app 放一起分发是允许的，
+只要 GPL 那部分（exe）的许可文本、声明、源码照旧齐备。
+
+**实操上要改两处**（当前是开发期配置）：
+
+1. `ltgen/paths.py` 的 `reader_executable()` 现在硬找 `<library_root>/cmake-build-debug/`，
+   是**开发期路径**。对外分发要改成：**先找 app 自身目录旁的 exe（捆绑/同目录），
+   再回落到环境变量 `LTR_LIBRARY`，最后才回落到开发期路径。**
+2. 建立 **reader 版本 ↔ app 版本**的对应关系（app 的 UI/参数若依赖某个 CLI 参数，
+   版本错配会静默失败）。建议在 app 里启动时读一次 `LittleTilesReader --version` 做校验。
+
+### 3.8 一个附带风险：贴图与模型输出的再分发
+
+reader 会把 Little Tiles / 各类模组的贴图提取成 `*_textures/` 目录，
+**这些贴图的版权属于各模组作者，不随本项目的 MIT/GPL 授权一起给你**。
+
+好消息：仓库里已经把它们挡在外面了 ——
+`.gitignore` 同时忽略了 `/outputs/` 和 `/texture`，**仓库本身不含贴图**，
+所以**发布的 exe 是干净的**（贴图在运行时由 `LITTLETILES_ASSETS` 提供）。
+
+要注意的是**别把示例输出或贴图放进网站/Release 的下载包**。
+如果确实想在网站展示效果图，用自己渲染的截图，别直接打包模组贴图原图。
+
+### 3.9 网站"分发" vs 网站"服务"：两种场景义务完全不同
+
+这两个场景经常被混为一谈，但 GPL 义务**一个全触发、一个不触发**：
+
+| 场景 | 性质 | GPL 义务 |
+|---|---|---|
+| 下载页提供 exe 下载 | **分发（conveying）** | ✅ **全触发**：许可文本 + 声明 + Corresponding Source，且源码要在"同一个地方"免费可得 |
+| 用户上传存档 → 你的服务器跑 reader → 返回 OBJ | **使用（use）** | ❌ **不触发**：无需公开网站后端源码 |
+
+**原理**：GPL-3.0 **没有网络/云条款**。它只管"把程序副本交给别人"这个动作；
+自己服务器上运行程序属于使用，不是分发。
+
+> 这正是 **AGPL-3.0** 存在的理由 —— AGPL 加了 §13 网络条款：
+> 只要用户通过网络与它交互，你就**必须**向这些用户提供源码。
+> GPL 没有这一条。
+
+**✅ 已实测：整个依赖树里没有任何 AGPL。**（2026-09-14 核查）
+
+```bash
+# 在 vcpkg 已安装包的 copyright 文件里搜 AGPL
+grep -rn "SPDX-License-Identifier.*AGPL\|License: AGPL" \
+  <vcpkg>/installed/x64-windows/share/
+# → 零命中
+```
+
+- 直接搜 `affero` 会命中 `cgal` / `gmp` / `mpfr` 三个 `copyright`，
+  但那是 **GPL-3.0 全文里第 13 条的标题**（"Use with the GNU Affero General
+  Public License"），是误报，不是真的用了 AGPL。
+- 实际依赖：CGAL 6.1（GPL/LGPL）、Boost（BSL-1.0）、zlib、bzip2、
+  liblzma（0BSD）、zstd（BSD-3）、expat（MIT）、GMP（LGPL/GPL）、
+  MPFR（LGPL）、libnbt++（LGPL-3.0+）—— **无一 AGPL**。
+
+**所以：服务器端跑 reader 对外提供处理服务，是安全的，不需要开源你的网站后端。**
+
+**⚠️ 但边界会在这几种情况下破掉：**
+
+1. **把二进制交给客户/外包去部署** → 那是再分发，按 §3.6 全套履行。
+2. **网站同时提供 exe 下载** → 那一部分按"分发"处理（下载页要挂源码）。
+   两条线可以并存，但**声明要分开写**，别让用户以为"网站是服务所以哪儿都不用管"。
+3. **网站自己的技术栈引入 AGPL 组件** → 那是**另一个项目**的合规问题，
+   和 reader 无关，但同样致命。常见 AGPL 后端：MongoDB（旧版）、
+   部分 Grafana / MinIO 版本等。**上线前单独查一遍网站后端的依赖。**
+
+**关于输出物**：用户上传存档换来的 OBJ / MTL / PNG **是数据，不是程序**，
+不构成 GPL 的"对应源码"义务。（程序的输出通常不是程序的衍生作品，
+除非程序本身就是用来生成程序的，如 bison。）
 
 ---
 
@@ -298,6 +503,18 @@ License: GNU Lesser General Public License v3.0 or later
   (nbt++.dll). In accordance with LGPL-3.0, you may replace that DLL with
   a modified version. The complete corresponding source of libnbt++ is
   available at the URL above.
+------------------------------------------------------------------------
+LittleTiles (block conversion table "1.12.2.txt", embedded in the source
+file Galib/Minecraft/BlockStateMapData.cpp)
+Source: https://github.com/CreativeMD/LittleTiles (branch 1.20, commit c5694e1)
+License: GNU Lesser General Public License v3.0 or later
+
+  The table maps Minecraft 1.12.2 block ids to their flattened 1.20 block
+  states. It is the same table LittleTiles uses itself when it loads an old
+  structure, and it is embedded (as generated source) so that converting a
+  structure between the two generations works without the game. The generator
+  is tools/gen_block_state_map.py; it can be re-run at any time to refresh the
+  copy from the URL above.
 ------------------------------------------------------------------------
 GMP 6.3.0
 License: GNU Lesser General Public License v3.0 or later
