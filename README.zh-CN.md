@@ -4,41 +4,89 @@
 
 解析 **Minecraft** 存档（Anvil `.mca`），读取
 [Little Tiles](https://github.com/CreativeMD/LittleTiles) 模组的 tile 数据，
-重建为标准 **OBJ** 模型（OBJ + MTL + 贴图），可直接导入 Blender 等建模软件。
+重建为带贴图的 **OBJ** 模型（OBJ + MTL + PNG），或可编辑的
+**Blockbench Java Block/Item 工程**（`.bbmodel`）。
 
 > **关于后续开发**  
 > 由于现在 AI 已经足够强大，在本项目已有的架构与技术文档基础上，完全可以接手接下来的
 > 任务。因此后续的代码更新，大部分将由我与 AI 协作完成。
 
-## 当前状态
+## 版本与范围
 
-- 读取 region 存档（`.mca`）→ 区块 NBT → LittleTiles tile entity
-- 读取 LittleTiles 结构文件（SNBT `.txt`/`.struct`），**两代方言都读**：
-  1.12.2 的 `tiles` 列表与 1.20 / 1.21 的 `t` 映射——见
-  [`docs/snbt-format.md`](docs/snbt-format.md)；第一个问题直接填文件路径即可，
-  不用填 region 目录
-- 结构**跨版本互转**（1.20 ↔ 1.12.2）：
-  `LittleTilesReader --convert 1.20 --input House.txt`，或 job 文件里的
-  `"mode": "snbt_convert"`。tile、染色、每一层的 grid 全部重写；方块名走
-  LittleTiles 自己那张映射表（`minecraft:wool:5` ↔ `minecraft:lime_wool`、
-  `minecraft:log:1` ↔ `minecraft:spruce_log[axis=y]`）
-- 提供裸 NBT 入口（`ChunkTileEntities::ReadChunkNbt`），不经过 mca 文件也能解析
-- 重建 tile 几何，含 LittleTiles 的逐角角度偏移与越界 tile（按方块盒裁剪）
-- 普通方块（非 LittleTiles）导出为完整立方体，可选剔除被邻居挡住的面
-- 六面 UV；生物群系 tint 与 tile 自带颜色逐像素烘焙进导出的 PNG
-- 可选用自定义材质包（目录 / zip / rar）叠加在原版素材之上
-- 界面支持中文与英文
+本仓库提供 **C++ 核心库和 CLI，版本 0.3.0-beta**。配套的 **App 0.2.0** 是独立的
+Windows x64 测试版，使用 Flutter 界面；App 与核心库的版本号、发行周期分别管理。
+macOS App 暂缓更新。下载入口：[LittleTiles Reader](https://www.inception.work/littletiles)。
 
-## 测试环境
+| 输入 | 当前范围 |
+|---|---|
+| 原生 Forge 1.12.2 存档 | `DataVersion` 1343；旧数字 ID 与 metadata；可从存档 Forge 注册表读取模组方块 ID |
+| 原生 Forge 1.20.1 存档 | `DataVersion` 3465；完整命名空间方块状态与属性；带材质导出要求匹配的 v2 素材 |
+| LittleTiles 结构 SNBT | 旧版 `tiles` 列表与新版 `t` 映射，含子集合和各层独立 grid |
 
-- **Minecraft 1.12.2** + **Little Tiles 1.5.66**
-- **Minecraft 1.20 / 1.21** 结构（用
-  [lt3d](https://github.com/LeekZhangx/lt3d) 的示例蓝图与 LittleTiles 1.20 源码核对，
-  见 [`docs/reference-lt3d-1.20-snbt.md`](docs/reference-lt3d-1.20-snbt.md)）
+当前 App 工作流**只开放主世界导出**。核心仍保留其他维度参数，这不代表下界或末地
+已通过本版验收。
+
+仅支持从创建起就使用对应游戏版本和模组环境的存档。**不支持升级、降级或跨版本迁移的存档**；
+Reader 不升级或修改存档。区块元数据不能证明创建历史，`source_history: "native"` 是调用者
+提供的来源声明，不是绕过迁移限制的开关。
+
+新版 SNBT 格式家族也见于 1.20 / 1.21 蓝图。识别该格式不等于识别精确的 Minecraft／LT
+版本，更不代表支持原生 1.21 存档。历史实物检查和合成数据测试范围见
+[1.20.1 适配记录](docs/native-world-export-1.20.1-progress.md)。
+
+## 导出能力
+
+- region 文件（`.mca`）→ 区块 NBT → LT 几何；读取整体结构子集合内的小方块，
+  也提供不经过 MCA 的 `ChunkTileEntities::ReadChunkNbt` 入口。
+- SNBT → OBJ：在几何构建器支持范围内保留逐角偏移；输出静态模型，不迁移门动画或交互。
+- SNBT → `java_block` `.bbmodel`：整体工程或自动拆成单方块工程，限制见下文。
+- 普通方块采用立方体几何；素材包 `cross_states.txt` 中的植物状态采用交叉平面。
+  这不是楼梯、multipart、自定义 loader 或方块实体的通用模型渲染器。
+- UV 保留源结构跨格的贴图相位，不受输出居中／缩放影响；tint 与 tile 颜色烘焙进 PNG，
+  动态贴图取第一帧。默认染色是近似值，不是读取原存档每个位置的生物群系颜色。
+- OBJ 输出 MTL 和 PNG；含透明像素的材质增加 `map_d`。缺失映射会提示面数，并在存在缺失项时
+  输出 `<name>_missing_materials.tsv`，受影响的面使用白色回退。BB 缺少材质映射时拒绝导出，
+  不静默删除几何。
+- 核心只读取一个准备好的素材目录；原版、模组和资源包的分版本导入、排序与组合由 App／生成端负责。
+- CLI 提示**仅英文**；桌面 App 的七种界面语言是独立功能。
+
+## Blockbench 导出
+
+CLI 输出 BB 工程格式 **5.0**、工作区 **`java_block`**，需要使用可打开该工程版本的
+Blockbench。核心不直接输出 Java 方块 JSON；在 BB 中检查、编辑后再导出。
+
+- 仅支持标准轴对齐长方体。任何带角点偏移的斜面盒子都会导致整次导出失败；
+  不导出门动画、开关或交互行为。
+- **整体与拆分两种模式，都要求整份输入至多占用 3×3×3 个世界轴向的方块格。**
+  按源坐标实际跨越的格子计算，不只看几何宽度；自动拆分不能绕过整体上限。
+- `output.split: "none"`（默认）输出一个工程；`"blocks"` 输出
+  `<name>_blocks/block_<x>_<y>_<z>.bbmodel` 与 `blocks.bbmanifest.json`。
+  坐标沿游戏 X/Y/Z 轴，各局部分量为 0..2，保留空隙。
+- 一个游戏方块对应 16 模型单位，**不是精度上限**；LT 高精度 grid 保留为小数坐标。
+  `normalize_scale` 必须为 `false`。整体居中把占用格范围中心平移到 `[8,8,8]`；
+  拆分工程保留格内位置。
+- CLI 将染色后的第一帧 PNG 写入工程旁的 `<project>_textures/`，工程使用相对路径引用。
+  迁移时需一起保留工程与贴图目录；跨贴图单元的盒子可能拆成多个可编辑元素，以保留重复采样。
+- 输出静态模型资源，不自动生成多方块放置、碰撞或 MCreator 行为定义。
+
+几何预检查在解析材质前返回 JSON 的 `valid` 与 `issues`。应检查 `valid`，不能只判断进程退出码；
+它不验证材质是否齐全。
+
+```sh
+./LittleTilesReader --version
+./LittleTilesReader --capabilities
+./LittleTilesReader --inspect-snbt House.txt --inspect-format bbmodel
+./LittleTilesReader --job examples/bbmodel.json --progress json
+```
+
+运行前修改 [examples/bbmodel.json](examples/bbmodel.json) 的输入和素材路径。
+在 `output` 内增加 `"split": "blocks"` 即切换为拆分模式。完整参数见 [docs/job.md](docs/job.md)。
+[BB 说明](docs/bbmodel-v1.md) 和[拆分说明](docs/bbmodel-blocks.md) 保留历史实现记录；
+当前 CLI 使用上述外部 PNG 引用方式。
 
 ## 测试存档
 
-用于验证的 region 存档（均为 Minecraft 1.12.2 + Little Tiles 1.5.66）**不随本库分发**：
+历史验证使用的 region 存档（均为 Minecraft 1.12.2 + Little Tiles 1.5.66）**不随本库分发**：
 它们和生成端脚本一起放在**测试数据包**里。下表路径相对测试数据根
 （例如 `…/minecraft-littletiles-reader-data/data`），用时把绝对路径填进去即可。
 运行时依次输入存档目录、区块坐标、扫描半径：
@@ -49,6 +97,7 @@
 | `data/regions/test_region_medim/` | **-136, 49** | **5** | 11×11 区块 | 55561 个 tile → 388744 面 → 34 MB OBJ，约 9 s |
 | `data/regions/test_region_large/` | **-7, -26** | **5** | 11×11 区块 | 324427 个 tile + 194 万普通方块 → 2036139 面 → 178 MB OBJ，约 50 s |
 
+这些是历史核心库基线，不代表 Windows App 0.2.0 的性能验收结果。
 测试数据侧的 `tools/benchmark.py` 会用上面这套参数把三个存档各跑一遍并记录结果，
 历史记录见 [`docs/benchmark.md`](docs/benchmark.md)（脚本不在本仓库内）。
 
@@ -80,25 +129,20 @@ printf "<region 根>/regions/test_region_large\n-7\n-26\n5\ny\ny\ny\nn\ny\n" | .
 
 产物写在**当前工作目录**下的 `outputs/`（OBJ + MTL + 同名 `<obj 名>_textures/` 贴图目录）。
 
-## 使用自定义材质包
+## 素材与资源包
 
-贴图来自一个**素材包目录**（`assets_root`，库侧只认这一个入口，见
-[`docs/assets-package.md`](docs/assets-package.md)）。素材包本身由**生成端**产出：
-把材质包与原版素材合并成"映射表 + 只读贴图目录"（`block_textures.tsv` + `textures/`，
-可选 `manifest.json`）。合并脚本不随本库分发，在生成端/测试数据包里。
+核心通过 `assets_root`／job 的 `assets.package` 读取**准备好的素材目录**，不直接导入客户端 JAR、
+模组或资源包；这些来源由配套 App／生成端解析并组合。App 先导入对应的原版客户端 JAR，
+再添加可选模组和资源包，两个游戏版本的素材分别维护。
 
-```sh
-# 生成端：把材质包与原版素材合并成一个素材包目录（示意）
-python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out <素材包根>/pack
-```
+目录包含 `block_textures.tsv`、只读 `textures/`；现代素材还包含带版本的 `manifest.json`。
+1.20.1 存档的带材质导出要求匹配 **1.20.1 的格式 v2** 素材，包含完整状态和逐面 UV 映射；
+旧格式继续用于 1.12.2 流程。模组贴图需要有效映射，导入模组不会自动实现它的自定义模型渲染器。
 
-合并出的目录就是标准素材包：材质包里有的贴图用它自己的，没有的回退原版。指定方式两种——
-环境变量 `LITTLETILES_ASSETS=<素材包根>/pack`，或运行时在 `assets root (blank = auto-detect):`
-那一问里直接填路径。相对路径依次按「当前工作目录 → 可执行文件目录 →
-可执行文件上一级」解析（CLion 的工作目录是构建目录），选中后会打印成绝对路径，
-并列出该素材包的方块数 / 引用贴图数 / 缺失贴图，方便确认到底用了哪一份素材。
-细节与限制见
-[`docs/texture-mapping.md`](docs/texture-mapping.md)。
+可通过 job、环境变量 `LITTLETILES_ASSETS=<素材目录>`，或交互式 `assets root` 提示指定目录。
+相对路径依次按当前工作目录、可执行文件目录及其上一级解析。
+参见[素材契约](docs/assets-package.md)、[贴图与 UV](docs/texture-mapping.md)和
+[动态贴图静态帧处理](docs/texture-animation-static-frame.md)。
 
 ## 处理流程
 
@@ -120,6 +164,7 @@ python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out <素�
 ```sh
 cmake -S . -B cmake-build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build cmake-build-debug
+ctest --test-dir cmake-build-debug --output-on-failure
 ```
 
 ### Windows
@@ -173,17 +218,18 @@ cmake --build cmake-build-debug
 
 ## 已知限制
 
-- **跨平台浮点精度**：`FloatType` 目前在 Windows 上是 `float`、macOS 上是 `double`
-  （`CgalTypeDef.h`），因此两个平台的几何结果可能存在细微差异。
-  服务器化前应统一为 `double`，保证"同一输入 → 同一输出"。
-- 存档路径**两代都支持**：1.12.2 的 `Level → Sections → Blocks/Data`，以及 1.18+ 的
-  扁平化区块（`sections[].block_states` 调色板、`block_entities`、世界高度
-  -64~319 共 384 层）；结构文件路径同样两代都支持。压缩只支持 zlib，且仍**没有
-  `DataVersion` 校验**。
-- 结构互转时，**门（door / advancedDoor / slidingDoor / doorActivator）的动画与开关参数
-  只做透传**：几何、结构 id 与名字会正确转换，模板参数可能需要进游戏重设
-  （命令行会给 note 提示，见 [`docs/snbt-format.md`](docs/snbt-format.md) §5）。
-- 材质包里的 MCPatcher/CTM 连接纹理暂不支持，用的是连接纹理的基础贴图。
+- 存档配置仅限 **1.12.2 / 1.20.1**。不支持的 `DataVersion`、显式版本冲突及混合版本区块会失败。
+  缺失 `DataVersion` 时只允许带警告的字段布局推断，不能验证精确版本或原生历史。
+  现代高度从实际存储的 section 推导；MCA 区块压缩目前只接受 zlib（类型 2）。
+- Windows 使用 `float`，macOS／Linux 使用 `double`（`CgalTypeDef.h`），跨平台几何可能略有差异。
+- 立方体／交叉平面路径以外的普通方块属于近似，不还原任意模组模型、CTM 连接纹理、动态渲染、
+  光影或游戏中的精确光照。
+- 贴图保留透明度，实际显示取决于目标软件的材质／导入设置；植被和水的默认染色不等于
+  原存档各生物群系颜色。
+- 结构 SNBT 互转与存档迁移是两回事。SNBT 互转可能透传门动画／开关参数，但模型导出不会重现
+  这些行为，详见 [SNBT 说明](docs/snbt-format.md)。
+- BB 继续遵循标准盒子、3³ 格与禁止单位化的限制。几何预检查、工程生成和游戏内验收是不同步骤，
+  自动测试样本不能覆盖所有模组组合。
 
 ## Matlab 支持
 
@@ -223,7 +269,8 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 
 ## 工程文档
 
-详细的工程笔记放在 [`docs/`](docs/) 目录（结论均对照代码核实，引用符号名而非行号）：
+工程笔记放在 [`docs/`](docs/)。部分文档保留带日期的计划或测试记录，
+不能把历史设计全部视为已实现；当前能力以代码和本 README 为准。常用入口：
 
 - [`docs/architecture.md`](docs/architecture.md) —— 模块划分、真实调用链、ownership 与线程安全现状、构建方式
 - [`docs/nbt-format.md`](docs/nbt-format.md) —— `.mca` / chunk NBT / LittleTiles tile 格式、角度偏移位域、坐标系统
@@ -232,3 +279,7 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 - [`docs/texture-mapping.md`](docs/texture-mapping.md) —— UV 约定、tint 烘焙、材质包叠加
 - [`docs/benchmark.md`](docs/benchmark.md) —— 导出基线与实测数据（由测试数据侧的 `tools/benchmark.py` 生成）
 - [`docs/reference-lt3d-importer.md`](docs/reference-lt3d-importer.md) —— 第三方模组 LT 3D Importer & Exporter 的研究（UV/纹理策略）
+
+- [`docs/job.md`](docs/job.md) —— 非交互任务与 JSON 进度事件
+- [`docs/build-guide.md`](docs/build-guide.md) —— 各平台构建
+- [`docs/release-and-licensing.md`](docs/release-and-licensing.md) —— 发行与第三方许可要求

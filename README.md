@@ -4,48 +4,110 @@
 
 Parse **Minecraft** save files (Anvil `.mca`), read the tile data of the
 [Little Tiles](https://github.com/CreativeMD/LittleTiles) mod, and rebuild it as
-a standard **OBJ** model (OBJ + MTL + textures) that opens directly in Blender
-and other modelling tools.
+a textured **OBJ** model (OBJ + MTL + PNG) or an editable **Blockbench Java
+Block/Item project** (`.bbmodel`).
 
 > **How development continues**  
 > AI assistants are now capable enough that, given this project's existing
 > architecture and engineering documentation, they can take over the remaining
 > work. Most future code updates will therefore be made by me together with AI.
 
-## Current Status
+## Versions and Scope
 
-- Reads region archives (`.mca`) → chunk NBT → LittleTiles tile entities
-- Reads LittleTiles structure files (SNBT `.txt`/`.struct`) in **both dialects**:
-  1.12.2 (`tiles` list) and 1.20 / 1.21 (`t` map) — see
-  [`docs/snbt-format.md`](docs/snbt-format.md); just answer the first prompt with
-  the file path instead of a region folder
-- Converts structures between the two generations
-  (`LittleTilesReader --convert 1.20 --input House.txt`, or `"mode":
-  "snbt_convert"` in a job file): the tiles, colours and every level's grid are
-  rewritten, and block names go through the block table LittleTiles itself uses
-  (`minecraft:wool:5` ↔ `minecraft:lime_wool`, `minecraft:log:1` ↔
-  `minecraft:spruce_log[axis=y]`)
-- Raw NBT entry point (`ChunkTileEntities::ReadChunkNbt`), so data that never
-  went through an mca file can be parsed as well
-- Rebuilds tile geometry, including LittleTiles' per-corner angle offsets and
-  out-of-block tiles (clipped to the block box)
-- Exports plain (non-LittleTiles) blocks as full cubes, with optional culling of
-  faces hidden by neighbouring blocks
-- Six-face UVs; biome tint and per-tile colours are baked into the exported PNGs
-- Optional custom resource pack (folder / zip / rar) layered over the vanilla assets
-- Chinese and English interface
+This repository contains the **C++ core and CLI, 0.3.0-beta**. The companion
+**desktop App 0.2.0** is a separate Windows x64 test build with a Flutter UI;
+its version number and release cycle are independent of the core. macOS App
+updates are deferred. Downloads: [LittleTiles Reader](https://www.inception.work/littletiles).
 
-## Tested Environment
+| Input | Current scope |
+|---|---|
+| Native Forge 1.12.2 saves | `DataVersion` 1343; legacy numeric IDs and metadata; the save's Forge registry can supply mod block IDs |
+| Native Forge 1.20.1 saves | `DataVersion` 3465; complete namespaced block states and properties; matching v2 assets required for textured export |
+| LittleTiles structure SNBT | Legacy `tiles` lists and modern `t` maps, including nested collections and per-level grids |
 
-- **Minecraft 1.12.2** with **Little Tiles 1.5.66**
-- **Minecraft 1.20 / 1.21** structures (verified against
-  [lt3d](https://github.com/LeekZhangx/lt3d)'s sample blueprints and the
-  LittleTiles 1.20 sources; see
-  [`docs/reference-lt3d-1.20-snbt.md`](docs/reference-lt3d-1.20-snbt.md))
+The current App workflow exposes **Overworld export only**. The core still has
+other dimension parameters; their presence does not mean Nether or End export
+has been validated in this release.
+
+Only saves created and kept in the corresponding game/mod environment are
+supported. **Upgraded, downgraded or migrated saves are unsupported.** The reader
+does not upgrade or modify a save. Chunk metadata cannot prove creation history;
+`source_history: "native"` is a caller's assertion, not a migration bypass.
+
+The modern SNBT family also appears in 1.20/1.21 blueprints. Recognising that
+family does not establish an exact Minecraft/LittleTiles version or add native
+1.21 world support. Historical real-save checks and synthetic coverage are
+recorded in [the 1.20.1 adaptation notes](docs/native-world-export-1.20.1-progress.md).
+
+## Export Capabilities
+
+- Region files (`.mca`) → chunk NBT → LittleTiles geometry, including tiles
+  stored in child collections; raw `ChunkTileEntities::ReadChunkNbt` is also available.
+- SNBT → OBJ with per-corner offsets where supported by the geometry builder;
+  exported models are static, without door animations or interactions.
+- SNBT → editable `java_block` `.bbmodel` projects, either whole or automatically
+  split into single-block projects; see the restrictions below.
+- Plain blocks use cube geometry. States listed in the prepared package's
+  `cross_states.txt` use crossed planes for plants. This is **not** a general
+  renderer for stairs, multipart models, custom loaders or block entities.
+- UVs retain source texture phase across tile/cell boundaries and are independent
+  of output centering/scaling. Tint and tile colours are baked into PNGs; animated
+  textures use the first frame. Default tint colours are approximations, not
+  per-biome sampling of the original world.
+- OBJ writes MTL plus PNGs, with `map_d` for textures that contain transparency.
+  Missing mappings are reported with face counts and, when present,
+  `<name>_missing_materials.tsv`; affected faces use the white fallback. Missing
+  Blockbench material mappings fail export instead of silently dropping geometry.
+- The core consumes one prepared assets directory. The companion App handles
+  importing and composing vanilla, mod and resource-pack sources per game version.
+- CLI prompts are **English only**. The desktop App's seven UI languages are a
+  separate feature.
+
+## Blockbench Export
+
+The CLI writes project format **5.0**, model format **`java_block`**. Use a
+Blockbench version that can open that project format. It does not emit Java block
+JSON directly; open the project in Blockbench to inspect/edit and export it.
+
+- Only standard axis-aligned cuboids are accepted. Any corner-offset/slanted tile
+  rejects the export; door animations, switches and interactions are not exported.
+- **Both whole and split export require the entire input to occupy at most
+  3×3×3 world-aligned block cells.** The bound counts occupied grid cells using
+  source coordinates, not just geometric width. Splitting does not bypass it.
+- `output.split: "none"` (default) exports one project. `"blocks"` exports
+  `<name>_blocks/block_<x>_<y>_<z>.bbmodel` plus `blocks.bbmanifest.json`.
+  Labels preserve game X/Y/Z axes; each local component is 0..2, with gaps retained.
+- One game block is 16 model units; this is **not** a precision limit. Higher LT
+  grid precision is preserved as fractional coordinates. `normalize_scale` must
+  remain `false`. Whole-project centering translates the occupied cell grid to
+  model centre `[8,8,8]`; split projects retain cell-local placement.
+- The CLI writes tinted, first-frame PNGs beside each project in
+  `<project>_textures/` and references them by relative paths. Keep the project and
+  texture folder together when moving them. A cube crossing a texture cell may be
+  split into several editable elements to retain texture repetition.
+- These are static model resources, not automatic multiblock placement,
+  collision or MCreator behaviour definitions.
+
+The geometry preflight reports a JSON `valid` flag and `issues` before material
+resolution. Check `valid`, not merely the process exit code; it does not validate
+material availability.
+
+```sh
+./LittleTilesReader --version
+./LittleTilesReader --capabilities
+./LittleTilesReader --inspect-snbt House.txt --inspect-format bbmodel
+./LittleTilesReader --job examples/bbmodel.json --progress json
+```
+
+Edit the paths in [examples/bbmodel.json](examples/bbmodel.json) before running it.
+Add `"split": "blocks"` to its `output` object for the batch mode. The full job
+contract is [docs/job.md](docs/job.md). [BB notes](docs/bbmodel-v1.md) and
+[split notes](docs/bbmodel-blocks.md) retain historical implementation records;
+the current CLI uses linked PNGs as described above.
 
 ## Test Data
 
-The region archives used for verification **are not distributed with this library**
+The historical region archives used for verification **are not distributed with this library**
 (all of them are Minecraft 1.12.2 + Little Tiles 1.5.66 saves); they ship with the
 generator-side test-data package. The paths below are relative to that package's
 `data/` folder — pass the absolute path when running.
@@ -57,7 +119,8 @@ Enter the folder, then a chunk coordinate and a scan radius:
 | `data/regions/test_region_medim/` | **-136, 49** | **5** | 11×11 chunks | 55,561 tiles → 388,744 faces → 34 MB OBJ, ~9 s |
 | `data/regions/test_region_large/` | **-7, -26** | **5** | 11×11 chunks | 324,427 tiles + 1,945,017 plain blocks → 2,036,139 faces → 178 MB OBJ, ~50 s |
 
-`tools/benchmark.py` on the generator/test-data side re-runs all three with these
+These are historical core-library baselines, not performance results for the
+Windows App 0.2.0. `tools/benchmark.py` on the generator/test-data side re-runs all three with these
 parameters and records the result; past runs are kept in
 [`docs/benchmark.md`](docs/benchmark.md) (the script is not part of this repo).
 
@@ -91,27 +154,26 @@ library) and the final total-time line. Answer `n` for clean, script-friendly ou
 The result is written to `outputs/` relative to the current working
 directory (OBJ + MTL + a `<obj name>_textures/` folder).
 
-## Using a Resource Pack
+## Assets and Resource Packs
 
-Textures come from an **assets package** directory (`assets_root` — the library has
-exactly one entry point for assets, see
-[`docs/assets-package.md`](docs/assets-package.md)). A package is produced by the
-**generator side**: it merges a resource pack onto the vanilla assets into a
-"mapping table + read-only textures" folder (`block_textures.tsv` + `textures/`,
-optionally `manifest.json`). The merge script is not part of this repo.
+The core reads a prepared **assets package directory** through `assets_root` / the
+job's `assets.package`; it does not import Minecraft client JARs, mods or resource
+packs directly. The companion App/generator resolves and composes those sources.
+The App requires the matching vanilla client JAR before adding optional mods and
+packs, and keeps the two game versions' assets separate.
 
-```sh
-# generator side (illustrative)
-python3 tools/build_assets_from_pack.py --pack "texture/MyPack.zip" --out <assets root>/pack
-```
+A package contains `block_textures.tsv`, read-only `textures/` and, for modern
+assets, versioned `manifest.json`. Textured 1.20.1 world export requires a matching
+1.20.1 **format v2** package with full block-state and face-UV mappings. Legacy
+packages remain available for the 1.12.2 path. Mod textures require a usable mapping;
+importing a mod does not automatically implement its custom model renderer.
 
-Then point the reader at the result, either via `LITTLETILES_ASSETS=<assets root>/pack`
-or by typing the path at the `assets root (blank = auto-detect):` prompt.
-The pack overrides only the textures it ships; the rest falls back to vanilla.
-Relative paths are resolved against the current directory, then the executable's
-directory and its parent (CLion runs with the build directory as its working
-directory), and the chosen root is printed as an absolute path.
-Details and limits: [`docs/texture-mapping.md`](docs/texture-mapping.md).
+Choose a package in a job, through `LITTLETILES_ASSETS=<assets directory>`, or at the
+interactive `assets root` prompt. Relative paths are resolved against the current
+working directory, then the executable's directory and its parent.
+See [the assets contract](docs/assets-package.md),
+[texture mapping](docs/texture-mapping.md) and
+[static animation-frame handling](docs/texture-animation-static-frame.md).
 
 ## Processing Workflow
 
@@ -135,6 +197,7 @@ when vcpkg is not available).
 ```sh
 cmake -S . -B cmake-build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build cmake-build-debug
+ctest --test-dir cmake-build-debug --output-on-failure
 ```
 
 ### Windows
@@ -192,22 +255,25 @@ commit so builds stay reproducible.
 
 ## Known Limitations
 
-- **Cross-platform floating point**: `FloatType` is currently `float` on Windows
-  and `double` on macOS (`CgalTypeDef.h`), so geometry may differ slightly
-  between the two platforms. It should be unified to `double` before
-  server-side use, so that the same input always yields the same output.
-- On the save-file path both the 1.12.2 layout (`Level` → `Sections` with `Blocks`
-  + `Data`) and the 1.18+ one (flattened chunk, `sections[].block_states` palette,
-  `block_entities`, world height -64..319 → 384 rows) are supported, and structure
-  files are read in both generations as well. Only zlib-compressed chunks are
-  accepted, and there is still no `DataVersion` check.
-- When converting a structure, the **animation and switch payload of a door**
-  (`door` / `advancedDoor` / `slidingDoor` / `doorActivator`) is passed through
-  unchanged: geometry, structure id and name are converted, but the template
-  parameters may have to be set again in game (the CLI prints a note, see
-  [`docs/snbt-format.md`](docs/snbt-format.md) §5).
-- MCPatcher/CTM connected textures inside a resource pack are not supported yet;
-  the base texture of the connected block is used.
+- Save profiles are restricted to **1.12.2 / 1.20.1**. Unsupported `DataVersion`
+  values, selected-version conflicts and mixed-version chunks are rejected.
+  Missing `DataVersion` permits a warned layout inference only; it cannot verify
+  the precise version or native history. Modern height follows stored sections.
+  MCA chunk compression is currently limited to zlib (type 2).
+- Windows geometry uses `float`, while macOS/Linux use `double`
+  (`CgalTypeDef.h`); cross-platform results may differ slightly.
+- Plain blocks outside the supported cube/cross-plane paths are approximations.
+  Arbitrary mod models, CTM/connected textures, dynamic rendering, shaders and
+  exact in-game lighting are not reproduced.
+- Texture alpha is exported, but how transparency appears depends on the target
+  application's material/import settings. Default vegetation/water tint is not
+  a reconstruction of world-specific biome colours.
+- Structure SNBT conversion is distinct from save migration. During SNBT
+  conversion, door animation/switch payloads may be passed through, but model
+  export does not recreate those behaviours; see [SNBT notes](docs/snbt-format.md).
+- Blockbench retains the cuboid, 3³-cell and no-normalisation restrictions above.
+  Geometry inspection, project generation and actual in-game acceptance are
+  separate checks; automated fixtures do not validate every mod combination.
 
 ## Matlab Support
 
@@ -250,8 +316,9 @@ patchLtBlock(block_aabb, 'blue', 0.1);
 
 ## Engineering Documentation
 
-Detailed engineering notes live in [`docs/`](docs/) (verified against the code,
-referencing symbols rather than line numbers):
+Engineering notes live in [`docs/`](docs/). Some documents retain dated plans or
+validation records; use the current code and this README to distinguish them
+from implemented capabilities. Useful entry points:
 
 - [`docs/architecture.md`](docs/architecture.md) — module layout, the real call chain, ownership/thread-safety status, build
 - [`docs/nbt-format.md`](docs/nbt-format.md) — `.mca` / chunk NBT / LittleTiles tile format, offset bit layout, coordinate system
@@ -260,3 +327,7 @@ referencing symbols rather than line numbers):
 - [`docs/texture-mapping.md`](docs/texture-mapping.md) — UV conventions, tint baking, resource pack overlay
 - [`docs/benchmark.md`](docs/benchmark.md) — recorded export baselines (generated by the test-data side's `tools/benchmark.py`)
 - [`docs/reference-lt3d-importer.md`](docs/reference-lt3d-importer.md) — study of the third-party LT 3D Importer & Exporter mod (UV/texture strategies)
+
+- [`docs/job.md`](docs/job.md) — non-interactive jobs and JSON progress events
+- [`docs/build-guide.md`](docs/build-guide.md) — platform build instructions
+- [`docs/release-and-licensing.md`](docs/release-and-licensing.md) — release and third-party licence requirements
