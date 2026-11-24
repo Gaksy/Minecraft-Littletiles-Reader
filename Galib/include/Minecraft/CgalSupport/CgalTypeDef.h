@@ -56,8 +56,10 @@ class LtSurfaceMesh {
   [[nodiscard]] SurfaceMeshType& surface_mesh();
   [[nodiscard]] const SurfaceMeshType& surface_mesh() const;
 
-  // Per-vertex "local position inside the block" (0..1, relative to the block
-  // the vertex belongs to). A single mesh may contain the geometry of several
+  // Per-vertex texture sampling position in block units, before export
+  // centering/scaling. World blocks normally use 0..1; structure tiles may
+  // continue beyond 1 to repeat textures without wrapping boundary vertices.
+  // A single mesh may contain the geometry of several
   // blocks (for example full blocks grouped by block type), in which case the
   // block coordinate cannot be derived from the mesh as a whole and must be
   // recorded per vertex. UVs depend on this, and it must be recorded before the

@@ -57,7 +57,8 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
                            const int kChunkSizeX, const int kChunkSizeZ,
                            const BlockIdTable& kBlockIdTable,
                            const bool kCullHiddenFaces,
-                           std::vector<LtSurfaceMesh>* const p_desc_meshes) {
+                           std::vector<LtSurfaceMesh>* const p_desc_meshes,
+                           const std::set<std::string>& cross_states) {
   if (!p_desc_meshes || kChunks.empty()) {
     return;
   }
@@ -178,6 +179,21 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
   }
 #endif
 
+  const auto name_at = [&](int x, int y, int z) {
+    const auto& state = state_at(x, y, z);
+    auto meta = state.meta;
+    if (!names_layout && state.block_id == 175 && (meta & 8)) {
+      const auto& below = state_at(x, y - 1, z);
+      if (below.block_id == 175) meta = (below.meta & 7) + 8;
+    }
+    return names_layout ? (state.block_id < region_names.size() ? region_names[state.block_id] : std::string())
+                        : kBlockIdTable.BlockName(state.block_id, meta);
+  };
+  const auto translucent = [&](const std::string& name) {
+    const auto base = name.substr(0, name.find('['));
+    return cross_states.count(name) || base.find("minecraft:leaves") == 0 ||
+           (base.size() >= 7 && base.substr(base.size() - 7) == "_leaves");
+  };
   // 2. Group by block name, one mesh per group
   std::map<std::string, std::size_t> group_index;
 #ifdef GALIB_DEBUG
@@ -201,11 +217,7 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
         // model" a host wants when it has no assets package. Skipping here used to
         // make a missing block_ids.tsv look like "the plain-block option does
         // nothing".
-        std::string block_name =
-            names_layout ? (state.block_id < region_names.size()
-                                ? region_names[state.block_id]
-                                : std::string())
-                         : kBlockIdTable.BlockName(state.block_id, state.meta);
+        std::string block_name = name_at(x, y, z);
         if (block_name.empty()) {
           block_name = "unknown_id_" + std::to_string(state.block_id) + "_" +
                        std::to_string(state.meta);
@@ -225,6 +237,26 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
         // the local coordinate is that 0/1 offset
         const int world_x = kWorldOriginX + x;
         const int world_z = kWorldOriginZ + z;
+        if (cross_states.count(block_name)) {
+          // Two diagonals, each with independent front/back vertices. Local
+          // sampling spans 0..1 even though the cross geometry is inset 0.05.
+          for (int diagonal = 0; diagonal < 2; ++diagonal) {
+            for (int back = 0; back < 2; ++back) {
+              std::vector<SurfaceMeshType::Vertex_index> vertices;
+              for (int j = 0; j < 4; ++j) {
+                const int k = back ? 3 - j : j;
+                const int u = (k == 1 || k == 2) ? 1 : 0;
+                const int v = k >= 2 ? 1 : 0;
+                const int w = diagonal ? 1 - u : u;
+                auto vertex = surface.add_vertex(LtPoint3(world_x + 0.05 + u * 0.9, y + v, world_z + 0.05 + w * 0.9));
+                mesh.SetVertexLocalPosition(vertex, LtPoint3(u, v, w));
+                vertices.push_back(vertex);
+              }
+              if (surface.add_face(vertices) == SurfaceMeshType::null_face()) ++rejected_faces;
+            }
+          }
+          continue;
+        }
         // The cube's 8 corners are shared only within "this one block" and are never
         // welded across blocks. CGAL's Euler::add_face only accepts a cycle where
         // "every vertex is still on the boundary and every edge does not exist yet or is
@@ -273,6 +305,7 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
             const std::uint8_t facing =
                 static_cast<std::uint8_t>(1u << (face_index ^ 1));
             const bool blocked = !neighbor.is_air() &&
+                                 !translucent(name_at(x + face.neighbor[0], y + face.neighbor[1], z + face.neighbor[2])) &&
                                  (!neighbor.little_tiles_host() ||
                                   (neighbor.covered_faces() & facing) != 0);
             if (blocked) {

@@ -94,6 +94,7 @@ class MaterialManager {
   std::vector<std::string> names_;
   std::unordered_set<std::string> used_names_;  // material names already taken
   std::size_t decode_count_{0};
+  std::unordered_set<std::size_t> alpha_materials_;
 };
 
 // Multiply the tint and tile colour into a decoded image (per-channel multiply, two

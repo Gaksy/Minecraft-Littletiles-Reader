@@ -59,6 +59,14 @@ std::string BlockNameOf(const std::string& kBlockId) {
 // Block name -> which default colour to use. Returning false means this tintindex
 // is not tinted.
 bool DefaultTintForBlock(const std::string& kBlockId, std::uint32_t* p_desc_argb) {
+  // LT 1.20 registers these with its water colour handler, whose no-world
+  // fallback is 0xFF3F76E4 (LittleTilesClient.initBlockColors). They must never
+  // inherit the generic grass fallback. Tile colour is multiplied separately.
+  const auto base = BlockStateBaseName(kBlockId);
+  if (base == "littletiles:colored_water" || base == "littletiles:colored_water_flowing") {
+    if (p_desc_argb) *p_desc_argb = 0xFF3F76E4u;
+    return true;
+  }
   const std::string name = BlockNameOf(kBlockId);
   if (name == "leaves" || name == "leaves2" || name == "vine" ||
       name == "vine_1" || (name.size() >= 7 && name.substr(name.size() - 7) == "_leaves")) {

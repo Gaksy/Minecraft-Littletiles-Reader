@@ -16,6 +16,7 @@
 
 #ifndef GALIB_MINECRAFT_CGALSUPPORT_CGALWORLDBLOCKS_H
 #define GALIB_MINECRAFT_CGALSUPPORT_CGALWORLDBLOCKS_H
+#include <set>
 
 #include <vector>
 
@@ -48,7 +49,8 @@ void BuildWorldBlockMeshes(int kWorldOriginX, int kWorldOriginZ,
                            int kChunkSizeX, int kChunkSizeZ,
                            const minecraft::BlockIdTable& kBlockIdTable,
                            bool kCullHiddenFaces,
-                           std::vector<LtSurfaceMesh>* p_desc_meshes);
+                           std::vector<LtSurfaceMesh>* p_desc_meshes,
+                           const std::set<std::string>& cross_states = {});
 
 }  // namespace galib::minecraft::cgal_support
 

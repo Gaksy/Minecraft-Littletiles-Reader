@@ -153,9 +153,10 @@ void WriteToOff(const std::vector<LtSurfaceMesh>& meshes,
 // mesh -> UV); only the coordinates differ: a structure uses structure-space grid
 // coordinates spanning many blocks, so two things are done here:
 //   1. Scale by grid into block units and subtract the structure origin min;
-//   2. Record, per vertex, the "relative coordinate inside the block cell it belongs
-//      to", so UVs can be sampled by position (one mesh spans several cells, so unlike
-//      the save-file path the mesh-level block coordinate cannot be used to derive it).
+//   2. Record texture coordinates relative to one source-grid cell origin per
+//      tile, retaining upper boundaries and continuous repeats beyond that cell.
+//      These coordinates do not depend on the structure's minimum or export
+//      normalization; never take each corner's fractional part independently.
 // Child structures (children) have already been expanded by LtStructure. Returns the
 // number of meshes merged.
 std::size_t AddStructureToObjBuilder(

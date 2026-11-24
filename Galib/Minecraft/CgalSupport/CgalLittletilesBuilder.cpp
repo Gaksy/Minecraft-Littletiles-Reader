@@ -25,6 +25,7 @@
 #include <iomanip>
 #include <limits>
 #include <memory>
+#include <map>
 #include <optional>
 #include <utility>
 
@@ -327,6 +328,7 @@ struct ObjMeshBuilder::Impl {
                 info.has_material = true;
               }
             }
+            if (package_ && !info.has_material) ++missing_material_blocks[block_id];
             face_infos.push_back(info);
           }
         }
@@ -615,6 +617,11 @@ struct ObjMeshBuilder::Impl {
         std::cout << std::endl;
       }
     }
+    if (!missing_material_blocks.empty()) {
+      std::ofstream report(output_path.parent_path() / galib::Utf8Path(obj_stem + "_missing_materials.tsv"));
+      report << "block\tfaces\n";
+      for (const auto& item : missing_material_blocks) report << item.first << '\t' << item.second << '\n';
+    }
     stats_.vertices = marged_mesh.number_of_vertices();
     stats_.faces = marged_mesh.number_of_faces();
     stats_.materials = materials_ == nullptr ? 0 : materials_->size();
@@ -638,6 +645,7 @@ struct ObjMeshBuilder::Impl {
   std::vector<ExportedFaceInfo> face_infos;
   std::vector<LtPoint3> vertex_local_positions;
   std::size_t missing_texture_faces{0};
+  std::map<std::string, std::size_t> missing_material_blocks;
   ObjMeshBuilder::Stats stats_;  // filled by WriteToFile
 };
 
@@ -713,10 +721,15 @@ std::size_t galib::minecraft::cgal_support::AddStructureToObjBuilder(
       tile_mesh.set_block_id(kGroup.block_id);
       tile_mesh.set_tile_color(kGroup.color, kGroup.has_color);
 
-      // grid -> block units, and translate to the structure origin; also record the
-      // "relative coordinate inside the cell it lies in" (for UVs). A mesh inside a
-      // structure spans several block cells, so the mesh-level block coordinate cannot be
-      // used to derive it and it must be recorded per vertex.
+      // Keep one texture origin for this entire tile. Taking the fractional part
+      // of each vertex separately turns a cell's upper boundary (1) into 0 and
+      // collapses full-width faces into a UV line. Coordinates beyond this cell
+      // remain continuous so OBJ texture repetition also works across cells.
+      // Texture phase uses source grid coordinates, independently of the
+      // structure's bounding-box minimum or export centering/scaling.
+      const double uv_origin_x = std::floor(std::min(tile.pos_1().x, tile.pos_2().x) / grid);
+      const double uv_origin_y = std::floor(std::min(tile.pos_1().y, tile.pos_2().y) / grid);
+      const double uv_origin_z = std::floor(std::min(tile.pos_1().z, tile.pos_2().z) / grid);
       SurfaceMeshType& mesh = tile_mesh.surface_mesh();
       for (const SurfaceMeshType::vertex_index& vertex : mesh.vertices()) {
         const LtPoint3 point = mesh.point(vertex);
@@ -726,7 +739,9 @@ std::size_t galib::minecraft::cgal_support::AddStructureToObjBuilder(
         mesh.point(vertex) = LtPoint3(x, y, z);
         tile_mesh.SetVertexLocalPosition(
             vertex,
-            LtPoint3(x - std::floor(x), y - std::floor(y), z - std::floor(z)));
+            LtPoint3(point.x() / grid - uv_origin_x,
+                     point.y() / grid - uv_origin_y,
+                     point.z() / grid - uv_origin_z));
       }
       p_desc_builder->AddMesh(tile_mesh);
       ++mesh_count;

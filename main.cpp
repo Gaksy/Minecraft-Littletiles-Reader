@@ -8,6 +8,7 @@
 #include <fstream>
 #include <optional>
 #include <sstream>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -93,6 +94,37 @@ bool WriteTextFile(const std::string& kPath, const std::string& kText,
     return false;
   }
   return true;
+}
+
+// Link output PNGs using Blockbench's project-relative texture paths. Never store
+// staging/cache paths; a batch directory may be renamed after this function.
+void LinkBbmodelTextures(boost::json::object& model,
+                         const galib::minecraft::littletiles::BbmodelReport& report,
+                         const std::filesystem::path& project_path,
+                         std::vector<std::filesystem::path>& written) {
+  auto& textures = model.at("textures").as_array();
+  if (textures.size() != report.texture_pngs.size())
+    throw std::runtime_error("BB texture payload mismatch");
+  const auto folder_name = galib::Utf8String(project_path.stem()) + "_textures";
+  const auto folder = project_path.parent_path() / galib::Utf8Path(folder_name);
+  std::filesystem::create_directories(project_path.parent_path());
+  if (!std::filesystem::create_directory(folder))
+    throw std::runtime_error("BB texture output already exists; choose another output name");
+  written.push_back(folder);
+  for (std::size_t i = 0; i < textures.size(); ++i) {
+    const std::string filename = "texture_" + std::to_string(i) + ".png";
+    const auto path = folder / filename;
+    written.push_back(path);
+    std::ofstream image(path, std::ios::binary);
+    const auto& bytes = report.texture_pngs[i];
+    image.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    image.close();
+    if (!image) throw std::runtime_error("cannot write BB texture: " + galib::Utf8String(path));
+    auto& texture = textures[i].as_object();
+    texture.erase("source");
+    texture["relative_path"] = folder_name + "/" + filename;
+    texture["internal"] = false;
+  }
 }
 
 // Seconds between two time points (used for the timing output, printed to 1 decimal
@@ -298,6 +330,8 @@ struct Job {
 };
 
 struct CommandLine {
+  std::string inspect_input;
+  std::string inspect_format{"obj"};
   bool capabilities{false};
   std::string job_path;        // --job <file.json> : non-interactive
   std::string convert_target;  // --convert <1.20|1.12.2> : SNBT -> SNBT
@@ -312,7 +346,11 @@ CommandLine ParseCommandLine(const int kArgc, char** const kArgv) {
   CommandLine parsed;
   for (int i = 1; i < kArgc; ++i) {
     const std::string argument = kArgv[i] == nullptr ? "" : kArgv[i];
-    if (argument == "--capabilities") {
+    if (argument == "--inspect-snbt" && i + 1 < kArgc) {
+      parsed.inspect_input = kArgv[++i];
+    } else if (argument == "--inspect-format" && i + 1 < kArgc) {
+      parsed.inspect_format = kArgv[++i];
+    } else if (argument == "--capabilities") {
       parsed.capabilities = true;
     } else if (argument == "--job" && i + 1 < kArgc) {
       parsed.job_path = kArgv[++i];
@@ -729,6 +767,36 @@ int RunTilesReader(int argc, char** argv) {
 
   if (command_line.capabilities) {
     std::puts("{\"asset_format_max\":2,\"world_profiles\":[\"1.12.2\",\"1.20.1\"],\"complete_block_states\":true,\"affine_face_uv\":true,\"bbmodel\":true,\"bbmodel_blocks\":true,\"bbmodel_max_blocks_per_axis\":3,\"bbmodel_local_grid\":true,\"native_saves_only\":true}");
+    return EXIT_SUCCESS;
+  }
+  if (!command_line.inspect_input.empty()) {
+    boost::json::object result{{"valid", false}};
+    boost::json::array issues;
+    try {
+      if (command_line.inspect_format != "obj" && command_line.inspect_format != "bbmodel")
+        throw std::runtime_error("unsupported inspection format");
+      const auto structure = LtStructure::FromSnbtFile(command_line.inspect_input);
+      result["boxes"] = structure.BoxCount();
+      result["dialect"] = DialectName(structure.dialect());
+      if (!structure.BoxCount())
+        issues.push_back(boost::json::object{{"code", "empty"}});
+      if (command_line.inspect_format == "bbmodel") {
+        structure.VisitGroups([&](const LtStructure::Group& group) {
+          std::size_t count = 0;
+          for (const auto& box : group.boxes)
+            if (box.has_any_offset_enable()) ++count;
+          if (count) issues.push_back(boost::json::object{
+              {"code", "offset_tiles"}, {"block", group.block_id}, {"count", count}});
+        });
+        if (issues.empty())
+          galib::minecraft::littletiles::ValidateJavaBbmodelGeometry(structure);
+      }
+      result["valid"] = issues.empty();
+    } catch (const std::exception& error) {
+      issues.push_back(boost::json::object{{"code", "invalid_structure"}, {"detail", error.what()}});
+    }
+    result["issues"] = std::move(issues);
+    std::puts(boost::json::serialize(result).c_str());
     return EXIT_SUCCESS;
   }
   Job job;
@@ -1186,6 +1254,7 @@ int RunTilesReader(int argc, char** argv) {
               project.model["name"] = file.substr(0, file.size() - 8);
               const auto path = staging / galib::Utf8Path(file);
               written.push_back(path);
+              LinkBbmodelTextures(project.model, project.report, path, written);
               std::string error;
               if (!WriteTextFile(galib::Utf8GenericString(path), boost::json::serialize(project.model), &error))
                 throw std::runtime_error("cannot write BB batch project: " + error);
@@ -1220,7 +1289,8 @@ int RunTilesReader(int argc, char** argv) {
           } catch (...) {
             // Only remove explicitly tracked files in this newly created staging folder.
             std::error_code ignored;
-            for (const auto& path : written) std::filesystem::remove(path, ignored);
+            for (auto it = written.rbegin(); it != written.rend(); ++it)
+              std::filesystem::remove(*it, ignored);
             std::filesystem::remove(staging, ignored);
             throw;
           }
@@ -1239,13 +1309,22 @@ int RunTilesReader(int argc, char** argv) {
           if (text_output) printf("BB batch exported: %zu projects\n", projects.size());
           return EXIT_SUCCESS;
         }
-        const auto model = galib::minecraft::littletiles::BuildJavaBbmodel(
+        auto model = galib::minecraft::littletiles::BuildJavaBbmodel(
             structure, assets_root, job.center, &report);
         const std::string path = galib::Utf8GenericString(dir / galib::Utf8Path(name + ".bbmodel"));
         EmitEvent(json_progress, "stage", {JsonField("name", "write")});
         std::string error;
-        if (!WriteTextFile(path, boost::json::serialize(model), &error))
-          throw std::runtime_error("cannot write BB project: " + error);
+        std::vector<std::filesystem::path> written;
+        try {
+          LinkBbmodelTextures(model, report, galib::Utf8Path(path), written);
+          if (!WriteTextFile(path, boost::json::serialize(model), &error))
+            throw std::runtime_error("cannot write BB project: " + error);
+        } catch (...) {
+          std::error_code ignored;
+          for (auto it = written.rbegin(); it != written.rend(); ++it)
+            std::filesystem::remove(*it, ignored);
+          throw;
+        }
         const double seconds = ElapsedSeconds(process_start, Clock::now());
         EmitEvent(json_progress, "done", {
             JsonField("bbmodel", path),
@@ -1455,9 +1534,12 @@ int RunTilesReader(int argc, char** argv) {
     // emitted - untextured, i.e. a white model - rather than dropped: skipping
     // them made a missing assets package look like "ordinary blocks do not work".
     BlockIdTable block_id_table;
-    const bool has_id_table =
+    bool has_id_table =
         !assets_root.empty() &&
         block_id_table.LoadFromTsv(assets_root + "/block_ids.tsv");
+    if (needs_legacy_ids && !job.world_root.empty())
+      has_id_table = block_id_table.LoadForgeRegistry(galib::Utf8String(
+          galib::Utf8Path(job.world_root) / "level.dat")) || has_id_table;
     if (needs_legacy_ids && !has_id_table) {
       if (json_progress) {
         EmitEvent(json_progress, "warning",
@@ -1471,10 +1553,16 @@ int RunTilesReader(int argc, char** argv) {
       }
     }
     std::vector<LtSurfaceMesh> world_meshes;
+    std::set<std::string> cross_states;
+    std::ifstream shapes(galib::Utf8Path(assets_root) / "cross_states.txt");
+    for (std::string state; std::getline(shapes, state); ) {
+      if (!state.empty() && state.back() == '\r') state.pop_back();
+      if (!state.empty() && state[0] != '#') cross_states.insert(state);
+    }
     // World origin: the block coordinate of the region's lower-left corner (chunk * 16)
     BuildWorldBlockMeshes(range.min_x * 16, range.min_z * 16, world_blocks,
                           span_x, span_z, block_id_table, cull_hidden_faces,
-                          &world_meshes);
+                          &world_meshes, cross_states);
     for (const LtSurfaceMesh& mesh : world_meshes) {
       obj_builder.AddMesh(mesh);
     }

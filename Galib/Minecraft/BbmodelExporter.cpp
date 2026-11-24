@@ -306,6 +306,7 @@ boost::json::object BuildProject(const LtStructure& structure,
                 structure.name().empty() ? "LittleTiles" : structure.name()));
   // One decode per source; differently tinted variants remain separate textures.
   std::map<std::string, PngImage> decoded;
+  std::vector<std::vector<unsigned char>> texture_pngs;
   for (std::size_t i = 0; i < materials.size(); ++i) {
     const auto& key = materials.Key(i);
     auto found = decoded.find(key.texture);
@@ -333,11 +334,16 @@ boost::json::object BuildProject(const LtStructure& structure,
                      {"uv_width", 16},
                      {"uv_height", 16},
                      {"source", "data:image/png;base64," + Base64(png)}});
+    texture_pngs.push_back(std::move(png));
   }
-  if (report) *report = {boxes.size(), elements.size(), textures.size()};
+  if (report) *report = {boxes.size(), elements.size(), textures.size(), std::move(texture_pngs)};
   return model;
 }
 }  // namespace
+
+void ValidateJavaBbmodelGeometry(const LtStructure& structure) {
+  LayoutOf(SourceBoxes(structure));
+}
 
 boost::json::object BuildJavaBbmodel(const LtStructure& structure,
                                      const std::string& assets_root,

@@ -143,6 +143,7 @@ std::size_t MaterialManager::Claim(const std::string& kTextureRel,
 
 std::size_t MaterialManager::WriteTextures(const std::string& kOutputDir,
                                            std::string* const p_desc_error) {
+  alpha_materials_.clear();
   std::error_code error;
   // UTF-8 in, native path out: the output directory is typically named after the
   // job and may contain characters outside the ANSI code page.
@@ -220,6 +221,14 @@ std::size_t MaterialManager::WriteTextures(const std::string& kOutputDir,
     }
 
     if (ready) {
+      PngImage alpha_image;
+      if (alpha_image.Load(galib::Utf8String(target))) {
+        bool transparent = false;
+        for (int y = 0; y < alpha_image.height() && !transparent; ++y)
+          for (int x = 0; x < alpha_image.width(); ++x)
+            if (alpha_image.Pixel(x, y)[3] < 255) { transparent = true; break; }
+        if (transparent) alpha_materials_.insert(i);
+      }
       ++written;
     } else if (!needs_bake && p_desc_error) {
       *p_desc_error += "texture failed: " + key.texture + "\n";
@@ -245,6 +254,8 @@ bool MaterialManager::WriteMtl(const std::string& kMtlPath,
         << "Kd 1.000 1.000 1.000\n"
         << "d 1.0\n"
         << "map_Kd " << kMapKdPrefix << "/" << names_[i] << ".png\n";
+    if (alpha_materials_.count(i))
+      mtl << "map_d " << kMapKdPrefix << "/" << names_[i] << ".png\n";
   }
   mtl.close();
   return true;

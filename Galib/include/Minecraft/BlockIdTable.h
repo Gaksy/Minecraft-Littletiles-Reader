@@ -34,6 +34,8 @@ class BlockIdTable {
   BlockIdTable() = default;
 
   bool LoadFromTsv(const std::string& kTsvPath);
+  // Overlay the actual Forge 1.12 save registry, including mod block IDs.
+  bool LoadForgeRegistry(const std::string& level_dat);
 
   bool is_loaded() const { return !names_.empty(); }
   std::size_t size() const { return names_.size(); }

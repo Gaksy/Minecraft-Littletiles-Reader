@@ -18,7 +18,12 @@ struct BbmodelReport {
   std::size_t source_boxes{0};
   std::size_t cubes{0};
   std::size_t textures{0};
+  // Encoded, tinted first-frame PNGs in model texture order, for linked export.
+  std::vector<std::vector<unsigned char>> texture_pngs;
 };
+
+// Geometry-only preflight; uses exactly the same restrictions as both exporters.
+void ValidateJavaBbmodelGeometry(const LtStructure& structure);
 
 struct BbmodelBlockProject {
   // Normalized grid coordinate, preserving game axes; each component is 0..2.
