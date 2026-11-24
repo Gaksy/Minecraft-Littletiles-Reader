@@ -7,6 +7,7 @@ add_library(galib STATIC
   Minecraft/BlockStateMap.cpp
   Minecraft/BlockStateMapData.cpp
   Minecraft/ChunkBlocks.cpp
+  Minecraft/WorldProfile.cpp
   Minecraft/MinecraftCoord.cpp
   Minecraft/ChunkTileEntities.cpp
   Minecraft/BlockTileEntities.cpp
@@ -16,6 +17,7 @@ add_library(galib STATIC
   Minecraft/SnbtParser.cpp
   Minecraft/LtStructure.cpp
   Minecraft/LtStructureWriter.cpp
+  Minecraft/BbmodelExporter.cpp
   Minecraft/CgalSupport/CgalTypeDef.cpp
   Minecraft/CgalSupport/CgalLtSupport.cpp
   Minecraft/CgalSupport/CgalLittletilesBuilder.cpp

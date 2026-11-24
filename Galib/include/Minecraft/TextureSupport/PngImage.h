@@ -34,8 +34,15 @@ class PngImage {
 
   // Returns false on failure and writes the reason into p_desc_error (may be null)
   bool Load(const std::string& kPath, std::string* p_desc_error = nullptr);
+  // Load a static snapshot of a Minecraft texture. An optional .png.mcmeta
+  // animation selects the first scheduled frame; an unannotated PNG is never
+  // cropped based on its aspect ratio alone. Load() remains a raw PNG decoder.
+  bool LoadTextureFrame(const std::string& path, std::string* error = nullptr);
   bool Save(const std::string& kPath,
             std::string* p_desc_error = nullptr) const;
+  // Encode without creating a file (for embedded project textures).
+  bool Encode(std::vector<unsigned char>* p_desc_png,
+              std::string* p_desc_error = nullptr) const;
 
   bool is_valid() const { return width_ > 0 && height_ > 0; }
   int width() const { return width_; }

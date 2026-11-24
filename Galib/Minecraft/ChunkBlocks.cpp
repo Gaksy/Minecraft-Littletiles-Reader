@@ -18,11 +18,14 @@
 
 #include <algorithm>
 #include <map>
+#include <limits>
+#include <stdexcept>
 #include <string>
 
 #include "Log/GalibLog.h"
 #include "Log/GalibText.h"
 #include "Minecraft/LittleTiles.h"
+#include "Minecraft/WorldProfile.h"
 
 namespace galib::minecraft {
 
@@ -156,11 +159,9 @@ bool ChunkBlocks::ReadIds12(const nbt::tag_compound& kChunkLevel) {
 
 bool ChunkBlocks::ReadNames118(const nbt::tag_compound& kChunkLevel) {
   layout_ = Layout::kNames118;
-  // 1.18+ worlds run from y = -64 up to y = 319, i.e. 384 rows (a section Y of -4
-  // covers y -64..-49).
-  min_y_ = -64;
-  size_y_ = 384;
-  states_.assign(static_cast<std::size_t>(kSizeX) * size_y_ * kSizeZ, State{});
+  // Do not impose Overworld height on the Nether, End or a sparse section
+  // fixture. Only stored block-state sections determine this chunk's extent.
+  states_.clear();
 
   // One name table for the whole chunk: every section palette is appended to it,
   // so a State only carries a 16 bit index and the flattened grid built in
@@ -171,6 +172,23 @@ bool ChunkBlocks::ReadNames118(const nbt::tag_compound& kChunkLevel) {
   std::map<std::string, std::uint16_t> name_index;
 
   const auto& sections = kChunkLevel.at("sections").as<nbt::tag_list>();
+  int min_section = 128, max_section = -129;
+  for (const auto& entry : sections) {
+    const auto& section = entry.as<nbt::tag_compound>();
+    if (!section.has_key("block_states")) continue;
+    const int y = SectionY(section);
+    if (y < -128 || y > 127) throw std::runtime_error("section Y is outside the supported storage range");
+    min_section = std::min(min_section, y);
+    max_section = std::max(max_section, y);
+  }
+  if (max_section < min_section) {
+    min_y_ = size_y_ = 0;
+    layout_ = Layout::kNone;
+    return false;
+  }
+  min_y_ = min_section * 16;
+  size_y_ = (max_section - min_section + 1) * 16;
+  states_.assign(static_cast<std::size_t>(kSizeX) * size_y_ * kSizeZ, State{});
   bool found_section = false;
   for (auto it = sections.begin(); it != sections.end(); ++it) {
     const auto& section = it->as<nbt::tag_compound>();
@@ -187,11 +205,23 @@ bool ChunkBlocks::ReadNames118(const nbt::tag_compound& kChunkLevel) {
     std::vector<std::uint16_t> palette_indices(palette_tag.size(), 0);
     for (std::size_t i = 0; i < palette_tag.size(); ++i) {
       const auto& entry = palette_tag[i].as<nbt::tag_compound>();
-      if (!entry.has_key("Name")) {
-        continue;
+      if (!entry.has_key("Name"))
+        throw std::runtime_error("section palette entry is missing Name");
+      std::string name = entry.at("Name").as<nbt::tag_string>().get();
+      if (name.empty()) throw std::runtime_error("empty palette block name");
+      if (entry.has_key("Properties")) {
+        const auto& properties = entry.at("Properties").as<nbt::tag_compound>();
+        if (properties.size() != 0) {
+          name += '[';
+          for (const auto& property : properties) {
+            if (name.back() != '[') name += ',';
+            name += property.first + '=' + property.second.as<nbt::tag_string>().get();
+          }
+          name += ']';
+        }
       }
-      const std::string name = entry.at("Name").as<nbt::tag_string>().get();
-      if (name.empty() || name == kAirName) {
+      name = CanonicalBlockState(name);
+      if (IsAirBlockState(name)) {
         continue;
       }
       const auto found = name_index.find(name);
@@ -199,18 +229,24 @@ bool ChunkBlocks::ReadNames118(const nbt::tag_compound& kChunkLevel) {
         palette_indices[i] = found->second;
         continue;
       }
+      if (names_.size() > std::numeric_limits<std::uint16_t>::max())
+        throw std::runtime_error("too many distinct chunk block states");
       const auto index = static_cast<std::uint16_t>(names_.size());
       names_.push_back(name);
       name_index.emplace(name, index);
       palette_indices[i] = index;
     }
 
+    if (palette_indices.empty()) throw std::runtime_error("empty section palette");
     std::vector<std::uint16_t> indices(4096, 0);
-    if (states.has_key("data") && !palette_indices.empty()) {
+    if (states.has_key("data") && !(palette_indices.size() == 1 &&
+        states.at("data").as<nbt::tag_long_array>().get().empty())) {
       const auto& data = states.at("data").as<nbt::tag_long_array>();
       const std::vector<std::int64_t>& values = data.get();
       const std::size_t bits = PaletteBits(palette_tag.size());
       const std::size_t per_long = 64 / bits;
+      if (values.size() != (4096 + per_long - 1) / per_long)
+        throw std::runtime_error("invalid packed block-state array length");
       const std::uint64_t mask = (1ull << bits) - 1ull;
       for (std::size_t index = 0; index < indices.size(); ++index) {
         const std::size_t long_index = index / per_long;
@@ -221,11 +257,13 @@ bool ChunkBlocks::ReadNames118(const nbt::tag_compound& kChunkLevel) {
             (static_cast<std::uint64_t>(values[long_index]) >>
              ((index % per_long) * bits)) &
             mask);
-        if (palette_index < palette_indices.size()) {
-          indices[index] = palette_indices[palette_index];
-        }
+        if (palette_index >= palette_indices.size())
+          throw std::runtime_error("packed block-state palette index out of range");
+        indices[index] = palette_indices[palette_index];
       }
     } else if (!palette_indices.empty()) {
+      if (palette_indices.size() != 1)
+        throw std::runtime_error("multi-entry palette is missing block_states.data");
       // No data array: a single-entry palette fills the whole section
       std::fill(indices.begin(), indices.end(), palette_indices[0]);
     }

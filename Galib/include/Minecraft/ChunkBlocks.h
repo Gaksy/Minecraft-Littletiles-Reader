@@ -49,7 +49,7 @@ class ChunkBlocks {
  public:
   static constexpr int kSizeX = 16;
   static constexpr int kSizeZ = 16;
-  // Tallest layout (1.18+, 384 rows); older chunks use fewer rows
+  // Vanilla Overworld reference height; modern storage uses actual section bounds.
   static constexpr int kMaxSizeY = 384;
 
   enum class Layout {

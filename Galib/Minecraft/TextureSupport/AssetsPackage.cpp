@@ -25,6 +25,7 @@
 #include <boost/json.hpp>
 
 #include "File/Utf8Path.h"
+#include "Minecraft/WorldProfile.h"
 
 namespace galib::minecraft::texture_support {
 
@@ -47,8 +48,9 @@ constexpr const char* kWildcardKey = "*";
 
 std::string BlockNameOf(const std::string& kBlockId) {
   const std::size_t colon = kBlockId.find(':');
+  const std::string base = BlockStateBaseName(kBlockId);
   const std::string without_namespace =
-      colon == std::string::npos ? kBlockId : kBlockId.substr(colon + 1);
+      colon == std::string::npos ? base : base.substr(colon + 1);
   const std::size_t second = without_namespace.find(':');
   return second == std::string::npos ? without_namespace
                                      : without_namespace.substr(0, second);
@@ -59,7 +61,7 @@ std::string BlockNameOf(const std::string& kBlockId) {
 bool DefaultTintForBlock(const std::string& kBlockId, std::uint32_t* p_desc_argb) {
   const std::string name = BlockNameOf(kBlockId);
   if (name == "leaves" || name == "leaves2" || name == "vine" ||
-      name == "vine_1") {
+      name == "vine_1" || (name.size() >= 7 && name.substr(name.size() - 7) == "_leaves")) {
     if (p_desc_argb) {
       *p_desc_argb = kDefaultFoliageColor;
     }
@@ -162,7 +164,9 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
       }
     }
     package.info_.format_version = version;
-    if (version > kSupportedFormatVersion) {
+    if (const auto mc = object->find("minecraft_version"); mc != object->end() && mc->value().is_string())
+      package.info_.minecraft_version = std::string(mc->value().as_string());
+    if (version < 1 || version > kSupportedFormatVersion) {
       return fail("unsupported manifest format_version " +
                   std::to_string(version) + " (this build supports <= " +
                   std::to_string(kSupportedFormatVersion) + "): " +
@@ -175,11 +179,12 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
   if (!std::filesystem::is_regular_file(table_path, error)) {
     return fail("missing block_textures.tsv in " + kDir);
   }
-  if (!package.table_.LoadFromTsv(galib::Utf8String(table_path))) {
+  if (!package.table_.LoadFromTsv(galib::Utf8String(table_path), package.info_.format_version >= 2)) {
     return fail("cannot read block_textures.tsv (empty or unreadable): " +
                 galib::Utf8String(table_path));
   }
 
+  package.table_.set_cross_version_fallback(package.info_.format_version < 2);
   // The tint table is optional
   const std::filesystem::path tint_path = dir / "tint.tsv";
   if (std::filesystem::is_regular_file(tint_path, error)) {
@@ -262,7 +267,7 @@ bool AssetsPackage::TintOverride(const std::string& kBlockId,
     return false;
   }
   // First the exact block, then with the meta stripped, and finally the wildcard
-  const std::string without_meta = StripBlockMeta(kBlockId);
+  const std::string without_meta = StripBlockMeta(BlockStateBaseName(kBlockId));
   for (const std::string& key : {kBlockId, without_meta, std::string(kWildcardKey)}) {
     const auto found = tint_rules_.find({key, kTintIndex});
     if (found != tint_rules_.end()) {

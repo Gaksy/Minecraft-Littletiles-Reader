@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "mode": "snbt",
+  "input": {"snbt": {"path": "example.txt"}},
+  "assets": {"package": "assets/vanilla"},
+  "output": {"dir": "outputs/bbmodel", "name": "example", "format": "bbmodel"},
+  "options": {"center": true, "normalize_scale": false}
+}

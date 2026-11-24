@@ -207,6 +207,14 @@ class BlockTileEntities {
   [[nodiscard]] std::uint8_t covered_face_mask() const;
 
  private:
+  // Decode local geometry from a collection and its structure collections.
+  // Structure links (coord / structure.blocks) are not geometry transforms.
+  static void ReadTileCollectionNbt(const nbt::tag_compound& kCollection,
+                                    container* p_desc_container,
+                                    size_type* p_desc_tile_count,
+                                    size_type* p_desc_boxes_count,
+                                    const std::string& kPath);
+
   [[nodiscard]] static bool ReadBoxesTilesNbt(
       const nbt::tag_compound& kBoxesTilesNbt,
       BoxTileEnities& desc_box_tile_enities, size_type& tile_count);

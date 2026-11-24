@@ -162,6 +162,7 @@ struct ExportedFaceInfo {
   std::size_t material_index{0};
   FaceDirection direction{FaceDirection::kUp};
   bool has_material{false};
+  std::array<double, 6> uv_transform{{1,0,0,0,1,0}};
 };
 
 // Determine the direction from the face's first three vertices (world coordinates;
@@ -296,6 +297,7 @@ struct ObjMeshBuilder::Impl {
           // them aligned with the mesh's face order
           if (marged_mesh.number_of_faces() > faces_before) {
             ExportedFaceInfo info;
+            if (package_ && !has_block_textures) ++missing_texture_faces;
             if (has_block_textures) {
               const FaceDirection direction = FaceDirectionOf(current_mesh, f);
               const std::string& texture_path = face_textures.Path(direction);
@@ -321,6 +323,7 @@ struct ObjMeshBuilder::Impl {
                 info.material_index =
                     materials_->Claim(texture_path, tint_rgb, tile_color);
                 info.direction = direction;
+                info.uv_transform = face_textures.uv_transforms[static_cast<int>(direction)];
                 info.has_material = true;
               }
             }
@@ -473,6 +476,10 @@ struct ObjMeshBuilder::Impl {
             double uv_v = 0.0;
             ComputeFaceUv(info.direction, local.x(), local.y(), local.z(), &u,
                           &uv_v);
+            const auto& t = info.uv_transform;
+            const double transformed_u = t[0]*u + t[1]*uv_v + t[2];
+            uv_v = t[3]*u + t[4]*uv_v + t[5];
+            u = transformed_u;
             // OBJ vt has its origin at the bottom-left while v = 0 is at the top of the
             // texture, so flip once
             const double vt_u = u;
@@ -503,6 +510,10 @@ struct ObjMeshBuilder::Impl {
         if (info.has_material && info.material_index != current_material) {
           out << "usemtl " << materials_->Name(info.material_index) << "\n";
           current_material = info.material_index;
+        }
+        if (!info.has_material && current_material != std::numeric_limits<std::size_t>::max()) {
+          out << "usemtl __reader_missing_material\n";
+          current_material = std::numeric_limits<std::size_t>::max();
         }
       }
 
@@ -560,6 +571,11 @@ struct ObjMeshBuilder::Impl {
           galib::Utf8String(texture_dir), &material_error);
       materials_->WriteMtl(galib::Utf8String(mtl_path), map_kd_prefix,
                            &material_error);
+      if (missing_texture_faces) {
+        std::ofstream missing_mtl(mtl_path, std::ios::app);
+        missing_mtl << "\nnewmtl __reader_missing_material\nKd 1 1 1\nd 1\n";
+        if (!missing_mtl) material_error += "cannot append missing-material definition\n";
+      }
       if (!material_error.empty() && !options.quiet) {
         std::cerr << material_error;
       }
@@ -605,7 +621,7 @@ struct ObjMeshBuilder::Impl {
     stats_.textures_written = baked_texture_count;
     stats_.missing_texture_faces = missing_texture_faces;
     stats_.wrote_materials = write_materials;
-    return true;
+    return stats_.error.empty();
   }
 
   ObjExportOptions options;

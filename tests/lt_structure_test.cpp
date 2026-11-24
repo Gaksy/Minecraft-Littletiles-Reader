@@ -393,6 +393,47 @@ void TestRoundTrip() {
                  "round trip: 1.20 -> 1.12.2 -> 1.20 keeps every box");
 }
 
+void CheckStaticNodes(const LtStructure::Node& node) {
+  if (node.has_structure) {
+    Check(node.structure.member("id").as_string() == "fixed", "appearance: every structure is fixed");
+    for (const auto& [key, value] : node.structure.members()) {
+      Check(key == "id" || key == "name" || key == "n", "appearance: no behavior metadata survives");
+    }
+  }
+  Check(node.extra.empty(), "appearance: unknown node payloads are removed");
+  for (const auto& child : node.children) CheckStaticNodes(child);
+}
+
+void TestAppearanceOnlyConversion() {
+  using galib::minecraft::snbt::Parse;
+  const std::string tile = "tiles:[{boxes:[[I;1,2,3,4,5,6]],tile:{block:\"minecraft:stone\",color:-123}}]";
+  for (const std::string id : {"door", "axis", "advancedDoor", "slidingDoor", "doorActivator",
+                              "chair", "particle_emitter", "light", "noclip", "fixed", "custom"}) {
+    const std::string input = "{grid:32,structure:{id:\"fixed\",signal:{x:1}}," + tile
+        + ",unknown:{id:\"door\"},children:[{structure:{id:\"" + id
+        + "\",name:\"label\",state:{mode:\"TOGGLE\"},states:[],events:[],seat:1}," + tile + "}]}";
+    const auto original = LtStructure::FromSnbt(Parse(input));
+    const auto modern = LtStructure::FromSnbt(Parse(original.ToSnbt(LtStructure::Dialect::kModern20)));
+    CheckStaticNodes(modern.root());
+    CheckSameBoxes(BoxKeys(modern), BoxKeys(original), "appearance: colors and every box survive");
+    const auto legacy = LtStructure::FromSnbt(Parse(modern.ToSnbt(LtStructure::Dialect::kLegacy12)));
+    CheckStaticNodes(legacy.root());
+    CheckSameBoxes(BoxKeys(legacy), BoxKeys(original), "appearance: round trip preserves every box");
+    Check(original.ToSnbt(LtStructure::Dialect::kLegacy12).find("TOGGLE") != std::string::npos,
+          "appearance: same-dialect writes preserve source behavior");
+  }
+  const std::string geom = "t:{\"minecraft:stone\":[[I;-123],[I;1,2,3,4,5,6]]}";
+  const std::string ext = "{s:{id:\"door\",n:\"extension\",states:[{name:\"closed\"}],cS:0},grid:32," + geom + "}";
+  const auto modern = LtStructure::FromSnbt(Parse("{s:{id:\"chair\",seat:1}," + geom + ",e:{role:" + ext + "}}"));
+  LtStructure::ConvertReport report;
+  const auto legacy = LtStructure::FromSnbt(Parse(modern.ToSnbt(LtStructure::Dialect::kLegacy12, {}, &report)));
+  CheckStaticNodes(legacy.root());
+  CheckEquals(legacy.BoxCount(), 2, "appearance: extension geometry is preserved");
+  CheckEquals(report.boxes, 2, "appearance: extension boxes are counted");
+  CheckEquals(report.levels, 2, "appearance: extension becomes an ordinary child");
+  Check(!report.notes.empty(), "appearance: the loss of functionality is reported");
+}
+
 // Optional: a real structure file, converted out and back, with every box and
 // every byte of the structure metadata compared.
 void TestRealFile(const std::string& kPath) {
@@ -429,6 +470,7 @@ int main(const int kArgc, char** const kArgv) {
   TestTextureNameFallback();
   TestLegacyToModernConversion();
   TestRoundTrip();
+  TestAppearanceOnlyConversion();
   if (kArgc > 1) {
     TestRealFile(kArgv[1]);
   }

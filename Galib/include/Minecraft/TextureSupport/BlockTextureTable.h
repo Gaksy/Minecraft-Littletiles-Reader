@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace galib::minecraft::texture_support {
 
@@ -43,6 +44,15 @@ struct BlockFaceTextures {
   std::array<std::string, kFaceCount> paths{};
   // tintindex of that face; -1 means no tinting (see docs/texture-mapping.md)
   std::array<int, kFaceCount> tints{};
+  // Optional v2 affine UV mapping per face: (a,b,c,d,e,f) maps
+  // (u,v) to (a*u+b*v+c, d*u+e*v+f). Identity for legacy packages.
+  std::array<std::array<double, 6>, kFaceCount> uv_transforms{
+      {{{1, 0, 0, 0, 1, 0}},
+       {{1, 0, 0, 0, 1, 0}},
+       {{1, 0, 0, 0, 1, 0}},
+       {{1, 0, 0, 0, 1, 0}},
+       {{1, 0, 0, 0, 1, 0}},
+       {{1, 0, 0, 0, 1, 0}}}};
 
   bool empty() const;
   const std::string& Path(FaceDirection direction) const;
@@ -67,9 +77,13 @@ class BlockTextureTable {
 
   // On load failure the table is empty (is_loaded() is false) and the caller should
   // skip texture export accordingly.
-  bool LoadFromTsv(const std::string& kTsvPath);
+  bool LoadFromTsv(const std::string& kTsvPath,
+                   bool require_uv_transforms = false);
 
   bool is_loaded() const { return loaded_; }
+  void set_cross_version_fallback(bool enabled) {
+    cross_version_fallback_ = enabled;
+  }
   std::size_t size() const { return entries_.size(); }
 
   // All entries, for lint / statistics iteration (keys are "<block>" or "<block>:<meta>").
@@ -84,7 +98,9 @@ class BlockTextureTable {
 
  private:
   std::unordered_map<std::string, BlockFaceTextures> entries_;
+  std::unordered_map<std::string, std::vector<std::string>> state_rows_;
   bool loaded_{false};
+  bool cross_version_fallback_{true};
 };
 
 // Compute the texture coordinate of an "in-block normalized coordinate" on the

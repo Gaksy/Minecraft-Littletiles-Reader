@@ -36,6 +36,7 @@ struct AssetsPackageInfo {
   std::string dir;                 // assets root (kept exactly as the host wrote it)
   bool has_manifest{false};        // whether manifest.json was read
   int format_version{1};           // format_version in the manifest (defaults to 1)
+  std::string minecraft_version;   // declared native asset environment, if known
   std::size_t block_count{0};      // number of block keys in the mapping table
   std::size_t texture_ref_count{0};  // number of unique textures referenced by the mapping table
   std::size_t missing_texture_count{0};  // textures referenced by the table but absent on disk
@@ -60,7 +61,7 @@ class AssetsPackage {
  public:
   // The newest format_version this build understands; a larger value in the manifest
   // makes Open fail.
-  static constexpr int kSupportedFormatVersion = 1;
+  static constexpr int kSupportedFormatVersion = 2;
 
   // Returns nullopt on failure, with the reason written into p_desc_error (may be
   // null). No exception crosses the library boundary.

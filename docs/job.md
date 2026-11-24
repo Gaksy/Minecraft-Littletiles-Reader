@@ -3,6 +3,20 @@
 本文是**宿主（UI / 脚本 / 服务）驱动 LittleTilesReader 的契约**。
 CLI 有两种模式：不带参数时是原来那套交互式提问；带 `--job` 时一次跑完，不问任何问题。
 
+2026-11-24：新增原生 1.20.1 适配，当前通过合成数据测试，尚未完成真实游戏存档验收。
+`input.world.minecraft_version` 可设为 `"auto"`（默认）、`"1.12.2"` 或 `"1.20.1"`；
+显式版本与区块数据不一致时失败。`input.world.source_history` 可设为 `"native"` 或
+`"unknown"`（默认并警告）；升级、降级和跨版本迁移存档不受支持，不能填写 `native` 绕过限制。
+这些字段不会执行任何存档转换，区块元数据也不能证明存档创建历史。
+`LittleTilesReader --capabilities` 输出 JSON 能力信息，包含 `asset_format_max` 与支持的 `world_profiles`。
+1.20.1 素材必须使用相同版本的 v2 素材包；旧核心不能消费该格式。
+完整限制见 [适配进展](native-world-export-1.20.1-progress.md)。
+
+SNBT 输入现可指定 `output.format: "bbmodel"`，输出 Java Block/Item 工程，默认仍为 OBJ。
+第一版仅支持无角点偏移的标准长方体；限制、错误行为与 BB 格式版本见 [BB 导出说明](bbmodel-v1.md)。
+两种 BB 模式均要求整份蓝图最多跨越 3×3×3 个游戏方块格子；`output.split: "blocks"` 自动裁切为多个独立 BB 工程，以游戏轴向的 0..2 格坐标命名，
+返回 `bbmodel_manifest`，详见 [批量拆分](bbmodel-blocks.md)。
+
 ```sh
 LittleTilesReader --job <file.json> [--progress json]
 LittleTilesReader --convert <1.20|1.12.2> --input <file.txt> [--out <file.txt>]

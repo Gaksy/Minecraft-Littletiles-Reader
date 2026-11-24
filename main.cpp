@@ -8,6 +8,7 @@
 #include <fstream>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #ifdef _WIN32
@@ -23,6 +24,7 @@
 #include "Log/GalibLog.h"
 #include "Log/GalibText.h"
 #include "Minecraft/Anvil.h"
+#include "Minecraft/BbmodelExporter.h"
 #include "Minecraft/BlockIdTable.h"
 #include "Minecraft/CgalSupport/CgalLittletilesBuilder.h"
 #include "Minecraft/CgalSupport/CgalWorldBlocks.h"
@@ -30,6 +32,8 @@
 #include "Minecraft/LittleTiles.h"
 #include "Minecraft/LtStructure.h"
 #include "Minecraft/SaveFolder.h"
+#include "Minecraft/WorldProfile.h"
+#include "Exception/MinecraftException.h"
 #include "Minecraft/TextureSupport/AssetsPackage.h"
 #include "Version.h"
 
@@ -84,6 +88,10 @@ bool WriteTextFile(const std::string& kPath, const std::string& kText,
     return false;
   }
   output.close();
+  if (!output) {
+    *p_desc_error = "cannot finish writing file: " + kPath;
+    return false;
+  }
   return true;
 }
 
@@ -272,6 +280,8 @@ struct Job {
   std::string input_path;  // SNBT file, or the resolved region folder
   std::string world_root;  // region mode: the save folder (for logs / events)
   std::string dimension{"overworld"};
+  std::string minecraft_version{"auto"};
+  std::string source_history{"unknown"};
   std::string convert_target;  // "1.20" / "1.12.2" (see ParseDialect)
   ChunkRange range;
   bool include_world_blocks{true};
@@ -282,10 +292,13 @@ struct Job {
   std::string assets_root;
   std::string output_dir;   // empty = the historical relative defaults
   std::string output_name;  // empty = derive from the input
+  std::string output_format{"obj"};  // SNBT: obj or bbmodel (Java Block/Item)
+  std::string output_split{"none"};  // BB: none or blocks
   std::string output_path;  // an explicit output file (wins over dir + name)
 };
 
 struct CommandLine {
+  bool capabilities{false};
   std::string job_path;        // --job <file.json> : non-interactive
   std::string convert_target;  // --convert <1.20|1.12.2> : SNBT -> SNBT
   std::string convert_input;   // --input <file> : the structure to convert
@@ -299,7 +312,9 @@ CommandLine ParseCommandLine(const int kArgc, char** const kArgv) {
   CommandLine parsed;
   for (int i = 1; i < kArgc; ++i) {
     const std::string argument = kArgv[i] == nullptr ? "" : kArgv[i];
-    if (argument == "--job" && i + 1 < kArgc) {
+    if (argument == "--capabilities") {
+      parsed.capabilities = true;
+    } else if (argument == "--job" && i + 1 < kArgc) {
       parsed.job_path = kArgv[++i];
     } else if (argument.rfind("--job=", 0) == 0) {
       parsed.job_path = argument.substr(6);
@@ -584,6 +599,14 @@ bool LoadJob(const std::string& kPath, Job* p_desc_out,
     }
     job.world_root = root_dir;
     job.dimension = StringAt(*world, "dimension", "overworld");
+    job.minecraft_version = StringAt(*world, "minecraft_version", "auto");
+    job.source_history = StringAt(*world, "source_history", "unknown");
+    if ((job.minecraft_version != "auto" && job.minecraft_version != "1.12.2" &&
+         job.minecraft_version != "1.20.1") ||
+        (job.source_history != "unknown" && job.source_history != "native")) {
+      if (p_desc_error) *p_desc_error = "unsupported version or migrated save; only native 1.12.2 / 1.20.1 environments are supported";
+      return false;
+    }
 
     // Escape hatch: point straight at a region folder (test data has no level.dat).
     const std::string region_override = StringAt(*world, "region_dir");
@@ -628,6 +651,21 @@ bool LoadJob(const std::string& kPath, Job* p_desc_out,
   if (const boost::json::object* const output = ObjectAt(*root, "output")) {
     job.output_dir = StringAt(*output, "dir");
     job.output_name = StringAt(*output, "name");
+    job.output_format = StringAt(*output, "format", "obj");
+    job.output_split = StringAt(*output, "split", "none");
+  }
+  if (job.output_format != "obj" && job.output_format != "bbmodel") {
+    if (p_desc_error) *p_desc_error = "unknown output.format: " + job.output_format;
+    return false;
+  }
+  if (job.output_format == "bbmodel" && (!job.is_snbt || job.is_convert)) {
+    if (p_desc_error) *p_desc_error = "bbmodel export requires mode=snbt";
+    return false;
+  }
+  if ((job.output_split != "none" && job.output_split != "blocks") ||
+      (job.output_split != "none" && job.output_format != "bbmodel")) {
+    if (p_desc_error) *p_desc_error = "output.split must be none or blocks; blocks requires bbmodel";
+    return false;
   }
   if (const boost::json::object* const options = ObjectAt(*root, "options")) {
     job.include_world_blocks = BoolAt(*options, "plain_blocks", !job.is_snbt);
@@ -689,10 +727,15 @@ int RunTilesReader(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
+  if (command_line.capabilities) {
+    std::puts("{\"asset_format_max\":2,\"world_profiles\":[\"1.12.2\",\"1.20.1\"],\"complete_block_states\":true,\"affine_face_uv\":true,\"bbmodel\":true,\"bbmodel_blocks\":true,\"bbmodel_max_blocks_per_axis\":3,\"bbmodel_local_grid\":true,\"native_saves_only\":true}");
+    return EXIT_SUCCESS;
+  }
   Job job;
   if (!command_line.job_path.empty()) {
     std::string job_error;
     if (!LoadJob(command_line.job_path, &job, &job_error)) {
+      EmitEvent(command_line.json_progress, "error", {JsonField("message", job_error)});
       std::fprintf(stderr, "error: bad job file: %s\n", job_error.c_str());
       return EXIT_FAILURE;
     }
@@ -863,6 +906,8 @@ int RunTilesReader(int argc, char** argv) {
   // AskAssetsRoot already normalizes to an absolute path when it finds one: the later
   // reads (block_ids.tsv / block_textures.tsv / textures) all build on this string.
   std::string assets_root = job.assets_root;
+  std::string assets_minecraft_version;
+  int assets_format_version = 0;
   if (interactive && !job.is_convert) {
     // A conversion never writes materials, so a texture package is not asked for.
     assets_root = AskAssetsRoot(program_dir);
@@ -880,16 +925,12 @@ int RunTilesReader(int argc, char** argv) {
     const std::optional<AssetsPackage> package =
         AssetsPackage::Open(assets_root, &package_error);
     if (!package) {
-      if (json_progress) {
-        EmitEvent(true, "warning", {JsonField("message", package_error)});
-      } else {
-        printf(
-            galib::Tr("warning: assets package unusable (%s), geometry only\n"),
-            package_error.c_str());
-      }
+      throw std::runtime_error("configured assets package is unusable: " + package_error);
     } else {
       const galib::minecraft::texture_support::AssetsPackageInfo& info =
           package->info();
+      assets_minecraft_version = info.minecraft_version;
+      assets_format_version = info.format_version;
       if (json_progress) {
         EmitEvent(
             true, "assets",
@@ -1111,6 +1152,120 @@ int RunTilesReader(int argc, char** argv) {
       }
     }
 
+    if (job.output_format == "bbmodel") {
+      try {
+        if (job.normalize_scale)
+          throw std::runtime_error("BB export preserves real dimensions; normalize_scale must be false");
+        EmitEvent(json_progress, "stage", {JsonField("name", "mesh")});
+        galib::minecraft::littletiles::BbmodelReport report;
+        // Use a basename: names and structural labels inside SNBT are untrusted.
+        std::string name = galib::Utf8String(galib::Utf8Path(
+            job.output_name.empty() ? region_folder : job.output_name).filename().stem());
+        if (name.empty() || name == "." || name == "..") name = "structure";
+        const auto dir = job.output_dir.empty() ? galib::Utf8Path("../outputs/snbt")
+                                               : galib::Utf8Path(job.output_dir);
+        if (job.output_split == "blocks") {
+          auto projects = galib::minecraft::littletiles::BuildJavaBbmodelBlocks(
+              structure, assets_root);
+          const auto destination = dir / galib::Utf8Path(name + "_blocks");
+          if (std::filesystem::exists(destination))
+            throw std::runtime_error("BB batch output already exists; choose another output directory or name");
+          std::filesystem::create_directories(dir);
+          const auto staging = dir / galib::Utf8Path("." + name + "_blocks_" +
+              std::to_string(Clock::now().time_since_epoch().count()) + ".tmp");
+          if (!std::filesystem::create_directory(staging))
+            throw std::runtime_error("cannot create BB batch staging directory");
+          boost::json::array entries;
+          std::vector<std::filesystem::path> written;
+          EmitEvent(json_progress, "stage", {JsonField("name", "write")});
+          try {
+            for (auto& project : projects) {
+              const auto& cell = project.block;
+              const std::string file = "block_" + std::to_string(cell[0]) + "_" +
+                  std::to_string(cell[1]) + "_" + std::to_string(cell[2]) + ".bbmodel";
+              project.model["name"] = file.substr(0, file.size() - 8);
+              const auto path = staging / galib::Utf8Path(file);
+              written.push_back(path);
+              std::string error;
+              if (!WriteTextFile(galib::Utf8GenericString(path), boost::json::serialize(project.model), &error))
+                throw std::runtime_error("cannot write BB batch project: " + error);
+              entries.push_back(boost::json::object{
+                  {"file", file}, {"block", boost::json::array{cell[0], cell[1], cell[2]}},
+                  {"source_block", boost::json::array{project.source_block[0], project.source_block[1], project.source_block[2]}},
+                  {"cubes", project.report.cubes}});
+              report.cubes += project.report.cubes;
+              report.textures += project.report.textures;
+            }
+            const auto& min = structure.min();
+            const double grid = structure.grid();
+            const auto& first_project = projects.front();
+            const boost::json::array source_origin{
+                first_project.source_block[0] - first_project.block[0],
+                first_project.source_block[1] - first_project.block[1],
+                first_project.source_block[2] - first_project.block[2]};
+            const boost::json::object manifest{
+                {"schema", 2}, {"type", "littletiles_bbmodel_blocks"},
+                {"coordinate_space", "normalized_game_axis_block_grid"},
+                {"source_origin_block", source_origin},
+                {"grid_size", first_project.model.at("reader_block_grid").at("size")},
+                {"axes", boost::json::object{{"x", "east"}, {"y", "up"}, {"z", "south"}}},
+                {"source_min_blocks", boost::json::array{min.x / grid, min.y / grid, min.z / grid}},
+                {"local_model_units_per_block", 16}, {"projects", std::move(entries)}};
+            const auto path = staging / "blocks.bbmanifest.json";
+            written.push_back(path);
+            std::string error;
+            if (!WriteTextFile(galib::Utf8GenericString(path), boost::json::serialize(manifest), &error))
+              throw std::runtime_error("cannot write BB batch manifest: " + error);
+            std::filesystem::rename(staging, destination);
+          } catch (...) {
+            // Only remove explicitly tracked files in this newly created staging folder.
+            std::error_code ignored;
+            for (const auto& path : written) std::filesystem::remove(path, ignored);
+            std::filesystem::remove(staging, ignored);
+            throw;
+          }
+          const auto manifest_path = galib::Utf8GenericString(destination / "blocks.bbmanifest.json");
+          EmitEvent(json_progress, "done", {
+              JsonField("bbmodel_manifest", manifest_path),
+              JsonField("projects", static_cast<long long>(projects.size())),
+              JsonField("source_dialect", std::string(DialectName(structure.dialect()))),
+              JsonField("source_boxes", static_cast<long long>(structure.BoxCount())),
+              JsonField("cubes", static_cast<long long>(report.cubes)),
+              JsonField("faces", static_cast<long long>(report.cubes * 6)),
+              JsonField("vertices", static_cast<long long>(report.cubes * 8)),
+              JsonField("materials", static_cast<long long>(report.textures)),
+              JsonField("textures_written", static_cast<long long>(report.textures)),
+              JsonField("seconds", ElapsedSeconds(process_start, Clock::now()))});
+          if (text_output) printf("BB batch exported: %zu projects\n", projects.size());
+          return EXIT_SUCCESS;
+        }
+        const auto model = galib::minecraft::littletiles::BuildJavaBbmodel(
+            structure, assets_root, job.center, &report);
+        const std::string path = galib::Utf8GenericString(dir / galib::Utf8Path(name + ".bbmodel"));
+        EmitEvent(json_progress, "stage", {JsonField("name", "write")});
+        std::string error;
+        if (!WriteTextFile(path, boost::json::serialize(model), &error))
+          throw std::runtime_error("cannot write BB project: " + error);
+        const double seconds = ElapsedSeconds(process_start, Clock::now());
+        EmitEvent(json_progress, "done", {
+            JsonField("bbmodel", path),
+            JsonField("source_dialect", std::string(DialectName(structure.dialect()))),
+            JsonField("cubes", static_cast<long long>(report.cubes)),
+            JsonField("source_boxes", static_cast<long long>(report.source_boxes)),
+            JsonField("faces", static_cast<long long>(report.cubes * 6)),
+            JsonField("vertices", static_cast<long long>(report.cubes * 8)),
+            JsonField("materials", static_cast<long long>(report.textures)),
+            JsonField("textures_written", static_cast<long long>(report.textures)),
+            JsonField("seconds", seconds)});
+        if (text_output) printf("BB project exported: %s (%zu cubes)\n", path.c_str(), report.cubes);
+        return EXIT_SUCCESS;
+      } catch (const std::exception& error) {
+        EmitEvent(json_progress, "error", {JsonField("message", std::string(error.what()))});
+        if (text_output) std::fprintf(stderr, "error: %s\n", error.what());
+        return EXIT_FAILURE;
+      }
+    }
+
     EmitEvent(json_progress, "stage", {JsonField("name", "mesh")});
     ObjMeshBuilder structure_builder(export_options);
     const std::size_t mesh_count =
@@ -1190,6 +1345,8 @@ int RunTilesReader(int argc, char** argv) {
   int found_chunks = 0;
   int missing_chunks = 0;
   int chunk_index = 0;
+  std::string detected_minecraft_version;
+  bool needs_legacy_ids = false;
   for (int offset_z = 0; offset_z < span_z; ++offset_z) {
     for (int offset_x = 0; offset_x < span_x; ++offset_x) {
       const ChunkCoordinate coord{range.min_x + offset_x,
@@ -1208,7 +1365,9 @@ int RunTilesReader(int argc, char** argv) {
       bool has_chunk = true;
       try {
         reference = anvil_reader.GetChunkDataReference(coord);
-      } catch (const std::exception&) {
+      } catch (const galib::exception::MinecraftException& error) {
+        if (error.error_code() != static_cast<unsigned char>(galib::exception::MinecraftErrorCode::mc_file_read) &&
+            error.error_code() != static_cast<unsigned char>(galib::exception::MinecraftErrorCode::mc_chunk_not_exist)) throw;
         has_chunk =
             false;  // the chunk does not exist, or its region file is missing
       }
@@ -1217,6 +1376,28 @@ int RunTilesReader(int argc, char** argv) {
         continue;
       }
       ++found_chunks;
+      if (reference.p_chunk_root) {
+        const auto profile = galib::minecraft::DetectWorldProfile(*reference.p_chunk_root, job.minecraft_version);
+        if (!detected_minecraft_version.empty() && detected_minecraft_version != profile.minecraft_version)
+          throw std::runtime_error("mixed-version chunks are unsupported; use a native save");
+        if (!assets_minecraft_version.empty() && assets_minecraft_version != profile.minecraft_version)
+          throw std::runtime_error("assets version does not match the native save environment");
+        if (profile.minecraft_version == "1.20.1" && !assets_root.empty() &&
+            (assets_format_version < 2 || assets_minecraft_version != "1.20.1"))
+          throw std::runtime_error("1.20.1 world export requires native 1.20.1 assets (format v2), not legacy texture fallbacks");
+        if (detected_minecraft_version.empty()) {
+          EmitEvent(json_progress, "world_profile", {
+              JsonField("minecraft_version", profile.minecraft_version),
+              JsonField("data_version", static_cast<long long>(profile.data_version)),
+              JsonField("inferred", profile.inferred),
+              JsonField("source_history", job.source_history)});
+          if (job.source_history == "unknown") EmitEvent(json_progress, "warning", {JsonField("message",
+              "Save creation history is unverified; only native saves are supported, not upgrades, downgrades or migrations")});
+          if (profile.inferred) EmitEvent(json_progress, "warning", {JsonField("message",
+              "DataVersion is absent: only storage layout was inferred; native-save history is unverified")});
+        }
+        detected_minecraft_version = profile.minecraft_version;
+      }
 
       // LittleTiles tiles
       ChunkTileEntities chunk_tiles;
@@ -1240,6 +1421,7 @@ int RunTilesReader(int argc, char** argv) {
             world_blocks[static_cast<std::size_t>(offset_z) * span_x +
                          offset_x];
         blocks.ReadFromChunkLevel(*reference.p_chunk_level);
+        needs_legacy_ids = needs_legacy_ids || blocks.needs_id_table();
         // 1.12.2 keeps the block entities in "TileEntities", 1.18+ in
         // "block_entities" (the section palette layout comes with them).
         if (reference.p_chunk_level->has_key("TileEntities")) {
@@ -1276,7 +1458,7 @@ int RunTilesReader(int argc, char** argv) {
     const bool has_id_table =
         !assets_root.empty() &&
         block_id_table.LoadFromTsv(assets_root + "/block_ids.tsv");
-    if (!has_id_table) {
+    if (needs_legacy_ids && !has_id_table) {
       if (json_progress) {
         EmitEvent(json_progress, "warning",
                   {JsonField("message",
@@ -1354,6 +1536,10 @@ int RunTilesReader(int argc, char** argv) {
 
   if (json_progress) {
     const ObjMeshBuilder::Stats stats = obj_builder.stats();
+    if (stats.missing_texture_faces)
+      EmitEvent(true, "warning", {JsonField("message",
+          "Some block states or models are unsupported or lack materials; affected faces use the explicit white fallback"),
+          JsonField("faces", static_cast<long long>(stats.missing_texture_faces))});
     EmitEvent(
         true, "done",
         {JsonField("obj", obj_file_path), JsonField("ok", written),
@@ -1394,6 +1580,8 @@ int RunMain(const int kArgc, char** const argv) {
     // The library reports failures by throwing; the CLI host is the boundary that
     // turns them into an exit code plus one line. Without this, a malformed input
     // reaches std::terminate and (in Debug builds) blocks on the CRT report dialog.
+    EmitEvent(ParseCommandLine(kArgc, argv).json_progress, "error",
+              {JsonField("message", std::string(error.what()))});
     std::fprintf(stderr, "error: %s\n", error.what());
     return EXIT_FAILURE;
   } catch (...) {

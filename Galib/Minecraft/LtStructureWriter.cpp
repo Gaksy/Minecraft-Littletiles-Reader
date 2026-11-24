@@ -38,6 +38,7 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -57,47 +58,9 @@ using snbt::Value;
 // key at all (LittleGrid.set / LittleGridContext.set).
 constexpr int kDefaultGrid = 16;
 
-// The keys that rename when a structure crosses generations: LittleTiles'
-// OldLittleTilesDataParser.convertStructureDataBase does exactly this while
-// loading a 1.12.2 structure into 1.20.
-struct KeyRename {
-  const char* legacy;
-  const char* modern;
-};
-
-constexpr KeyRename kStructureKeyRenames[] = {
-    {"name", "n"},      // structure display name
-    {"blocks", "b"},    // connected block positions
-    {"signal", "ex"},   // external signal handlers
-    {"parent", "k"},    // parent structure link
-    {"children", "c"},  // child (item) list of the structure
-};
-
-// Structure type ids that LittleTiles itself renames while converting a 1.12.2
-// structure (OldLittleTilesDataParser.convertStructureData). The behaviour
-// payload of a door is re-encoded by the mod (animation timelines) and is only
-// carried over here; the converter says so in its notes.
-constexpr KeyRename kStructureTypeRenames[] = {
-    {"door", "axis"},
-    {"slidingDoor", "sliding"},
-    {"doorActivator", "activator"},
-    {"advancedDoor", "door"},
-};
-
 // LittlePreview.lowResolutionMode in 1.12.2: from this many previews on, the
 // item keeps a list of block positions for a cheap inventory model.
 constexpr std::size_t kLowResolutionMode = 2000;
-
-const char* Rename(const std::string& kKey, const KeyRename* const kTable,
-                   const std::size_t kCount, const bool kToModern) {
-  for (std::size_t i = 0; i < kCount; ++i) {
-    const char* const from = kToModern ? kTable[i].legacy : kTable[i].modern;
-    if (kKey == from) {
-      return kToModern ? kTable[i].modern : kTable[i].legacy;
-    }
-  }
-  return nullptr;
-}
 
 void AppendMembers(
     const std::vector<std::pair<std::string, std::string>>& kMembers,
@@ -157,36 +120,22 @@ std::string ConvertBlockName(const std::string& kName,
   return converted;
 }
 
-// The structure metadata of one level, with the key / type id renames applied.
-// The rest of the compound (animations, message lines, ...) is passed through.
+// A cross-generation conversion keeps only a static structure and its label.
 Value ConvertStructure(const Value& kStructure, const bool kToModern,
-                       LtStructure::ConvertReport* const p_desc_report) {
-  std::map<std::string, Value> members;
-  for (const auto& [key, member] : kStructure.members()) {
-    std::string renamed = key;
-    if (key != "id") {
-      if (const char* const replacement =
-              Rename(key, kStructureKeyRenames, std::size(kStructureKeyRenames),
-                     kToModern);
-          replacement != nullptr) {
-        renamed = replacement;
-      }
-    } else if (member.is_string()) {
-      const std::string type_id = member.as_string();
-      if (const char* const replacement =
-              Rename(type_id, kStructureTypeRenames,
-                     std::size(kStructureTypeRenames), kToModern);
-          replacement != nullptr) {
-        if (p_desc_report != nullptr) {
-          p_desc_report->renamed_structures[type_id] = replacement;
-        }
-        members.emplace(renamed, Value::MakeString(replacement));
-        continue;
-      }
+                       LtStructure::ConvertReport* const p_desc_report,
+                       const bool kAppearanceOnly) {
+  if (kAppearanceOnly) {
+    std::map<std::string, Value> members{{"id", Value::MakeString("fixed")}};
+    const char* source_name = kToModern ? "name" : "n";
+    if (kStructure.has_member(source_name) && kStructure.member(source_name).is_string()) {
+      members.emplace(kToModern ? "n" : "name", kStructure.member(source_name));
     }
-    members.emplace(renamed, member);
+    if (p_desc_report && kStructure.has_member("id") && kStructure.member("id").is_string()) {
+      p_desc_report->renamed_structures[kStructure.member("id").as_string()] = "fixed";
+    }
+    return Value::MakeCompound(std::move(members));
   }
-  return Value::MakeCompound(std::move(members));
+  return kStructure;
 }
 
 std::size_t CountBoxes(const LtStructure::Node& kNode) {
@@ -292,6 +241,7 @@ std::string LowResolutionPositions(const LtStructure::Node& kNode) {
 struct NodeWriter {
   const LtStructure::ConvertOptions& options;
   LtStructure::ConvertReport* report;
+  bool appearance_only{false};
   // Grid the 1.12.2 output is written in: the root's, inherited by every child.
   std::int32_t legacy_grid{kDefaultGrid};
   // Notes already emitted, so that a structure with many levels reports a
@@ -314,7 +264,7 @@ struct NodeWriter {
     if (kNode.has_structure) {
       members.emplace_back(
           "s", snbt::ToSnbt(ConvertStructure(kNode.structure,
-                                             /*kToModern=*/true, report)));
+                                             /*kToModern=*/true, report, appearance_only)));
     }
     members.emplace_back("t", ModernTileMap(kNode));
     if (kNode.grid != kDefaultGrid) {
@@ -408,7 +358,7 @@ struct NodeWriter {
     if (kNode.has_structure) {
       members.emplace_back("structure",
                            snbt::ToSnbt(ConvertStructure(
-                               kNode.structure, /*kToModern=*/false, report)));
+                               kNode.structure, /*kToModern=*/false, report, appearance_only)));
     }
     if (kIsRoot && kNode.grid != kDefaultGrid) {
       // 1.12.2 writes the grid at the root only; a child inherits it
@@ -509,7 +459,7 @@ struct NodeWriter {
         text += ",color:";
         text += NumberText(group.color);
       }
-      if (group.has_tile_extra) {
+      if (group.has_tile_extra && !appearance_only) {
         // `tID`, `invisible`, ... exactly as they were read (minus the enclosing
         // braces).
         const std::string extra = snbt::ToSnbt(group.tile_extra);
@@ -533,6 +483,7 @@ struct NodeWriter {
   [[nodiscard]] std::vector<std::pair<std::string, std::string>> ExtraMembers(
       const LtStructure::Node& kNode, const bool kModern) {
     std::vector<std::pair<std::string, std::string>> members;
+    if (appearance_only) return members;
     for (const auto& [key, value] : kNode.extra) {
       if (key == "pos" && kModern) {
         continue;  // a 1.12.2 only low resolution cache; 1.20 has no use for it
@@ -549,6 +500,29 @@ struct NodeWriter {
   }
 };
 
+// Modern extensions contain geometry too. Keep it as ordinary children, while
+// removing the extension role and all unknown node data on cross-version writes.
+void KeepAppearance(LtStructure::Node* node) {
+  auto extensions = node->extra.find("e");
+  if (extensions != node->extra.end()) {
+    if (!extensions->second.is_compound()) {
+      throw std::runtime_error("invalid LittleTiles extension group");
+    }
+    for (const auto& [name, value] : extensions->second.members()) {
+      if (!value.is_compound()) throw std::runtime_error("invalid LittleTiles extension: " + name);
+      node->children.push_back(LtStructure::FromSnbt(value, LtStructure::Dialect::kModern20).root());
+    }
+  }
+  node->extra.clear();
+  for (auto& child : node->children) KeepAppearance(&child);
+}
+
+std::size_t CountLevels(const LtStructure::Node& node) {
+  std::size_t count = 1;
+  for (const auto& child : node.children) count += CountLevels(child);
+  return count;
+}
+
 }  // namespace
 
 std::string LtStructure::ToSnbt(const Dialect kTarget,
@@ -558,38 +532,29 @@ std::string LtStructure::ToSnbt(const Dialect kTarget,
   ConvertReport* const report =
       p_desc_report != nullptr ? p_desc_report : &local_report;
   *report = ConvertReport{};
-  report->groups = TileCount();
-  report->boxes = BoxCount();
-  report->levels = static_cast<std::size_t>(child_group_count_) + 1;
 
   // A round-trip in the same dialect only re-serializes: the block names are
   // already in that version's spelling.
   ConvertOptions options = kOptions;
   options.map_block_names = kOptions.map_block_names && kTarget != dialect_;
 
-  NodeWriter writer{options, report};
-  writer.legacy_grid = static_cast<std::int32_t>(root_.grid);
+  const bool appearance_only = kTarget != dialect_;
+  Node output_root = root_;
+  if (appearance_only) KeepAppearance(&output_root);
+  report->groups = CountTiles(output_root);
+  report->boxes = CountBoxes(output_root);
+  report->levels = CountLevels(output_root);
+  NodeWriter writer{options, report, appearance_only};
+  writer.legacy_grid = static_cast<std::int32_t>(output_root.grid);
   std::string text;
   if (kTarget == Dialect::kModern20) {
-    writer.WriteModern(root_, /*kIsRoot=*/true, &text);
+    writer.WriteModern(output_root, /*kIsRoot=*/true, &text);
   } else {
-    writer.WriteLegacy(root_, /*kIsRoot=*/true, &text);
+    writer.WriteLegacy(output_root, /*kIsRoot=*/true, &text);
   }
 
-  if (!report->renamed_structures.empty()) {
-    std::string note = "structure type id translated: ";
-    bool first = true;
-    for (const auto& [from, to] : report->renamed_structures) {
-      if (!first) {
-        note += ", ";
-      }
-      first = false;
-      note += from + " -> " + to;
-    }
-    note +=
-        "; the behaviour payload of a door (animation curves, rotation) is "
-        "passed through unchanged and may need attention in game";
-    report->notes.push_back(std::move(note));
+  if (appearance_only) {
+    report->notes.push_back("Cross-version conversion keeps appearance only: block materials, colors, grids, boxes and child geometry. All structures are static; interaction, animation, signals, particles and other behavior are removed.");
   }
   if (!report->unmapped_blocks.empty()) {
     report->notes.push_back(

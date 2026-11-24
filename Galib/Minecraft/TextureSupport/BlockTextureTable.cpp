@@ -16,6 +16,8 @@
 
 #include "Minecraft/TextureSupport/BlockTextureTable.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -26,6 +28,7 @@
 #include "Log/GalibLog.h"
 #include "Log/GalibText.h"
 #include "Minecraft/BlockStateMap.h"
+#include "Minecraft/WorldProfile.h"
 
 namespace galib::minecraft::texture_support {
 
@@ -139,8 +142,10 @@ int BlockFaceTextures::Tint(const FaceDirection direction) const {
   return tints[static_cast<std::size_t>(direction)];
 }
 
-bool BlockTextureTable::LoadFromTsv(const std::string& kTsvPath) {
+bool BlockTextureTable::LoadFromTsv(const std::string& kTsvPath,
+                                    bool require_uv_transforms) {
   entries_.clear();
+  state_rows_.clear();
   loaded_ = false;
 
   // UTF-8 path: the table may sit in a folder the user named.
@@ -155,6 +160,9 @@ bool BlockTextureTable::LoadFromTsv(const std::string& kTsvPath) {
       continue;
     }
     const std::vector<std::string> fields = SplitTab(line);
+    if ((require_uv_transforms && fields.size() != 49) ||
+        (fields.size() > 13 && fields.size() != 49))
+      return false;
     if (fields.size() < kFaceCount + 1) {
       continue;
     }
@@ -173,10 +181,27 @@ bool BlockTextureTable::LoadFromTsv(const std::string& kTsvPath) {
         tint = std::atoi(fields[column].c_str());
       }
       textures.tints[static_cast<std::size_t>(kColumnOrder[i])] = tint;
+      if (fields.size() >= 49) {
+        auto& transform =
+            textures.uv_transforms[static_cast<std::size_t>(kColumnOrder[i])];
+        for (int j = 0; j < 6; ++j) {
+          char* end = nullptr;
+          transform[j] = std::strtod(fields[13 + i * 6 + j].c_str(), &end);
+          if (!end || end == fields[13 + i * 6 + j].c_str() || *end ||
+              !std::isfinite(transform[j]))
+            return false;
+        }
+      }
     }
-    entries_[fields[0]] = std::move(textures);
+    entries_[CanonicalBlockState(fields[0])] = std::move(textures);
   }
 
+  for (const auto& row : entries_) {
+    if (row.first.find('[') != std::string::npos)
+      state_rows_[BlockStateBaseName(row.first)].push_back(row.first);
+  }
+  for (auto& rows : state_rows_)
+    std::sort(rows.second.begin(), rows.second.end());
   loaded_ = !entries_.empty();
   return loaded_;
 }
@@ -210,8 +235,49 @@ bool BlockTextureTable::Lookup(const std::string& kBlockId,
     return true;
   };
 
-  if (try_name(kBlockId)) {
+  const std::string canonical = CanonicalBlockState(kBlockId);
+  if (try_name(canonical)) {
     return true;
+  }
+
+  // Match prepared variant predicates, allowing irrelevant extra properties.
+  // Never replace an unmatched state with the first variant of that block.
+  const auto bracket = canonical.find('[');
+  if (bracket != std::string::npos) {
+    const std::string prefix = canonical.substr(0, bracket) + '[';
+    const std::string query =
+        ',' + canonical.substr(bracket + 1, canonical.size() - bracket - 2) +
+        ',';
+    const BlockFaceTextures* best = nullptr;
+    std::size_t best_size = 0;
+    bool has_variants = false;
+    const auto candidates = state_rows_.find(BlockStateBaseName(canonical));
+    const std::vector<std::string> empty;
+    for (const auto& key :
+         candidates == state_rows_.end() ? empty : candidates->second) {
+      const auto& row = *entries_.find(key);
+      has_variants = true;
+      std::istringstream predicates(row.first.substr(
+          prefix.size(), row.first.size() - prefix.size() - 1));
+      std::string predicate;
+      bool match = true;
+      std::size_t count = 0;
+      while (std::getline(predicates, predicate, ',')) {
+        ++count;
+        if (query.find(',' + predicate + ',') == std::string::npos)
+          match = false;
+      }
+      if (match && count > best_size) {
+        best = &row.second;
+        best_size = count;
+      }
+    }
+    if (best) {
+      *p_desc_textures = *best;
+      return true;
+    }
+    if (has_variants) return false;
+    if (try_name(BlockStateBaseName(canonical))) return true;
   }
 
   /*
@@ -225,6 +291,7 @@ bool BlockTextureTable::Lookup(const std::string& kBlockId,
    * alias table (above) covers the second. Both are fallbacks only.
    */
   const BlockStateMap& map = BlockStateMap::Instance();
+  if (!cross_version_fallback_) return false;
   const std::string legacy = map.ToLegacy(kBlockId);
   std::vector<std::string> candidates;
   if (legacy != kBlockId) {
@@ -236,7 +303,9 @@ bool BlockTextureTable::Lookup(const std::string& kBlockId,
   // colour rename and the terracotta rename.
   const std::size_t first_round = candidates.size();
   for (std::size_t i = 0; i < first_round; ++i) {
-    AppendAliases(candidates[i], &candidates);
+    // AppendAliases may grow candidates and invalidate references to its items.
+    const std::string candidate = candidates[i];
+    AppendAliases(candidate, &candidates);
   }
 
   for (const std::string& candidate : candidates) {

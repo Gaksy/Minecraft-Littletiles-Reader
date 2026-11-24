@@ -16,8 +16,10 @@
 
 #include "Minecraft/CgalSupport/CgalWorldBlocks.h"
 
+#include <algorithm>
 #include <array>
 #include <map>
+#include <stdexcept>
 #include <utility>
 
 #include "Log/GalibLog.h"
@@ -66,8 +68,23 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
   const int size_z = kChunkSizeZ * kChunkSizeBlocks;
   // The vertical range comes from the chunk layout: 1.12.2 covers y 0..255, 1.18+
   // covers y -64..319 (the "new world has -64" case), and both must work.
-  const int min_y = kChunks.front().min_y();
-  const int world_height = kChunks.front().size_y();
+  int min_y = 0;
+  int max_y = 0;
+  bool names_layout = false;
+  bool have_layout = false;
+  for (const auto& chunk : kChunks) {
+    if (chunk.layout() == ChunkBlocks::Layout::kNone) continue;
+    const bool modern = !chunk.needs_id_table();
+    if (have_layout && names_layout != modern)
+      throw std::runtime_error("mixed chunk layouts are unsupported; use a native save");
+    names_layout = modern;
+    if (!have_layout) min_y = chunk.min_y();
+    min_y = std::min(min_y, chunk.min_y());
+    max_y = std::max(max_y, chunk.min_y() + chunk.size_y());
+    have_layout = true;
+  }
+  if (!have_layout) return;
+  const int world_height = max_y - min_y;
   const std::size_t plane = static_cast<std::size_t>(size_x) * size_z;
   std::vector<ChunkBlocks::State> grid(plane * world_height);
   const auto index_of = [size_x, plane, min_y](const int kX, const int kY,
@@ -84,7 +101,6 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
    * flattening, so a State stays a plain index and the grid below is
    * self-contained.
    */
-  const bool names_layout = !kChunks.front().needs_id_table();
   std::vector<std::string> region_names;
   region_names.push_back(std::string());
   std::map<std::string, std::uint16_t> region_name_index;
@@ -115,6 +131,8 @@ void BuildWorldBlockMeshes(const int kWorldOriginX, const int kWorldOriginZ,
                 if (found != region_name_index.end()) {
                   state.block_id = found->second;
                 } else {
+                  if (region_names.size() > 65535)
+                    throw std::runtime_error("too many distinct region block states");
                   const auto index =
                       static_cast<std::uint16_t>(region_names.size());
                   region_names.push_back(name);

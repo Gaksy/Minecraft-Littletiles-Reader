@@ -89,65 +89,9 @@ BlockTileEntities::size_type BlockTileEntities::ReadBlockTileNbt(
                    block_coordinate_.z);
 #endif
 
-    // Two save layouts carry the tiles:
-    //   1.12.2   content.tiles = [ { block, meta?, color?, boxes|box }, ... ] with
-    //            one entry per (block, colour) and plain LittleBox arrays;
-    //   1.18+    content.tiles = { "block state": [colour, box, colour, box...] }
-    //            where every box carries the face cache in front of its
-    //            coordinates (LittleBox.getArrayTagExtended).
-    const nbt::value& tiles_value = kBlockTilesNBT.at("content").at("tiles");
-    if (tiles_value.get_type() == nbt::tag_type::Compound) {
-      ReadModernTilesNbt(tiles_value.as<tag_compound>(), &box_tile_enities_map,
-                         &tile_count, &boxes_count);
-      grid_ = grid_type;
-      box_tile_entities_map_.swap(box_tile_enities_map);
-      little_tiles_id_.swap(little_tiles_id);
-#ifdef GALIB_DEBUG
-      ProgressPrintf(Tr("BlockTileEntities::ReadBlockTileNbt (1.18+ layout) "
-                        "%zu groups, %zu "
-                        "tiles\n"),
-                     boxes_count, tile_count);
-#endif
-      if (p_boxes_count) {
-        *p_boxes_count = boxes_count;
-      }
-      return tile_count;
-    }
-
-    auto tiles = tiles_value.as<tag_list>();
-    for (auto it = tiles.begin(); it != tiles.cend(); ++it) {
-      tag_compound* p_boxes = &it->as<tag_compound>();  // Get boxes
-
-      // Material key = block id + optional colour.
-      // The same block can be tinted differently, and LittleTiles stores those as
-      // different tile entries.
-      TileMaterial material;
-      material.block_id = p_boxes->at("block").as<tag_string>().get();
-      if (p_boxes->has_key("color")) {
-        material.color = p_boxes->at("color").as<tag_int>().get();
-        material.has_color = true;
-      }
-
-      // Skip only when (block, color) are exactly the same.
-      // The original code deduplicated on block id alone, which dropped every
-      // differently tinted variant of the same block (measured: chunk(-136,49) lost
-      // 45% of its boxes because of this).
-      if (box_tile_enities_map.find(material) != box_tile_enities_map.end()) {
-        continue;
-      }
-
-      // Get data, If Get successful, then insert data
-      if (BoxTileEnities box_tile_enities;
-          ReadBoxesTilesNbt(*p_boxes, box_tile_enities, tile_count)) {
-        if (material.has_color) {
-          for (TileEntity& tile : box_tile_enities) {
-            tile.set_color(material.color, true);
-          }
-        }
-        box_tile_enities_map.insert(container_pair(material, box_tile_enities));
-        ++boxes_count;
-      }
-    }
+    ReadTileCollectionNbt(kBlockTilesNBT.at("content").as<tag_compound>(),
+                          &box_tile_enities_map, &tile_count, &boxes_count,
+                          "content");
 
     // DONE!!
     grid_ = grid_type;
@@ -163,9 +107,95 @@ BlockTileEntities::size_type BlockTileEntities::ReadBlockTileNbt(
       *p_boxes_count = boxes_count;
     }
     return tile_count;
-  } catch (...) {
+  } catch (const std::exception& e) {
+    const std::string message = std::string("Invalid block tile data: ") + e.what();
     throw LittleTilesException(LittleTilesErrorCode::lt_tage_not_exist,
-                               "Some tag not exist.", "BlockTiles");
+                               message.c_str(), "BlockTiles");
+  }
+}
+
+void BlockTileEntities::ReadTileCollectionNbt(
+    const tag_compound& kCollection, container* const p_desc_container,
+    size_type* const p_desc_tile_count, size_type* const p_desc_boxes_count,
+    const std::string& kPath) {
+  // ParentTileList.read reads the boxes in the owning TE's local grid. A child's
+  // coord links to its main structure TE; structure.blocks enumerates linked
+  // blocks. Neither moves these boxes or supplies additional geometry.
+  if (kCollection.has_key("tiles")) {
+    try {
+      const nbt::value& tiles = kCollection.at("tiles");
+      if (tiles.get_type() == nbt::tag_type::Compound) {
+        ReadModernTilesNbt(tiles.as<tag_compound>(), p_desc_container,
+                           p_desc_tile_count, p_desc_boxes_count);
+      } else {
+        const auto& list = tiles.as<tag_list>();
+        std::size_t index = 0;
+        for (const auto& entry : list) {
+          const std::string path = kPath + ".tiles[" + std::to_string(index++) + "]";
+          try {
+            const auto& boxes_nbt = entry.as<tag_compound>();
+            TileMaterial material;
+            material.block_id = boxes_nbt.at("block").as<tag_string>().get();
+            // Some legacy writers store metadata separately; others append it
+            // to the registry name already. Do not append it twice.
+            if (boxes_nbt.has_key("meta") &&
+                material.block_id.find(':', material.block_id.find(':') + 1) ==
+                    std::string::npos) {
+              material.block_id += ":" + std::to_string(
+                  boxes_nbt.at("meta").as<tag_int>().get());
+            }
+            if (boxes_nbt.has_key("color")) {
+              material.color = boxes_nbt.at("color").as<tag_int>().get();
+              material.has_color = true;
+            }
+            BoxTileEnities boxes;
+            if (!ReadBoxesTilesNbt(boxes_nbt, boxes, *p_desc_tile_count) ||
+                boxes.empty()) {
+              std::cerr << "Invalid or empty LittleTiles geometry at " << path
+                        << std::endl;
+              continue;
+            }
+            if (material.has_color) {
+              for (TileEntity& tile : boxes) {
+                tile.set_color(material.color, true);
+              }
+            }
+            auto result = p_desc_container->try_emplace(material);
+            if (result.second) {
+              ++(*p_desc_boxes_count);
+            }
+            auto& destination = result.first->second;
+            destination.insert(destination.end(), boxes.begin(), boxes.end());
+          } catch (const std::exception& e) {
+            std::cerr << "Error parsing LittleTiles " << path << ": " << e.what()
+                      << std::endl;
+          }
+        }
+      }
+    } catch (const std::exception& e) {
+      std::cerr << "Error parsing LittleTiles " << kPath << ".tiles: " << e.what()
+                << std::endl;
+    }
+  }
+  // A bad collection must not discard valid sibling collections or the parent.
+  if (kCollection.has_key("children")) {
+    try {
+      const auto& children = kCollection.at("children").as<tag_list>();
+      std::size_t index = 0;
+      for (const auto& child : children) {
+        const std::string path = kPath + ".children[" + std::to_string(index++) + "]";
+        try {
+          ReadTileCollectionNbt(child.as<tag_compound>(), p_desc_container,
+                                p_desc_tile_count, p_desc_boxes_count, path);
+        } catch (const std::exception& e) {
+          std::cerr << "Error parsing LittleTiles " << path << ": " << e.what()
+                    << std::endl;
+        }
+      }
+    } catch (const std::exception& e) {
+      std::cerr << "Error parsing LittleTiles " << kPath << ".children: " << e.what()
+                << std::endl;
+    }
   }
 }
 
@@ -363,6 +393,7 @@ void BlockTileEntities::ReadModernTilesNbt(
     const std::string& block_state = entry->first;
     const nbt::value& stream_value = entry->second;
     if (stream_value.get_type() != nbt::tag_type::List) {
+      std::cerr << "Invalid 1.18+ tile stream for " << block_state << std::endl;
       continue;
     }
     const tag_list& stream = stream_value.as<tag_list>();
@@ -482,16 +513,10 @@ bool BlockTileEntities::ReadBoxesTilesNbt(const tag_compound& kBoxesTilesNbt,
     // Save data
     desc_box_tile_enities.swap(box_tile_enity_array);
   }
-#ifndef GALIB_DEBUG
-  catch (...) {
-    return false;
-  }
-#else
   catch (const std::exception& e) {
-    printf("ChunkTileEntities::ReadBoxesTilesNbt error: %s\n", e.what());
+    std::cerr << "Error parsing LittleTiles box list: " << e.what() << std::endl;
     return false;
   }
-#endif
   return true;
 }
 

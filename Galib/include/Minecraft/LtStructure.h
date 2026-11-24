@@ -59,8 +59,9 @@ namespace galib::minecraft::littletiles {
 // emitters, ...). Each level carries its own grid (LittleTiles stores the grid
 // per level and only writes it when it is not the default 16), so the grid is
 // kept per group. Only geometry is taken from children: their behavioural
-// parameters (animations, open/closed state, ...) are carried through a
-// conversion untouched, but are not interpreted here.
+// parameters (animations, open/closed state, ...) are not interpreted here.
+// Cross-generation writes keep only appearance and convert every structure to
+// fixed; same-dialect serialization preserves the original payload.
 class LtStructure {
  public:
   enum class Dialect {
@@ -101,12 +102,13 @@ class LtStructure {
     std::vector<std::int32_t> size;
     bool has_size{false};
     // Structure metadata (legacy `structure` / modern `s`): id, name, door
-    // animations, message text, ... Kept as parsed, only the container key is
-    // renamed on conversion.
+    // animations, message text, ... Kept as parsed for same-dialect writes;
+    // cross-generation writes retain only a fixed type and display name.
     snbt::Value structure;
     bool has_structure{false};
     // Members the reader does not model (legacy `pos`, modern `e`, anything
-    // unknown). Carried through a conversion unchanged.
+    // unknown). Preserved only on same-dialect writes. Extension geometry is
+    // retained as ordinary children during cross-generation conversion.
     std::map<std::string, snbt::Value> extra;
     // LittleTiles' `trans` flag (the structure contains translucent blocks).
     bool translucent{false};
@@ -133,7 +135,7 @@ class LtStructure {
     // Block names with no counterpart in the target version, kept as-is (minus
     // metadata / block states). The map counts occurrences per name.
     std::map<std::string, std::size_t> unmapped_blocks;
-    // Structure type ids translated (legacy door -> modern axis, ...).
+    // Structure type ids normalized (cross-generation writes use fixed).
     std::map<std::string, std::string> renamed_structures;
     // Things the converter cannot translate for the user.
     std::vector<std::string> notes;
@@ -158,7 +160,8 @@ class LtStructure {
 
   // Serialize back to SNBT text. kTarget may be the same dialect the structure
   // was read in (a normalizing round-trip) or the other one (a conversion);
-  // block names are translated unless the option says otherwise.
+  // block names are translated unless the option says otherwise. Cross-dialect
+  // conversion strips behavior; same-dialect serialization keeps source data.
   //
   // The "no options" shorthand is a separate overload on purpose: a default
   // argument that value-initialises the nested ConvertOptions (either `{}` or

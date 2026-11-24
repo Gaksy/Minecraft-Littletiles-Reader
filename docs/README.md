@@ -5,6 +5,10 @@
 
 | 文档 | 内容 |
 |---|---|
+| [`texture-animation-static-frame.md`](texture-animation-static-frame.md) | 动画贴图统一取第一帧，修复海晶灯等帧条被压缩到单面的拉伸 |
+| [`bbmodel-blocks.md`](bbmodel-blocks.md) | 完整蓝图自动按方块裁切并批量输出独立 BB 工程 |
+| [`native-world-export-1.20.1-progress.md`](native-world-export-1.20.1-progress.md) | 原生 1.20.1 存档适配进展、素材 v2、已测范围与待验收项 |
+| [`bbmodel-v1.md`](bbmodel-v1.md) | SNBT 导出 Java Block/Item BB 工程：首版范围、限制与验收状态 |
 | [`architecture.md`](architecture.md) | 模块划分、真实调用链、类型与 ownership、线程安全与异常体系现状、构建方式 |
 | [`assets-package.md`](assets-package.md) | 素材组合契约：生成端/宿主/库的职责边界、素材目录布局、manifest、库侧接口与材质管理实测 |
 | [`job.md`](job.md) | 非交互驱动契约：`--job` / `--progress json`、job 文件字段、进度事件、退出码 |

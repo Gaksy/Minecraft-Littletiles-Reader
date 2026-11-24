@@ -183,7 +183,8 @@ std::size_t MaterialManager::WriteTextures(const std::string& kOutputDir,
     // When no tinting is needed, copy the source texture directly to avoid a
     // pointless extra encode/decode round trip
     const bool needs_bake =
-        key.tint_rgb != kNoTint || key.tile_color != kNoTileColor;
+        key.tint_rgb != kNoTint || key.tile_color != kNoTileColor ||
+        std::filesystem::exists(galib::Utf8Path(source + ".mcmeta"));
     bool ready = false;
     if (!needs_bake) {
       std::error_code copy_error;
@@ -198,7 +199,7 @@ std::size_t MaterialManager::WriteTextures(const std::string& kOutputDir,
       if (current_texture != key.texture) {
         current_texture = key.texture;
         decoded = PngImage();
-        if (decoded.Load(source)) {
+        if (decoded.LoadTextureFrame(source)) {
           ++decode_count_;
         }
       }

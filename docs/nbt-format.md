@@ -93,17 +93,46 @@ TileEntities[i] = {
 | `TileEntities` | chunk level | `ChunkTileEntities.cpp` |
 | `grid`（可选） | block TE | `BlockTileEntities.cpp` |
 | `id` | block TE | `BlockTileEntities.cpp` |
-| `content.tiles` | block TE | `BlockTileEntities.cpp` |
+| `content.tiles`, `content.children[*].tiles` | local collections in block TE | `BlockTileEntities.cpp` |
 | `x/y/z` | block TE | `BlockTileEntities.cpp` |
 | `block` | tile | `BlockTileEntities.cpp` |
 | `boxes`（列表）/ `box`（单值） | tile | `BlockTileEntities.cpp,169` |
 
-### 3.2 尚未解析但确实存在的数据
+### 3.2 Structure collections and material properties
 
-1. **`color`（ARGB int）**：实测值如 `0xFFFFBE00`、`0xFF242424`，alpha 恒为 `0xFF`。
-   覆盖约 44% 的 tile。这是做材质/上色的关键信息，目前被完全丢弃。
-2. **`block` 字符串里的 meta 后缀**：如 `minecraft:stone:3`、`minecraft:stained_glass:15`；
-   LT 自己的染色块是 `littletiles:ltcoloredblock`。
+`ReadTileCollectionNbt` reads both `content.tiles` and the tiles of each
+`content.children` collection. Legacy list payloads and modern mapped payloads
+share this traversal. Repeated `(block, color)` groups append their boxes rather
+than dropping later groups. Legacy `color` values and metadata suffixes are
+preserved; a separate legacy `meta` field is appended if the name does not already
+contain a metadata suffix. Missing or empty collections contain no geometry.
+Malformed collection/material entries produce stderr diagnostics and do not
+remove valid sibling geometry; malformed TE envelope fields still fail parsing.
+
+For LittleTiles 1.12.2, a child collection is a **local structure-owned tile
+group in the current tile entity**, not a scene-graph transform:
+
+- `coord = mainTE.pos - currentTE.pos` links a non-main group to the main TE.
+  It must **not** be added to the group's box coordinates, in block or grid units.
+- `structure.blocks` contains triples `memberTE.pos - mainTE.pos`. These are
+  member links, not additional boxes. Following them while already scanning all
+  TEs would emit the same geometry again.
+- `index` is the connection key shared by a structure's groups, not a globally
+  unique structure ID. `type` is an attribute bitmask, not the structure type.
+- World geometry remains `currentTE.pos + localBox / currentTE.grid`. This
+  describes static world TEs, not animated subworld transforms.
+
+Source evidence (fixed upstream commit `78e3ea34a13ce72f72e421d70215b3bedaba3eb6`):
+[ParentTileList.read/write](https://github.com/CreativeMD/LittleTiles/blob/78e3ea34a13ce72f72e421d70215b3bedaba3eb6/src/main/java/com/creativemd/littletiles/common/tile/parent/ParentTileList.java#L115-L127),
+[StructureTileList links](https://github.com/CreativeMD/LittleTiles/blob/78e3ea34a13ce72f72e421d70215b3bedaba3eb6/src/main/java/com/creativemd/littletiles/common/tile/parent/StructureTileList.java#L53-L165),
+[Placement link creation](https://github.com/CreativeMD/LittleTiles/blob/78e3ea34a13ce72f72e421d70215b3bedaba3eb6/src/main/java/com/creativemd/littletiles/common/util/place/Placement.java#L603-L609),
+and [local ray tracing](https://github.com/CreativeMD/LittleTiles/blob/78e3ea34a13ce72f72e421d70215b3bedaba3eb6/src/main/java/com/creativemd/littletiles/common/tileentity/TileEntityLittleTiles.java#L592-L602).
+Key methods were also checked with `javap` against the installed
+`LittleTiles_v1.5.66_mc1.12.2.jar` (SHA-256
+`17be4caf12166159306a3f16ec38216c6599ac966928deb5106af7d08e33d780`).
+The fixed source commit is not claimed to be the exact release commit of that jar.
+Modern child collection traversal is covered by synthetic regression tests; these
+1.12.2 link semantics are not a claim of complete modern structure metadata support.
 
 ### 3.3 box / boxes 的编码
 

@@ -18,9 +18,15 @@
 
 #include <zlib.h>
 
+#include <algorithm>
+#include <boost/json.hpp>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <stdexcept>
+#include <utility>
 
 #include "File/Utf8Path.h"
 #include "Log/GalibText.h"
@@ -268,8 +274,87 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   return true;
 }
 
+bool PngImage::LoadTextureFrame(const std::string& path, std::string* error) {
+  if (!Load(path, error)) return false;
+  try {
+    const auto metadata_path = galib::Utf8Path(path + ".mcmeta");
+    if (!std::filesystem::exists(metadata_path)) return true;
+    std::ifstream input(metadata_path, std::ios::binary);
+    if (!input) throw std::runtime_error("cannot read animation metadata");
+    const std::string text((std::istreambuf_iterator<char>(input)), {});
+    const auto metadata = boost::json::parse(text);
+    if (!metadata.is_object())
+      throw std::runtime_error("texture metadata must be an object");
+    const auto* value = metadata.as_object().if_contains("animation");
+    if (!value) return true;
+    if (!value->is_object())
+      throw std::runtime_error("animation must be an object");
+    const auto& animation = value->as_object();
+    auto integer = [](const boost::json::value& v, int minimum, int maximum) {
+      if (!v.is_int64() || v.as_int64() < minimum || v.as_int64() > maximum)
+        throw std::runtime_error("invalid animation integer or frame index");
+      return static_cast<int>(v.as_int64());
+    };
+    const auto* w = animation.if_contains("width");
+    const auto* h = animation.if_contains("height");
+    const int frame_w =
+        w ? integer(*w, 1, width_) : (h ? width_ : std::min(width_, height_));
+    const int frame_h =
+        h ? integer(*h, 1, height_) : (w ? height_ : std::min(width_, height_));
+    if (width_ % frame_w || height_ % frame_h)
+      throw std::runtime_error(
+          "animation frame dimensions do not divide texture");
+    const int columns = width_ / frame_w;
+    const int count = columns * (height_ / frame_h);
+    int frame = 0;
+    if (const auto* frames = animation.if_contains("frames")) {
+      if (!frames->is_array())
+        throw std::runtime_error("animation frames must be an array");
+      if (!frames->as_array().empty()) {
+        const auto& first = frames->as_array().front();
+        if (first.is_object()) {
+          const auto* index = first.as_object().if_contains("index");
+          if (!index) throw std::runtime_error("animation frame has no index");
+          frame = integer(*index, 0, count - 1);
+        } else {
+          frame = integer(first, 0, count - 1);
+        }
+      }
+    }
+    PngImage snapshot(frame_w, frame_h);
+    const int x0 = frame % columns * frame_w;
+    const int y0 = frame / columns * frame_h;
+    for (int y = 0; y < frame_h; ++y)
+      for (int x = 0; x < frame_w; ++x)
+        std::memcpy(snapshot.Pixel(x, y), Pixel(x0 + x, y0 + y), 4);
+    *this = std::move(snapshot);
+    return true;
+  } catch (const std::exception& exception) {
+    if (error)
+      *error = "cannot load texture frame " + path + ": " + exception.what();
+    *this = PngImage();
+    return false;
+  }
+}
+
 bool PngImage::Save(const std::string& kPath,
                     std::string* const p_desc_error) const {
+  std::vector<unsigned char> output;
+  if (!Encode(&output, p_desc_error)) return false;
+  std::ofstream out(galib::Utf8Path(kPath), std::ios::binary);
+  if (!out) {
+    if (p_desc_error) *p_desc_error = Tr("cannot write file");
+    return false;
+  }
+  out.write(reinterpret_cast<const char*>(output.data()),
+            static_cast<std::streamsize>(output.size()));
+  return static_cast<bool>(out);
+}
+
+bool PngImage::Encode(std::vector<unsigned char>* const p_desc_png,
+                      std::string* const p_desc_error) const {
+  if (!p_desc_png) return false;
+  p_desc_png->clear();
   if (!is_valid()) {
     if (p_desc_error) {
       *p_desc_error = Tr("image is empty");
@@ -316,16 +401,8 @@ bool PngImage::Save(const std::string& kPath,
   AppendChunk(&output, "IDAT", compressed);
   AppendChunk(&output, "IEND", {});
 
-  std::ofstream out(galib::Utf8Path(kPath), std::ios::binary);
-  if (!out) {
-    if (p_desc_error) {
-      *p_desc_error = Tr("cannot write file");
-    }
-    return false;
-  }
-  out.write(reinterpret_cast<const char*>(output.data()),
-            static_cast<std::streamsize>(output.size()));
-  return static_cast<bool>(out);
+  *p_desc_png = std::move(output);
+  return true;
 }
 
 }  // namespace galib::minecraft::texture_support
