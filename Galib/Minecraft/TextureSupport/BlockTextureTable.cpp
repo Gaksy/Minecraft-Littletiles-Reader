@@ -225,7 +225,7 @@ bool BlockTextureTable::Lookup(const std::string& kBlockId,
         found = entries_.find(kName + ":0");
       }
     }
-    if (found == entries_.end()) {
+    if (found == entries_.end() && !exact_meta_lookup_) {
       found = entries_.find(StripBlockMeta(kName));
     }
     if (found == entries_.end()) {

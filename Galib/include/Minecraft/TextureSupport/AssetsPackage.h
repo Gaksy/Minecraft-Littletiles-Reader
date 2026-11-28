@@ -65,8 +65,11 @@ class AssetsPackage {
 
   // Returns nullopt on failure, with the reason written into p_desc_error (may be
   // null). No exception crosses the library boundary.
+  // mapping_only skips PNG existence checks, requires a supported exact game
+  // version in manifest.json, and disables cross-version name fallbacks.
   static std::optional<AssetsPackage> Open(const std::string& kDir,
-                                           std::string* p_desc_error);
+                                           std::string* p_desc_error,
+                                           bool mapping_only = false);
 
   bool is_valid() const { return valid_; }
   const AssetsPackageInfo& info() const { return info_; }

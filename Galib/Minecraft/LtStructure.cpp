@@ -20,6 +20,8 @@
 #include <cctype>
 #include <stdexcept>
 #include <string>
+#include <limits>
+#include <sstream>
 
 #include "Minecraft/BlockStateMap.h"
 
@@ -191,6 +193,8 @@ LtStructure::Dialect LtStructure::DetectDialect(const snbt::Value& kRoot) {
       return Dialect::kLegacy12;
     }
     if (tiles.is_int()) {
+      // LT 1.2/1.4 recipes use tiles:<count>, tile0:{...}, ... .
+      if (kRoot.has_member("tile0") || kRoot.has_member("names")) return Dialect::kLegacy12;
       return Dialect::kModern20;
     }
   }
@@ -314,10 +318,63 @@ void LtStructure::ReadNode(const snbt::Value& kValue, Node* const p_desc_node) {
 
 void LtStructure::ReadLegacyGroups(const snbt::Value& kValue,
                                    Node* const p_desc_node) {
-  if (!kValue.has_member("tiles") || !kValue.member("tiles").is_list()) {
+  if (!kValue.has_member("tiles")) return;
+  std::vector<const snbt::Value*> entries;
+  const auto& tiles = kValue.member("tiles");
+  if (tiles.is_int() && kValue.has_member("names")) {
+    if (kValue.has_member("structure")) throw std::runtime_error("compact legacy structure metadata is not supported");
+    const auto split = [](const std::string& text) {
+      std::vector<std::string> parts;
+      std::size_t start = 0;
+      do {
+        const auto end = text.find('.', start);
+        parts.push_back(text.substr(start, end == std::string::npos ? end : end-start));
+        if (end == std::string::npos) break;
+        start = end+1;
+      } while (true);
+      return parts;
+    };
+    if (!kValue.member("names").is_string()) throw std::runtime_error("invalid compact block names");
+    const auto names = split(kValue.member("names").as_string());
+    const auto count = tiles.as_int();
+    if (count < 1 || count > 50000) throw std::runtime_error("invalid compact tile count");
+    for (std::int64_t i = 0; i < count; ++i) {
+      const auto key = std::to_string(i);
+      if (!kValue.has_member(key) || !kValue.member(key).is_string()) throw std::runtime_error("missing compact tile " + key);
+      const auto parts = split(kValue.member(key).as_string());
+      if (parts.size() != 8 && parts.size() != 9) throw std::runtime_error("invalid compact tile fields");
+      std::vector<std::int64_t> values;
+      for (const auto& part : parts) {
+        std::size_t used = 0;
+        const auto value = std::stoll(part, &used);
+        if (used != part.size() || value < std::numeric_limits<std::int32_t>::min() || value > std::numeric_limits<std::int32_t>::max())
+          throw std::runtime_error("invalid compact tile integer");
+        values.push_back(value);
+      }
+      if (values[6] < 0 || static_cast<std::size_t>(values[6]) >= names.size() || values[7] < 0 || values[7] > 15)
+        throw std::runtime_error("invalid compact block index or metadata");
+      Group group;
+      group.grid = p_desc_node->grid;
+      group.block_id = names[values[6]] + (values[7] ? ":" + std::to_string(values[7]) : "");
+      if (parts.size() == 9) { group.color = static_cast<std::int32_t>(values[8]); group.has_color = true; }
+      ReadBox(std::vector<std::int64_t>(values.begin(), values.begin()+6), &group.boxes.emplace_back());
+      p_desc_node->groups.push_back(std::move(group));
+    }
     return;
   }
-  for (const snbt::Value& entry : kValue.member("tiles").items()) {
+  if (tiles.is_list()) {
+    for (const auto& entry : tiles.items()) entries.push_back(&entry);
+  } else if (tiles.is_int()) {
+    const auto count = tiles.as_int();
+    if (count < 0 || count > 1000000) throw std::runtime_error("invalid legacy tile count");
+    for (std::int64_t i = 0; i < count; ++i) {
+      const auto key = "tile" + std::to_string(i);
+      if (!kValue.has_member(key)) throw std::runtime_error("missing legacy " + key);
+      entries.push_back(&kValue.member(key));
+    }
+  }
+  for (const snbt::Value* value : entries) {
+    const snbt::Value& entry = *value;
     if (!entry.is_compound()) {
       continue;
     }
@@ -363,6 +420,31 @@ void LtStructure::ReadLegacyGroups(const snbt::Value& kValue,
     for (const char* const key : {"boxes", "bBox", "box"}) {
       if (entry.has_member(key)) {
         AppendBoxes(entry.member(key), &group.boxes);
+      }
+    }
+    // Before compact box arrays, LittleTileBox.writeToNBT stored six
+    // prefixed byte/int fields. Recipe previews use bBox; tile saves bBox0... .
+    if (group.boxes.empty()) {
+      const auto append_prefixed = [&](const std::string& prefix) {
+        if (entry.has_member(prefix)) { AppendBoxes(entry.member(prefix), &group.boxes); return; }
+        if (!entry.has_member(prefix + "minX")) return;
+        std::vector<std::int64_t> coords;
+        for (const char* suffix : {"minX","minY","minZ","maxX","maxY","maxZ"}) {
+          const auto key = prefix + suffix;
+          if (!entry.has_member(key)) throw std::runtime_error("incomplete legacy box " + key);
+          coords.push_back(entry.member(key).as_int());
+        }
+        ReadBox(coords, &group.boxes.emplace_back());
+      };
+      append_prefixed("bBox");
+      if (group.boxes.empty() && entry.has_member("bSize")) {
+        const auto count = entry.member("bSize").as_int();
+        if (count < 0 || count > 1000000) throw std::runtime_error("invalid legacy box count");
+        for (std::int64_t i = 0; i < count; ++i) {
+          const auto before = group.boxes.size();
+          append_prefixed("bBox" + std::to_string(i));
+          if (group.boxes.size() != before+1) throw std::runtime_error("missing indexed legacy box");
+        }
       }
     }
     if (group.boxes.empty()) {

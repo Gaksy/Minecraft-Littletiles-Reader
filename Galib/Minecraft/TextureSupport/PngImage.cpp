@@ -197,7 +197,9 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
   if (width <= 0 || height <= 0) {
     return fail(Tr("missing IHDR or invalid size"));
   }
-  if (bit_depth != 8) {
+  const bool packed = (color_type == 3 || color_type == 0) &&
+                      (bit_depth == 1 || bit_depth == 2 || bit_depth == 4);
+  if (bit_depth != 8 && !packed) {
     return fail(Tr("only 8-bit depth is supported"));
   }
   if (interlace != 0) {
@@ -208,7 +210,7 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
     return fail(Tr("unsupported colour type"));
   }
 
-  const std::size_t stride = static_cast<std::size_t>(width) * channels;
+  const std::size_t stride = (static_cast<std::size_t>(width) * channels * bit_depth + 7) / 8;
   std::vector<unsigned char> raw(stride * height + height);
   uLongf raw_size = static_cast<uLongf>(raw.size());
   if (uncompress(raw.data(), &raw_size, compressed.data(),
@@ -231,16 +233,20 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
     const int filter = raw[raw_offset++];
     std::memcpy(line.data(), raw.data() + raw_offset, stride);
     raw_offset += stride;
-    UnfilterLine(filter, channels, static_cast<int>(stride),
+    if (filter > 4) return fail("invalid PNG row filter");
+    UnfilterLine(filter, packed ? 1 : channels, static_cast<int>(stride),
                  y > 0 ? prev.data() : nullptr, line.data());
 
     for (int x = 0; x < width; ++x) {
-      const unsigned char* const source =
+      unsigned char sample = 0;
+      if (packed) sample = (line[static_cast<std::size_t>(x) * bit_depth / 8] >>
+                            (8 - bit_depth - (x * bit_depth % 8))) & ((1 << bit_depth) - 1);
+      const unsigned char* const source = packed ? &sample :
           line.data() + static_cast<std::size_t>(x) * channels;
       unsigned char* const target = Pixel(x, y);
       switch (color_type) {
         case 0:
-          target[0] = target[1] = target[2] = source[0];
+          target[0] = target[1] = target[2] = packed ? source[0] * 255 / ((1 << bit_depth) - 1) : source[0];
           target[3] = 255;
           break;
         case 2:
@@ -251,6 +257,7 @@ bool PngImage::Load(const std::string& kPath, std::string* const p_desc_error) {
           break;
         case 3: {
           const std::size_t index = static_cast<std::size_t>(source[0]) * 3;
+          if (index + 2 >= palette.size()) return fail("invalid PNG palette index");
           if (index + 2 < palette.size()) {
             target[0] = palette[index];
             target[1] = palette[index + 1];

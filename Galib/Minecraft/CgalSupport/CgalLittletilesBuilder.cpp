@@ -27,6 +27,7 @@
 #include <memory>
 #include <map>
 #include <optional>
+#include <boost/json.hpp>
 #include <utility>
 
 #include "File/Utf8Path.h"
@@ -208,7 +209,7 @@ struct ObjMeshBuilder::Impl {
     // materials written", with the reason left for the host to print (a missing assets
     // directory is a common case).
     if (!options.assets_root.empty()) {
-      package_ = AssetsPackage::Open(options.assets_root, &package_open_error_);
+      package_ = AssetsPackage::Open(options.assets_root, &package_open_error_, options.material_recipe);
       if (package_) {
         materials_ = std::make_unique<MaterialManager>(*package_);
       }
@@ -224,6 +225,10 @@ struct ObjMeshBuilder::Impl {
       const SurfaceMeshType& current_mesh = kMesh.surface_mesh();
       const auto block_coord = kMesh.block_coord_in_world();
       const std::string block_id = kMesh.block_id();
+      if (options.material_recipe && block_id.rfind("minecraft:", 0) != 0 &&
+          block_id.rfind("littletiles:", 0) != 0) {
+        stats_.error = "recipe export rejects non-vanilla/non-LittleTiles blocks";
+      }
       // If the mesh recorded per-vertex local positions, use them (essential for
       // computing UVs when one mesh contains several blocks); otherwise fall back to
       // "world coordinate - block coordinate" (the case where LittleTiles has one mesh
@@ -342,6 +347,12 @@ struct ObjMeshBuilder::Impl {
   // Normalize (centre/scale) and write the OBJ, MTL and textures
   bool WriteToFile(const std::string& kFilename) {
     using Point = SurfaceMeshType::Point;
+    if (options.material_recipe &&
+        (!stats_.error.empty() || !package_ || !materials_ ||
+         materials_->size() == 0 || missing_texture_faces != 0)) {
+      if (stats_.error.empty()) stats_.error = "recipe export requires complete exact-version material mappings: " + package_open_error_;
+      return false;
+    }
     // Normalize: move the bounding-box centre to the origin; if requested, also
     // uniformly scale so the longest edge = 1
     if (marged_mesh.number_of_vertices() > 0 &&
@@ -448,7 +459,7 @@ struct ObjMeshBuilder::Impl {
         materials_ != nullptr && materials_->size() > 0 &&
         face_infos.size() == marged_mesh.number_of_faces() &&
         vertex_local_positions.size() == marged_mesh.number_of_vertices();
-    if (write_materials) {
+    if (write_materials && !options.material_recipe) {
       out << "mtllib " << mtl_filename << "\n";
     }
 
@@ -542,7 +553,32 @@ struct ObjMeshBuilder::Impl {
     // and products are never written back there.
     std::size_t baked_texture_count = 0;
     std::string texture_dir_label = texture_dir_name;
-    if (write_materials) {
+    if (write_materials && options.material_recipe) {
+      boost::json::object recipe;
+      recipe["schema"] = "lt-render-recipe/1";
+      recipe["gameVersion"] = package_->info().minecraft_version;
+      recipe["colorAlgorithm"] = "reader-u8-multiply-v1";
+      recipe["uvConvention"] = "obj-bottom-left";
+      boost::json::object entries;
+      for (std::size_t i = 0; i < materials_->size(); ++i) {
+        const auto& key = materials_->Key(i);
+        const std::filesystem::path relative = galib::Utf8Path(key.texture);
+        if (relative.is_absolute() || key.texture.find("..") != std::string::npos ||
+            key.texture.find('\\') != std::string::npos || key.texture.find(':') != std::string::npos) {
+          stats_.error = "unsafe recipe texture reference";
+          return false;
+        }
+        entries[materials_->Name(i)] = boost::json::object{
+            {"texture", key.texture}, {"tintRgb", key.tint_rgb},
+            {"tileArgb", key.tile_color}};
+      }
+      recipe["materials"] = std::move(entries);
+      std::ofstream json(output_path.parent_path() / galib::Utf8Path(obj_stem + ".render.json"), std::ios::binary);
+      json << boost::json::serialize(recipe) << '\n';
+      json.close();
+      if (!json) { stats_.error = "cannot write material recipe"; return false; }
+    }
+    if (write_materials && !options.material_recipe) {
       const std::filesystem::path mtl_path =
           output_path.parent_path() / galib::Utf8Path(mtl_filename);
       const std::filesystem::path texture_dir =

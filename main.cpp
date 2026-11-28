@@ -325,6 +325,7 @@ struct Job {
   std::string output_dir;   // empty = the historical relative defaults
   std::string output_name;  // empty = derive from the input
   std::string output_format{"obj"};  // SNBT: obj or bbmodel (Java Block/Item)
+  std::string output_materials{"baked"};  // obj: baked or recipe
   std::string output_split{"none"};  // BB: none or blocks
   std::string output_path;  // an explicit output file (wins over dir + name)
 };
@@ -690,7 +691,14 @@ bool LoadJob(const std::string& kPath, Job* p_desc_out,
     job.output_dir = StringAt(*output, "dir");
     job.output_name = StringAt(*output, "name");
     job.output_format = StringAt(*output, "format", "obj");
+    job.output_materials = StringAt(*output, "materials", "baked");
     job.output_split = StringAt(*output, "split", "none");
+  }
+  if ((job.output_materials != "baked" && job.output_materials != "recipe") ||
+      (job.output_materials == "recipe" &&
+       (job.output_format != "obj" || !job.is_snbt || job.is_convert || job.assets_root.empty()))) {
+    if (p_desc_error) *p_desc_error = "output.materials must be baked or recipe; recipe requires SNBT OBJ and assets.package";
+    return false;
   }
   if (job.output_format != "obj" && job.output_format != "bbmodel") {
     if (p_desc_error) *p_desc_error = "unknown output.format: " + job.output_format;
@@ -766,7 +774,7 @@ int RunTilesReader(int argc, char** argv) {
   }
 
   if (command_line.capabilities) {
-    std::puts("{\"asset_format_max\":2,\"world_profiles\":[\"1.12.2\",\"1.20.1\"],\"complete_block_states\":true,\"affine_face_uv\":true,\"bbmodel\":true,\"bbmodel_blocks\":true,\"bbmodel_max_blocks_per_axis\":3,\"bbmodel_local_grid\":true,\"native_saves_only\":true}");
+    std::puts("{\"asset_format_max\":2,\"world_profiles\":[\"1.12.2\",\"1.20.1\"],\"material_recipe_versions\":[\"1.7.10\",\"1.10.2\",\"1.12\",\"1.12.1\",\"1.12.2\",\"1.19.4\",\"1.20\",\"1.20.1\",\"1.20.2\",\"1.21.1\"],\"complete_block_states\":true,\"affine_face_uv\":true,\"bbmodel\":true,\"bbmodel_blocks\":true,\"bbmodel_max_blocks_per_axis\":3,\"bbmodel_local_grid\":true,\"native_saves_only\":true}");
     return EXIT_SUCCESS;
   }
   if (!command_line.inspect_input.empty()) {
@@ -991,7 +999,7 @@ int RunTilesReader(int argc, char** argv) {
   if (!assets_root.empty()) {
     std::string package_error;
     const std::optional<AssetsPackage> package =
-        AssetsPackage::Open(assets_root, &package_error);
+        AssetsPackage::Open(assets_root, &package_error, job.output_materials == "recipe");
     if (!package) {
       throw std::runtime_error("configured assets package is unusable: " + package_error);
     } else {
@@ -1188,6 +1196,7 @@ int RunTilesReader(int argc, char** argv) {
   export_options.geom_center = is_need_geometry_center;
   export_options.normalize_scale = is_need_normalize_scale;
   export_options.assets_root = assets_root;
+  export_options.material_recipe = job.output_materials == "recipe";
   // JSON mode owns stdout: the builder must not write its summary into the stream.
   export_options.quiet = json_progress;
   // The host can specify the texture output directory (a server / UI uses this to keep
@@ -1202,6 +1211,13 @@ int RunTilesReader(int argc, char** argv) {
   if (is_structure_file) {
     EmitEvent(json_progress, "stage", {JsonField("name", "parse")});
     const LtStructure structure = LtStructure::FromSnbtFile(region_folder);
+    if (export_options.material_recipe) {
+      structure.VisitGroups([](const LtStructure::Group& group) {
+        if (group.block_id.rfind("minecraft:", 0) != 0 &&
+            group.block_id.rfind("littletiles:", 0) != 0)
+          throw std::runtime_error("recipe export rejects non-vanilla/non-LittleTiles blocks");
+      });
+    }
     if (!json_progress) {
       printf(
           galib::Tr("structure: %s, %s dialect, grid=%d, %zu boxes, %zu tile "

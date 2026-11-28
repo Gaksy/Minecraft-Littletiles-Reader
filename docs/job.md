@@ -13,6 +13,20 @@ CLI 有两种模式：不带参数时是原来那套交互式提问；带 `--job
 完整限制见 [适配进展](native-world-export-1.20.1-progress.md)。
 
 SNBT 输入现可指定 `output.format: "bbmodel"`，输出 Java Block/Item 工程，默认仍为 OBJ。
+
+2026-11-26 本地试验：SNBT OBJ 可指定 `output.materials: "recipe"`，输出带 UV、
+`usemtl` 的 OBJ 与同名 `.render.json`（`schema: "lt-render-recipe/1"`）。此模式只读取
+分版本映射和 tint 表，不解码或生成 PNG，也不生成 MTL；默认 `"baked"` 保留现有行为。
+必须明确提供 `assets.package`，其 manifest 必须声明精确 `minecraft_version`。
+2026-11-27 材质配方支持 1.7.10、1.10.2、1.12、1.12.1、1.12.2、1.19.4、
+1.20、1.20.1、1.20.2、1.21.1；`--capabilities` 的 `material_recipe_versions` 单独列出它们。
+跨版本名称兜底关闭，缺失材质映射、其他模组命名空间会失败。
+支持早期 `tiles:数量,tile0:{...}`、前缀包围盒及普通方块紧凑文本的静态读取；
+紧凑文本带旧式结构行为元数据时明确失败。这不声明旧版游戏行为或跨版本转换兼容。
+清单保存原图相对引用、无符号 `tintRgb` / `tileArgb`、颜色算法和 UV 约定，不包含本机路径。
+宿主仍须核对来源、作品版本及资源包声明，并为浏览器补充可信下载地址和内容哈希。
+这不是已发布网站功能，也不扩大受支持的存档或方块模型范围。
+
 第一版仅支持无角点偏移的标准长方体；限制、错误行为与 BB 格式版本见 [BB 导出说明](bbmodel-v1.md)。
 两种 BB 模式均要求整份蓝图最多跨越 3×3×3 个游戏方块格子；`output.split: "blocks"` 自动裁切为多个独立 BB 工程，以游戏轴向的 0..2 格坐标命名，
 返回 `bbmodel_manifest`，详见 [批量拆分](bbmodel-blocks.md)。

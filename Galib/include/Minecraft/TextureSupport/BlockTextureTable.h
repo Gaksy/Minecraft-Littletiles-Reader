@@ -90,6 +90,7 @@ class BlockTextureTable {
   const std::unordered_map<std::string, BlockFaceTextures>& entries() const {
     return entries_;
   }
+  void set_exact_meta_lookup(bool enabled) { exact_meta_lookup_ = enabled; }
 
   // First match the original name exactly (e.g. "minecraft:stone:3"); on a miss,
   // fall back to the name with the meta stripped ("minecraft:stone").
@@ -101,6 +102,7 @@ class BlockTextureTable {
   std::unordered_map<std::string, std::vector<std::string>> state_rows_;
   bool loaded_{false};
   bool cross_version_fallback_{true};
+  bool exact_meta_lookup_{false};
 };
 
 // Compute the texture coordinate of an "in-block normalized coordinate" on the

@@ -80,6 +80,9 @@ struct ObjExportOptions {
   // Specified by the host; when empty only geometry is exported and no
   // vt / usemtl / mtl is written.
   std::string assets_root;
+  // Emit .render.json and UV/material assignments without decoding/writing PNGs.
+  // Requires an exact-version mapping package; missing materials fail the export.
+  bool material_recipe{false};
   // Output directory for the texture products (the PNGs land here).
   // Empty = the default behaviour, a <obj name>_textures/ folder next to the OBJ.
   // When set, the MTL's map_Kd is automatically written as the relative path from the

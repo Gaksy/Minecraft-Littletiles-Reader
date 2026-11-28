@@ -116,7 +116,8 @@ bool ParseArgb(const std::string& kToken, std::uint32_t* p_desc_argb) {
 }  // namespace
 
 std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
-                                                 std::string* const p_desc_error) {
+                                               std::string* const p_desc_error,
+                                               const bool mapping_only) {
   const auto fail = [p_desc_error](const std::string& kReason) {
     if (p_desc_error) {
       *p_desc_error = kReason;
@@ -192,7 +193,20 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
                 galib::Utf8String(table_path));
   }
 
-  package.table_.set_cross_version_fallback(package.info_.format_version < 2);
+  if (mapping_only && package.info_.minecraft_version != "1.12.2" &&
+      package.info_.minecraft_version != "1.12" &&
+      package.info_.minecraft_version != "1.12.1" &&
+      package.info_.minecraft_version != "1.10.2" &&
+      package.info_.minecraft_version != "1.7.10" &&
+      package.info_.minecraft_version != "1.19.4" &&
+      package.info_.minecraft_version != "1.20" &&
+      package.info_.minecraft_version != "1.20.1" &&
+      package.info_.minecraft_version != "1.20.2" &&
+      package.info_.minecraft_version != "1.21.1") {
+    return fail("recipe export requires a manifest with an exact supported minecraft_version");
+  }
+  package.table_.set_cross_version_fallback(!mapping_only && package.info_.format_version < 2);
+  package.table_.set_exact_meta_lookup(mapping_only);
   // The tint table is optional
   const std::filesystem::path tint_path = dir / "tint.tsv";
   if (std::filesystem::is_regular_file(tint_path, error)) {
@@ -209,7 +223,7 @@ std::optional<AssetsPackage> AssetsPackage::Open(const std::string& kDir,
       if (!seen.insert(path).second) {
         continue;
       }
-      if (!package.HasTexture(path)) {
+      if (!mapping_only && !package.HasTexture(path)) {
         ++package.info_.missing_texture_count;
         if (package.info_.missing_texture_examples.size() <
             kMaxMissingTextureExamples) {
